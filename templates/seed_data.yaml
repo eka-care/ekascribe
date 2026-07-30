@@ -1,0 +1,82 @@
+# Seed sections + default templates loaded by scripts/setup.py (Phase 6).
+#
+# PLACEHOLDER CONTENT: the production default templates' bodies live in
+# Langfuse (plan A2 / decision #10). When the selective export lands, replace
+# the `desc` bodies below (keep the ids — they are the 3 default-template UUIDs
+# hardcoded in language_config.py).
+
+sections:
+  - id: "sec-chief-complaint"
+    title: "Chief Complaint"
+    desc: "The primary reason for the visit, in the patient's words."
+    format: "P"
+  - id: "sec-hpi"
+    title: "History of Present Illness"
+    desc: "Chronological narrative of the presenting problem: onset, duration, severity, modifying factors, associated symptoms."
+    format: "P"
+  - id: "sec-examination"
+    title: "Examination"
+    desc: "Vitals and positive/relevant negative findings on examination."
+    format: "B"
+  - id: "sec-diagnosis"
+    title: "Diagnosis / Assessment"
+    desc: "Working diagnosis or differential, with reasoning where stated."
+    format: "B"
+  - id: "sec-medications"
+    title: "Medications"
+    desc: "Prescribed medications: name, strength, frequency, duration, instructions."
+    format: "B"
+  - id: "sec-investigations"
+    title: "Investigations"
+    desc: "Labs and imaging ordered or reviewed."
+    format: "B"
+  - id: "sec-advice"
+    title: "Advice / Plan"
+    desc: "Treatment plan, lifestyle advice, and patient instructions."
+    format: "B"
+  - id: "sec-follow-up"
+    title: "Follow-up"
+    desc: "Follow-up interval and red-flag symptoms warranting earlier review."
+    format: "P"
+
+templates:
+  - id: "9d9675c6-b29b-424a-abac-99ddd3b8909c"
+    title: "Clinical Note"
+    type: "default"
+    desc: "Structured clinical note covering the full consultation."
+    section_ids:
+      - "sec-chief-complaint"
+      - "sec-hpi"
+      - "sec-examination"
+      - "sec-diagnosis"
+      - "sec-medications"
+      - "sec-investigations"
+      - "sec-advice"
+      - "sec-follow-up"
+  - id: "19288d2f-81a9-46a6-b804-9651242a9b3e"
+    title: "SOAP Note"
+    type: "default"
+    desc: |
+      # SOAP Note
+
+      ## Subjective
+      {Patient-reported symptoms, history, and concerns}
+
+      ## Objective
+      {Examination findings and vitals}
+
+      ## Assessment
+      {Diagnosis or differential}
+
+      ## Plan
+      {Medications, investigations, advice, follow-up}
+    section_ids: []
+  - id: "7d03dd95-45b2-41e1-a5d3-fba98fee0418"
+    title: "Consultation Summary"
+    type: "default"
+    desc: |
+      # Consultation Summary
+
+      {One-paragraph summary of the visit: presenting problem, key findings,
+      diagnosis, and agreed plan, written for the patient's record}
+    section_ids: []

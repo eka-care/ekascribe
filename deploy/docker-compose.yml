@@ -1,0 +1,65 @@
+# Default on-prem profile: four containers, no Redis, no AWS.
+# Overlays: docker-compose.aws.yml (LocalStack / real AWS backends).
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: scribe
+      POSTGRES_PASSWORD: scribe
+      POSTGRES_DB: scribe
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U scribe"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.api
+    env_file: ../.env
+    environment:
+      DATABASE_URL: postgresql://scribe:scribe@postgres:5432/scribe
+    volumes:
+      - storage:/data/storage
+      - logs:/data/logs
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.worker
+    env_file: ../.env
+    environment:
+      DATABASE_URL: postgresql://scribe:scribe@postgres:5432/scribe
+    volumes:
+      - storage:/data/storage
+      - logs:/data/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.web
+      args:
+        NEXT_PUBLIC_API_HOST: ${SELF_URL:-http://localhost:8000}
+        NEXT_PUBLIC_WEB_HOST: ${WEB_URL:-http://localhost:3000}
+    environment:
+      NEXT_PUBLIC_API_HOST: http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
+  storage:
+  logs:

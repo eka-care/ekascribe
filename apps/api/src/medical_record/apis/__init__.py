@@ -1,0 +1,1 @@
+from .fhir_api import medical_record_router

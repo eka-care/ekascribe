@@ -1,0 +1,4 @@
+
+[submodule "packages/ui-lib"]
+	path = packages/ui-lib
+	url = https://github.com/eka-care/eka-web-design-components.git

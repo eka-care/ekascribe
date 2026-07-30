@@ -1,0 +1,789 @@
+@import "tailwindcss";
+@import "../../../../packages/ui-lib/src/index.css";
+@import "tw-animate-css";
+@plugin "@tailwindcss/typography";
+
+:root{
+    --pro-gradient-start: 240 100% 65%;
+    --pro-gradient-end: 260 100% 70%;
+    --gradient-pro: linear-gradient(135deg, hsl(var(--pro-gradient-start)), hsl(var(--pro-gradient-end)));
+}
+
+@theme {
+  --color-gray-12: #202020;
+  --color-yellow-11: #9E6C00;
+}
+
+@keyframes wave {
+  0%, 100% { transform: scaleY(0.3); }
+  50% { transform: scaleY(1); }
+}
+
+@keyframes line-appear {
+  0% { width: 0%; opacity: 0; }
+  100% { width: 100%; opacity: 1; }
+}
+
+.animate-wave {
+  animation: wave 1s ease-in-out infinite;
+}
+
+.animate-line-appear {
+  animation: line-appear 1.5s ease-out forwards;
+}
+
+@keyframes jump-chip-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.jump-to-selected-chip {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
+  border: none;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow:
+    0px 2px 4px -2px rgba(0, 0, 0, 0.1),
+    0px 4px 6px -1px rgba(0, 0, 0, 0.1);
+  z-index: 5;
+  animation: jump-chip-in 0.18s ease;
+}
+.jump-to-selected-chip:hover {
+  filter: brightness(0.96);
+}
+.jump-to-selected-chip--up {
+  top: 12px;
+}
+.jump-to-selected-chip--down {
+  bottom: 12px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .jump-to-selected-chip {
+    animation: none;
+  }
+}
+
+/* Tiptap editor: hide caret when not focused */
+.wysiwyg-wrapper .tiptap {
+  caret-color: transparent;
+}
+.wysiwyg-focused .tiptap {
+  caret-color: auto;
+}
+/* Custom NodeView inputs (medication table cells, etc.) live inside .tiptap
+   but are real form inputs — restore their caret. */
+.wysiwyg-wrapper .tiptap input,
+.wysiwyg-wrapper .tiptap textarea {
+  caret-color: auto;
+}
+
+/* Table row separators. Each row's NodeViewWrapper is itself wrapped by
+   Tiptap's ReactRenderer in a `.react-renderer.node-<name>` div, so the
+   row view divs are NOT siblings. The actual siblings are the renderer
+   wrappers — target those with adjacent-sibling combinators. */
+.node-medicationRow + .node-medicationRow,
+.node-procedureRow + .node-procedureRow {
+  border-top: 1px solid #E5E7EB;
+}
+.medication-table-body > div + div,
+.procedure-table-body > div + div {
+  border-top: 1px solid #E5E7EB;
+}
+
+/* Medication table — always-visible horizontal scrollbar */
+.medication-table-scroll {
+  scrollbar-gutter: stable;
+}
+.medication-table-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+.medication-table-scroll::-webkit-scrollbar-track {
+  background: #F3F4F6;
+  border-radius: 3px;
+}
+.medication-table-scroll::-webkit-scrollbar-thumb {
+  background: #D1D5DB;
+  border-radius: 3px;
+}
+.medication-table-scroll::-webkit-scrollbar-thumb:hover {
+  background: #9CA3AF;
+}
+
+.lab-result-table-body,
+.lab-result-table-body [data-node-view-content-react],
+.react-renderer.node-labResultRow {
+  display: contents;
+}
+
+.lab-result-table-body [data-node-view-content-react] > :last-child,
+.lab-result-table-body [data-node-view-content-react] > :last-child .lab-result-row {
+  border-bottom: 0;
+}
+
+/* Focused editor — focus ring (applied directly via React state) */
+.editor-focus-ring {
+  border: 1px solid #215fff;
+  border-radius: 10px;
+  background: transparent;
+}
+
+/* Streaming caret — blinking bar */
+.stream-caret {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  vertical-align: -2px;
+  margin-left: 2px;
+  background: #2563eb;
+  animation: caret-blink 1s steps(2) infinite;
+}
+
+@keyframes caret-blink {
+  50% { opacity: 0; }
+}
+
+/* Thinking dots — bobbing animation */
+@keyframes thinking-bob {
+  0%, 80%, 100% { transform: scale(0.7); opacity: 0.45; }
+  40% { transform: scale(1); opacity: 1; }
+}
+
+/* Writing pill — live dot pulse */
+@keyframes live-dot {
+  0% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.45); }
+  70% { box-shadow: 0 0 0 6px rgba(37, 99, 235, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
+}
+
+.tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #767676;
+  pointer-events: none;
+  height: 0;
+}
+
+/* Tiptap table styles */
+.tiptap table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin: 10px 0 14px;
+  font-size: 13px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.tiptap th,
+.tiptap td {
+  padding: 10px 12px;
+  min-width: 80px;
+  border: none;
+  border-left: 1px solid #e2e8f0;
+}
+.tiptap th:first-child,
+.tiptap td:first-child {
+  border-left: none;
+}
+
+.tiptap th p,
+.tiptap td p {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.tiptap table { background: #fff; }
+.tiptap thead { background: #f1f5f9; }
+.tiptap th {
+  text-align: left;
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+  border-bottom: 1px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+.tiptap tbody td {
+  vertical-align: top;
+  color: #2b3447;
+  border-top: 1px solid #eef1f6;
+}
+.tiptap tbody tr:first-child td { border-top: none; }
+.tiptap tbody td:first-child {
+  color: #0b1220;
+  font-weight: 500;
+}
+
+.tiptap .selectedCell {
+  background-color: hsl(var(--accent, 220 14% 96%));
+}
+
+/* Tiptap heading sizes */
+.tiptap h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+  color: #0b1220;
+  margin: 0 0 6px;
+}
+
+.tiptap h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.005em;
+  color: #0b1220;
+  margin: 36px 0 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #E5E7EB ;
+}
+.tiptap h2:first-child { margin-top: 4px; }
+
+.tiptap h3 {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #0b1220;
+  line-height: 1.4;
+  margin: 28px 0 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #E5E7EB;
+}
+.tiptap h3:first-child { margin-top: 4px; }
+
+/* Tiptap horizontal rule */
+.tiptap hr {
+  border: none;
+  height: 1px;
+  background: #E5E7EB;
+  margin: 24px 0;
+}
+
+/* Tiptap list spacing — all levels */
+.tiptap li > p,
+.tiptap li > div > p {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.tiptap ul,
+.tiptap ol {
+  margin: 6px 0 12px;
+  padding: 0;
+  list-style: none;
+}
+
+.tiptap li {
+  position: relative;
+  padding: 3px 0 3px 22px;
+  color: #2b3447;
+}
+.tiptap li + li { margin-top: 1px; }
+
+/* Custom bullet — small dot */
+.tiptap ul > li::before {
+  content: "";
+  position: absolute;
+  left: 8px;
+  top: 14px;
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: #94a3b8;
+}
+
+/* Ordered list — counter numbers */
+.tiptap ol { counter-reset: ol; }
+.tiptap ol > li { counter-increment: ol; }
+.tiptap ol > li::before {
+  content: counter(ol) ".";
+  position: absolute;
+  left: 0;
+  top: 3px;
+  width: 18px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: #94a3b8;
+  font-weight: 500;
+  font-size: 12.5px;
+}
+
+/* Bold label inside list item */
+.tiptap li > strong:first-child {
+  color: #0b1220;
+  font-weight: 600;
+}
+
+.tiptap li > ul,
+.tiptap li > ol {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+/* Tiptap task list */
+.tiptap ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0;
+}
+
+.tiptap ul[data-type="taskList"] > li {
+  padding-left: 0;
+}
+
+.tiptap ul[data-type="taskList"] > li::before {
+  display: none;
+}
+
+.tiptap ul[data-type="taskList"] li {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.tiptap ul[data-type="taskList"] li > label {
+  flex-shrink: 0;
+}
+
+.tiptap ul[data-type="taskList"] li > div {
+  flex: 1;
+}
+
+/* Tiptap links */
+.tiptap a {
+  color: #2563eb;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: color-mix(in oklch, #2563eb 35%, transparent);
+  cursor: pointer;
+}
+
+/* Tiptap inline code */
+.tiptap code {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.88em;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: #f4f6fa;
+  color: #1a2233;
+  border: 1px solid #e2e8f0;
+}
+
+/* Tiptap strong */
+.tiptap strong {
+  color: #0b1220;
+  font-weight: 600;
+}
+
+/* Tiptap blockquote */
+.tiptap blockquote {
+  margin: 12px 0;
+  padding: 4px 14px;
+  border-left: 3px solid #cbd5e1;
+  color: #4a5568;
+  font-style: italic;
+}
+
+/* Tiptap table column resize handle */
+.tiptap .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: -2px;
+  width: 3px;
+  background-color: hsl(220 13% 80%);
+  cursor: col-resize;
+  z-index: 20;
+}
+
+.tiptap th,
+.tiptap td {
+  position: relative;
+}
+
+.tiptap table .resize-cursor {
+  cursor: col-resize;
+}
+
+.scribe-editor .tableWrapper {
+  margin-right: 24px;
+  margin-top: 12px;
+  margin-bottom: 12px;
+  overflow: hidden;
+  border-radius: 8px;
+}
+
+.scribe-editor table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+/* Scribe editor — lists */
+.scribe-editor ul,
+.scribe-editor ol {
+  margin: 6px 0 12px;
+  padding: 0;
+  list-style: none;
+}
+
+.scribe-editor li {
+  position: relative;
+  padding: 3px 0 3px 22px;
+  margin: 0;
+  font-size: 0.8125rem;
+  color: #2b3447;
+  line-height: 1.55;
+}
+.scribe-editor li + li { margin-top: 1px; }
+
+.scribe-editor li p {
+  margin: 0;
+}
+
+/* Custom bullet — small dot */
+.scribe-editor ul > li::before {
+  content: "";
+  position: absolute;
+  left: 8px;
+  top: 14px;
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: #94a3b8;
+}
+
+/* Ordered list — counter numbers */
+.scribe-editor ol { counter-reset: ol; }
+.scribe-editor ol > li { counter-increment: ol; }
+.scribe-editor ol > li::before {
+  content: counter(ol) ".";
+  position: absolute;
+  left: 0;
+  top: 3px;
+  width: 18px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: #94a3b8;
+  font-weight: 500;
+  font-size: 12.5px;
+}
+
+/* Bold label inside list item */
+.scribe-editor li > strong:first-child {
+  color: #0b1220;
+  font-weight: 600;
+}
+
+/* Scribe editor — tables */
+.scribe-editor table th {
+  background-color: #f8fafc;
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+  text-align: left;
+  padding: 9px 12px;
+  white-space: nowrap;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.scribe-editor table td {
+  font-size: 0.8125rem;
+  color: #2b3447;
+  padding: 10px 12px;
+  vertical-align: top;
+  border-top: 1px solid #eef1f6;
+}
+.scribe-editor tbody tr:first-child td { border-top: none; }
+.scribe-editor tbody td:first-child {
+  color: #0b1220;
+  font-weight: 500;
+}
+
+/* Scribe editor — narrative paragraphs */
+.scribe-editor p {
+  font-size: 0.8125rem;
+  line-height: 1.65;
+  color: #2b3447;
+  margin: 8px 0;
+  text-wrap: pretty;
+}
+.scribe-editor p:first-child { margin-top: 0; }
+.scribe-editor p:last-child { margin-bottom: 0; }
+
+/* Scribe editor — KV list container */
+.scribe-editor dl.kv-list {
+  margin: 0.25rem 0;
+}
+
+/* EasyMDE preview — hide raw markdown lines when preview is active */
+.EasyMDEContainer .CodeMirror:has(.editor-preview-active) .CodeMirror-scroll {
+  visibility: hidden;
+  height: 0;
+  overflow: hidden;
+}
+.EasyMDEContainer .editor-preview-active {
+  background: white;
+}
+
+/* EasyMDE preview — restore heading/list styles reset by Tailwind */
+.editor-preview h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.25;
+  margin: 16px 0 8px;
+}
+.editor-preview h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.35;
+  margin: 14px 0 6px;
+}
+.editor-preview h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  line-height: 1.4;
+  margin: 12px 0 4px;
+}
+.editor-preview ul {
+  list-style: disc;
+  padding-left: 1.5rem;
+  margin: 6px 0;
+}
+.editor-preview ol {
+  list-style: decimal;
+  padding-left: 1.5rem;
+  margin: 6px 0;
+}
+.editor-preview blockquote {
+  border-left: 3px solid #cbd5e1;
+  padding-left: 12px;
+  color: #4a5568;
+  font-style: italic;
+  margin: 8px 0;
+}
+.editor-preview strong {
+  font-weight: 600;
+}
+.editor-preview em {
+  font-style: italic;
+}
+
+/* Custom classes */
+.sentence-capitalize:first-letter {
+  text-transform: capitalize;
+}
+
+.select-trigger-class {
+  height: 40px !important;
+}
+/* Hide scrollbars across browsers */
+* {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE 10+ */
+}
+
+*::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+.onboarding-select-class {
+  height: fit-content !important;
+}
+
+/* Phone Input Customization */
+.phone-input-wrapper .react-international-phone-input-container {
+  display: flex !important;
+  width: 100% !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: 0.75rem !important;
+  overflow: hidden !important;
+}
+
+.phone-input-wrapper .react-international-phone-country-selector-button {
+  height: auto !important;
+  padding: 0.75rem !important;
+  border: none !important;
+  border-right: 1px solid #d1d1d1 !important;
+  border-radius: 0 !important;
+  background-color: var(--background) !important;
+  transition: background-color 0.2s !important;
+}
+
+.phone-input-wrapper .react-international-phone-country-selector-button:hover {
+  background-color: var(--accent) !important;
+}
+
+.phone-input-wrapper .react-international-phone-country-selector-button__button-content {
+  /* gap: 0.5rem !important; */
+}
+
+.phone-input-wrapper .react-international-phone-input {
+  flex: 1 !important;
+  height: auto !important;
+  padding: 0.75rem !important;
+  border: none !important;
+  border-radius: 0 !important;
+  background-color: hsl(var(--background)) !important;
+  color: hsl(var(--secondary-foreground)) !important;
+  font-size: 0.875rem !important;
+  line-height: 1.25rem !important;
+}
+
+.phone-input-wrapper .react-international-phone-input:focus {
+  outline: none !important;
+}
+
+.phone-input-wrapper .react-international-phone-input-container:focus-within {
+  outline: 2px solid hsl(var(--ring)) !important;
+  outline-offset: 2px !important;
+}
+
+.phone-input-wrapper .react-international-phone-country-selector-dropdown {
+  z-index: 9999 !important;
+  border: 1px solid #d1d1d1 !important;
+  /* border-radius: 0.75rem !important; */
+  background-color: #fff !important;
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1) !important;
+  margin-top: 0.25rem !important;
+  /* width: 100%; */
+}
+
+/* Crisp Chat Widget — nudge upward so it doesn't cover the label behind it */
+.crisp-client .cc-165wh .cc-lk42u .cc-13wro {
+  bottom: 40px !important;
+}
+.crisp-client .cc-165wh[data-full-view="false"] .cc-lk42u .cc-13wro[data-is-failure="false"] {
+  bottom: 40px !important;
+}
+
+/* Audiowaveform Bar Animation */
+@keyframes audiowaveform-wave {
+  0%, 100% { height: 8px; y: 12px; }
+  50% { height: 24px; y: 4px; }
+}
+.audiowaveform-bar { fill: #215fff; }
+.audiowaveform-bar-1 { animation: audiowaveform-wave 1s ease-in-out infinite; }
+.audiowaveform-bar-2 { animation: audiowaveform-wave 1s ease-in-out infinite 0.1s; }
+.audiowaveform-bar-3 { animation: audiowaveform-wave 1s ease-in-out infinite 0.2s; }
+.audiowaveform-bar-4 { animation: audiowaveform-wave 1s ease-in-out infinite 0.3s; }
+.audiowaveform-bar-5 { animation: audiowaveform-wave 1s ease-in-out infinite 0.4s; }
+
+/* Water Fill Animation */
+@keyframes water-wave {
+  0% { transform: translateX(0) translateY(0); }
+  50% { transform: translateX(-25%) translateY(2px); }
+  100% { transform: translateX(-50%) translateY(0); }
+}
+
+@keyframes water-fill {
+  0% { transform: translateY(100%); }
+  100% { transform: translateY(40%); }
+}
+
+[data-sonner-toast][data-type="warning"] [data-close-button] {
+  width: 20px !important;
+  height: 20px !important;
+  padding: 0 !important;
+  background: #B45309 !important;
+  border: none !important;
+  border-radius: 9999px !important;
+  color: #FFFFFF !important;
+}
+[data-sonner-toast][data-type="warning"] [data-close-button] svg {
+  width: 12px !important;
+  height: 12px !important;
+  color: #FFFFFF !important;
+}
+[data-sonner-toast][data-type="warning"] [data-close-button] svg path,
+[data-sonner-toast][data-type="warning"] [data-close-button] svg line {
+  stroke: #FFFFFF !important;
+  fill: #FFFFFF !important;
+  stroke-width: 2 !important;
+}
+
+[data-slot="sidebar-gap"],
+[data-slot="sidebar-container"] {
+  transition-duration: 350ms !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* Browser-native print (Cmd+P / Ctrl+P) safety net */
+@media print {
+  /* Hide sidebar */
+  [data-sidebar],
+  [data-sidebar] ~ * :not(main) {
+    display: none !important;
+  }
+
+  /* Hide dialogs, modals, overlays, toasts */
+  [role="dialog"],
+  [role="alertdialog"],
+  [data-radix-portal],
+  [data-sonner-toaster] {
+    display: none !important;
+  }
+
+  /* Hide fixed-position chrome (mobile header, chat widget, etc.) */
+  header.fixed,
+  .crisp-client {
+    display: none !important;
+  }
+
+  /* Hide tab row, footer bar, and warning overlays inside session */
+  [data-no-print],
+  button {
+    display: none !important;
+  }
+
+  /* Medication table — hide interactive icons (search, chevron, loader) */
+  .medication-table svg,
+  .medication-row svg {
+    display: none !important;
+  }
+
+  /* Let content flow naturally for print */
+  body,
+  main,
+  [data-print-content] {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+    min-height: auto !important;
+  }
+
+  [data-print-content] {
+    width: 100% !important;
+  }
+
+  /* Clean background */
+  body,
+  main,
+  .bg-secondary,
+  .bg-background {
+    background: white !important;
+  }
+}

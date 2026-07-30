@@ -1,0 +1,218 @@
+import pytest
+import os
+import sys
+from unittest.mock import MagicMock, patch
+from fastapi.testclient import TestClient
+from fastapi import Request
+
+# Set test environment
+os.environ["ENVIRONMENT"] = "test"
+
+# Mock problematic imports at module level
+mock_aioboto3 = MagicMock()
+mock_newrelic = MagicMock()
+mock_newrelic.agent = MagicMock()
+mock_pydub = MagicMock()
+mock_pydub.AudioSegment = MagicMock()
+# pydub.silence is used by VADChunkingService
+mock_pydub.silence = MagicMock()
+mock_pydub.silence.detect_nonsilent = MagicMock(return_value=[])
+
+# Mock redis so app can load when redis package is not installed (e.g. in CI)
+mock_redis = MagicMock()
+mock_redis.asyncio = MagicMock()
+mock_redis.asyncio.Redis = MagicMock()
+mock_redis.asyncio.from_url = MagicMock(return_value=MagicMock())
+
+sys.modules['aioboto3'] = mock_aioboto3
+sys.modules['newrelic'] = mock_newrelic
+sys.modules['newrelic.agent'] = mock_newrelic.agent
+sys.modules['pydub'] = mock_pydub
+sys.modules['pydub.silence'] = mock_pydub.silence
+sys.modules['redis'] = mock_redis
+sys.modules['redis.asyncio'] = mock_redis.asyncio
+
+# Mock onnxruntime (used by streaming pipeline's Silero VAD shared session)
+# so app can load when onnxruntime is not installed (e.g. in CI / local dev
+# without ML deps).
+mock_onnxruntime = MagicMock()
+sys.modules['onnxruntime'] = mock_onnxruntime
+
+# Mock pipecat (used by streaming pipeline) so app can load when pipecat
+# package is not installed (e.g. in CI / local dev without ML deps).
+mock_pipecat = MagicMock()
+# SileroOnnxModel needs a real class so _silero_shared_session.py can patch
+# its __init__ without hitting MagicMock's __init__ restriction.
+mock_pipecat.audio.vad.silero.SileroOnnxModel = type('SileroOnnxModel', (), {})
+sys.modules['pipecat'] = mock_pipecat
+sys.modules['pipecat.audio'] = mock_pipecat.audio
+sys.modules['pipecat.audio.vad'] = mock_pipecat.audio.vad
+sys.modules['pipecat.audio.vad.silero'] = mock_pipecat.audio.vad.silero
+sys.modules['pipecat.audio.vad.vad_analyzer'] = mock_pipecat.audio.vad.vad_analyzer
+
+# Mock pymysql so SQL-using modules can import in CI without the driver.
+mock_pymysql = MagicMock()
+sys.modules['pymysql'] = mock_pymysql
+sys.modules['pymysql.cursors'] = mock_pymysql.cursors
+
+
+@pytest.fixture(scope="session", autouse=True)
+def mock_aws_globally():
+    """Mock AWS services globally for all tests."""
+    # Mock logging config to prevent file handler issues
+    with patch('logging.config.dictConfig') as mock_logging, \
+         patch('boto3.resource') as mock_resource, \
+         patch('boto3.client') as mock_client:
+        
+        # Configure logging mock
+        mock_logging.return_value = None
+        
+        # Configure DynamoDB mocks
+        mock_table = MagicMock()
+        mock_resource.return_value.Table.return_value = mock_table
+        
+        # Configure successful DynamoDB responses
+        mock_table.put_item.return_value = {'ResponseMetadata': {'HTTPStatusCode': 200}}
+        mock_table.query.return_value = {'Items': []}
+        mock_table.update_item.return_value = {'ResponseMetadata': {'HTTPStatusCode': 200}}
+        
+        # Configure S3 client mock
+        mock_s3_client = MagicMock()
+        mock_client.return_value = mock_s3_client
+        mock_s3_client.list_objects_v2.return_value = {'Contents': []}
+        
+        yield
+
+
+@pytest.fixture(scope="session", autouse=True)
+def setup_test_environment():
+    """Setup test environment with mocked AWS services."""
+    # Set required environment variables
+    test_env = {
+        "TABLE_NAME": "test-voice2rx-transactions",
+        "AUDIO_TABLE_NAME": "test-ekascribe-audio-details", 
+        "S3_VADED_BUCKET_NAME": "test-bucket",
+        "SNS_TOPIC_ARN": "arn:aws:sns:test",
+        "SQS_QUEUE_URL": "https://sqs.test.amazonaws.com/test-queue",
+        "AWS_ACCESS_KEY_ID": "test-key",
+        "AWS_SECRET_ACCESS_KEY": "test-secret",
+        "AWS_DEFAULT_REGION": "us-east-1",
+        "LOG_LEVEL": "ERROR"  # Reduce logging noise in tests
+    }
+    
+    for key, value in test_env.items():
+        os.environ[key] = value
+    
+    # Create logs directory if it doesn't exist (for file handlers)
+    import pathlib
+    logs_dir = pathlib.Path("/tmp/test_logs")
+    logs_dir.mkdir(parents=True, exist_ok=True)
+    
+    yield
+    
+    # Cleanup
+    for key in test_env.keys():
+        if key in os.environ:
+            del os.environ[key]
+
+
+@pytest.fixture
+def client():
+    """FastAPI test client fixture."""
+    from main import app
+    return TestClient(app)
+
+
+@pytest.fixture
+def mock_request():
+    """Mock FastAPI Request object."""
+    request = MagicMock(spec=Request)
+    request.headers = {
+        "jwt-payload": '{"b-id": "test-business-id", "user_id": "test-user"}',
+        "authorization": "Bearer test-token",
+        "content-type": "application/json"
+    }
+    request.query_params = {}
+    return request
+
+
+@pytest.fixture
+def mock_jwt_payload():
+    """Standard JWT payload for testing."""
+    return {
+        "b-id": "test-business-id",
+        "user_id": "test-user",
+        "permissions": ["read", "write"]
+    }
+
+
+@pytest.fixture
+def sample_transaction_data():
+    """Sample transaction data for testing."""
+    return {
+        "txn_id": "test-txn-123",
+        "b_id": "test-business-id",
+        "status": "success",
+        "mode": "live",
+        "transfer": "vaded",
+        "s3_url": "s3://test-bucket/test-folder/",
+        "processing_status": "in_progress",
+        "created_at": "2024-01-01T00:00:00Z",
+        "updated_at": "2024-01-01T00:00:00Z"
+    }
+
+
+@pytest.fixture
+def sample_s3_file_data():
+    """Sample S3 file data for testing."""
+    return {
+        "structured_outputs": {
+            "eka_emr_template": "base64encodeddata",
+            "transcript_template": "base64encodeddata"
+        },
+        "meta_information": {
+            "eka_emr_template": {
+                "name": "EMR Template",
+                "type": "json"
+            }
+        }
+    }
+
+
+@pytest.fixture
+def mock_dynamo_helper():
+    """Mock DynamoHelper class."""
+    with patch('voice2rx.utils.dynamo_helper.DynamoHelper') as mock:
+        # Setup default return values for common operations
+        mock_instance = MagicMock()
+        mock.return_value = mock_instance
+        mock_instance.query_items.return_value = []
+        mock_instance.put_item.return_value = {"status": "success"}
+        mock_instance.update_item.return_value = {"status": "success"}
+        yield mock
+
+
+@pytest.fixture
+def mock_s3_client():
+    """Mock S3 client."""
+    with patch('voice2rx.utils.s3_utils.get_s3_client') as mock:
+        mock_client = MagicMock()
+        mock.return_value = mock_client
+        yield mock_client
+
+
+@pytest.fixture
+def mock_sqs_service():
+    """Mock SQS service."""
+    with patch('voice2rx.services.sqs_service.SQSService') as mock:
+        mock_instance = MagicMock()
+        mock.return_value = mock_instance
+        mock_instance.send_message.return_value = True
+        yield mock
+
+
+@pytest.fixture
+def mock_logger():
+    """Mock logger."""
+    with patch('logs.custom_logger.get_logger') as mock:
+        yield mock.return_value

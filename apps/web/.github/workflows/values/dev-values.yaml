@@ -1,0 +1,188 @@
+# Default values for eka-care-prod-v1 chart.
+# Declare variables to be passed into your templates.
+
+#Required Optional means you can set the enabled value to true or false.
+#Removing Optional parts it will default the enabled value to true. So Edit on top of the values.yaml file and do not remove any sections.
+
+metadata:
+  labels:
+    serviceaccount: backend #frontend or backend or something more?
+  applicationrole: backend #specify what type of an application this is
+  namespace: eka-dev #eka-prod for Staging, eka-prod for Production
+
+#Enter number of replicas/containers you need. By default Prod apps should have 2 pods for High Availability
+
+  team: Lifeline
+  repo_url: https://github.com/eka-care/ekascribe-web
+replicaCount: 1
+
+image:
+#No changes are needed here. These values are configured as part of the cd file.
+repository: 607765814920.dkr.ecr.ap-south-1.amazonaws.com/ekascribe-web
+pullPolicy: IfNotPresent
+# Overrides the image tag whose default is the chart appVersion.
+tag: dev-2.3.50
+
+#Application
+
+annotations:
+  test: "value"
+#This is for some special usecases.
+# tolerations:
+#   - key: prod-eks/standard
+#     operator: Exists
+#     effect: NoSchedule
+
+#Change the name of the app. This is to make sure that all pods are deployed in separate Nodes for High Availability.
+appaffinity: {}
+
+#Deployment Strategy
+updateStrategy:
+  maxSurge: 100% # how many pods we can add at a time
+  maxUnavailable: 0 #number of unavailable pods at a time of new deployment
+  terminationGracePeriodSeconds: 150 #time before the pods wait before terminating after being replaced.
+
+#Total Number of Pods that will be available at all times. During New Pod Deployments, Node terminations, etc.
+
+disruption:
+  minimumAvailablePods: 1
+#If your service doesn't require an external endpoint access. Select "false", else set enabled to "true"
+#Required: Optional
+service:
+  enabled: true
+
+lifecycle:
+  preStop:
+    exec:
+      command: ["sleep", "30"]
+
+#Resources your Application needs. Always use the minimum resources your app needs in requests and maximum in limits. This is per container limit.
+#Required: True
+
+resources:
+  # Specify the maximum and default resources needed for your application. Do not provide more resources for your application than it needs.
+  # Requests are provisioned even if the app users or not. Limits is for max burst that is allowed.
+  # If the application exceeds the limit, then k8s sends a SIGTERM to kill the pod
+
+  limits:
+    cpu: 2
+    memory: 2Gi
+  requests:
+    cpu: 100m
+    memory: 500Mi
+
+  #Healthcheck for the application. Without a proper url/path, the app will continue to restart.
+  #Tweak them for Optimal Performance.
+  #Required: Optional
+healthcheck:
+  enabled: true
+  readinessProbe:
+    httpGet:
+      path: /
+      port: 80
+    initialDelaySeconds: 15 #time before the first health-check probe.
+    periodSeconds: 15 #heath-check will happen every 15 seconds after initial delay
+    timeoutSeconds: 2 #Timeout duration, k8s waits for 2 seconds before considering as failure
+    failureThreshold: 2 # k8s sends healthcheck two times and if the application fails in both then it will consider the pod is unhealthy.
+
+  livenessProbe:
+    httpGet:
+      path: /
+      port: 80
+    initialDelaySeconds: 15 #time before the first health-check probe.
+    periodSeconds: 15 #heath-check will happen every 15 seconds after initial delay
+    timeoutSeconds: 2 #Timeout duration, k8s waits for 2 seconds before considering as failure
+    failureThreshold: 2 # k8s sends healthcheck two times and if the application fails in both then it will consider the pod is unhealthy.
+#Horizontal Scaling for the app. enabled: true to enable Autoscaling. Specify the minimum and maximum number of pods for your application. Minimum needs to be 2 for prod apps.
+#Required: Optional.
+
+autoscaling:
+  enabled: false
+  minReplicas: 10
+  maxReplicas: 15
+  #Autoscaling will trigger after the below mentioned Threshold is reached in an average of 5 mins. Recommended to leave it at 75.
+
+  targetCPUUtilizationPercentage: 70
+
+#Use this if you need scaling based on messages in an SQS Queue.
+#Required: Optional.
+
+externalmetric:
+  enabled: false #Check full-values.yaml for complete info.
+
+#Pull Secrets from Secret manager. Enter name of your application if you want to pull secrets from secrets manager(eg.: if Secret is located at "prod/jugaad/all" inside AWS Secret Manager, Enter the same.)
+#Required: Optional.
+
+# externalsecret:
+#   enabled: false
+#   name: ekascribe-web/all
+#   envname: MATRIX
+externalsecret:
+  enabled: true
+  keys:
+    scribe: dev/scribe-web/all
+
+extraenv:
+- name: CURR_ENV
+  value: staging
+- name: NEXT_PUBLIC_ENV
+  value: DEV
+
+
+ports:
+  enabled: true  # Set to false for non-API applications (Kafka consumers, logging tools, batch jobs, etc.)
+  defaultPort: 80 # This will map to service port 80
+  defaultPortName: "service"  # Named as "service" port
+  additionalPorts: []
+
+#Load Balancer Configuration. K8S calls it Ingress.
+
+#If your pod doesn't need connections from outside select "false". Select "true" if you want outside connectivity.
+#By default, orbi.orbi and eka.care domain will be mapped in route 53. But Is exposed Internally.
+#For requirements such as HTTPS enabled and Internet facing load balancer's, this should also be set to false. prodops team handles them directly.
+
+#Required: Optional.
+# ingress:
+#   enabled: true
+#   lbname: dev-eks-internal-2  #Check with devops Team
+#   #Edit this with the names you need. Max 5 rules per application. 
+#   domainnames:
+#     - scribe.orbi.dev
+#     - scribe.dev.eka.care
+ingress:
+  enabled: true
+
+  domainnames:
+  - scribe.orbi.dev
+  - scribe.dev.eka.care
+
+  gateway:
+    name: eka-gateway
+    namespace: tools
+
+
+
+#Some cases where we have one docker image and multiple applications, you can override the default docker command.
+
+customcommand:
+  enabled: false
+  command: ["nginx", "-g"]
+  args:
+  - "daemon off;"
+
+
+#DNS Policy for the pod. Valid values: Default, ClusterFirst, ClusterFirstWithHostNet, None
+#Default: Use the node's DNS resolution
+#ClusterFirst: DNS queries will be forwarded to the upstream nameserver inherited from the node
+#ClusterFirstWithHostNet: For Pods running with hostNetwork, explicitly set dnsPolicy to "ClusterFirstWithHostNet"
+#None: Allows a Pod to ignore DNS settings from the Kubernetes environment
+dnsPolicy: ClusterFirst
+
+
+#More ENV, More power to the devs. This is a list, you can add more env's
+
+#Disable if you dont need a second container. You can add one Additional Container. If you need more info check full-values.yaml file
+deploySidecar:
+  enabled: false
+  externalsecret:
+    enabled: false

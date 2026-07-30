@@ -1,0 +1,25 @@
+[project]
+name = "ekascribe"
+version = "0.1.0"
+description = "On-prem AI medical scribe — monorepo root (uv workspace)"
+requires-python = ">=3.11"
+dependencies = []
+
+[tool.uv.workspace]
+members = ["apps/api", "apps/worker", "packages/core"]
+
+[tool.uv.sources]
+scribe-core = { workspace = true }
+scribe-api = { workspace = true }
+echo = { git = "https://github.com/eka-care/echo-sdk.git", tag = "v0.3.9" }
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=0.24",
+    "httpx>=0.27",
+    "ruff>=0.6",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

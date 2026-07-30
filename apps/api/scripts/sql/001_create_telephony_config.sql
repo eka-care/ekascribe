@@ -1,0 +1,11 @@
+CREATE TABLE IF NOT EXISTS telephony_config (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    phone_number VARCHAR(32) NOT NULL,
+    uuid VARCHAR(64) NOT NULL,
+    workspace_id VARCHAR(64) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_telephony_config_phone_number (phone_number)
+);
+

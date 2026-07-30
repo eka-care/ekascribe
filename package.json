@@ -1,0 +1,14 @@
+{
+  "name": "ekascribe",
+  "private": true,
+  "workspaces": [
+    "apps/web",
+    "packages/ui-lib",
+    "packages/scribe-client-sdk/ekascribe-ts-sdk",
+    "packages/scribe-client-sdk/med-scribe-alliance-ts-sdk"
+  ],
+  "scripts": {
+    "build:web": "npm run build --workspace apps/web",
+    "dev:web": "npm run dev --workspace apps/web"
+  }
+}
