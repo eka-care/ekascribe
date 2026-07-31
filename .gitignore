@@ -9,6 +9,12 @@ dist/
 !packages/scribe-client-sdk/**/dist/**
 .next/
 storage/
+# voice2rx services/storage is a SOURCE package (not runtime blob storage) — keep tracked
+!apps/api/src/voice2rx/services/storage/
+!apps/api/src/voice2rx/services/storage/**
 logs/
+# apps/api/src/logs is a SOURCE package (not a runtime log dir) — keep it tracked
+!apps/api/src/logs/
+!apps/api/src/logs/**
 *.egg-info/
 .next/

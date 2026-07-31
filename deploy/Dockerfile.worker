@@ -12,9 +12,10 @@ COPY packages/core ./packages/core
 COPY apps/api ./apps/api
 COPY apps/worker ./apps/worker
 RUN uv sync --all-packages --frozen --no-dev
+RUN printf '/app/apps/api/src\n/app/apps/worker/src\n' > /app/.venv/lib/python3.11/site-packages/ekascribe_src.pth
 
 COPY prompts ./prompts
 
 ENV STORAGE_ROOT=/data/storage LOG_DIR=/data/logs ECHO_PROMPT_DIR=/app/prompts
 ENV PYTHONPATH=/app/apps/api/src:/app/apps/worker/src
-CMD ["uv", "run", "procrastinate", "--app", "scribe_worker.main.queue_app", "worker", "-q", "scribe"]
+CMD ["sh", "-c", "PYTHONPATH=/app/apps/api/src:/app/apps/worker/src /app/.venv/bin/procrastinate --app scribe_worker.main.queue_app worker -q scribe"]
