@@ -25,8 +25,11 @@ class LLMAgentConfig:
     def from_env(cls) -> "LLMAgentConfig":
         """Load configuration from environment variables"""
         return cls(
-            provider=os.getenv("ECHO_DEFAULT_PROVIDER", "openai"),
-            model=os.getenv("ECHO_DEFAULT_LLM_MODEL", "gpt-4o-mini"),
+            # canonical name first; legacy ECHO_DEFAULT_PROVIDER still honored
+            provider=os.getenv("ECHO_DEFAULT_LLM_PROVIDER")
+            or os.getenv("ECHO_DEFAULT_PROVIDER", "openai"),
+            model=os.getenv("ECHO_DEFAULT_LLM_MODEL")
+            or os.getenv("ECHO_LLM_MODEL", "gpt-4o-mini"),
             temperature=float(os.getenv("ECHO_DEFAULT_LLM_TEMPERATURE", "0.2")),
             max_tokens=int(os.getenv("ECHO_DEFAULT_LLM_MAX_TOKENS", "4096")),
             max_iterations=int(os.getenv("ECHO_DEFAULT_LLM_MAX_ITERATIONS", "5")),

@@ -217,11 +217,13 @@ class DocumentService:
             file_key = f"{base_folder}documents/{document_id}.txt"
 
         try:
-            s3_client.put_object(
-                Bucket=self.bucket_name,
-                Key=file_key,
-                Body=content.encode("utf-8") if isinstance(content, str) else content,
-                ContentType="text/plain",
+            from scribe_core.storage import get_blob_store
+
+            get_blob_store().put(
+                self.bucket_name,
+                file_key,
+                content.encode("utf-8") if isinstance(content, str) else content,
+                content_type="text/plain",
             )
             logger.info(
                 "Document content written to S3",

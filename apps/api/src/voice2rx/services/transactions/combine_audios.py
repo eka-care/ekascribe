@@ -14,7 +14,9 @@ logger = get_logger(__name__)
 # combine s3 audio files into a single file and upload back to S3 using boto3 and pydub
 class S3AudioCombiner:
     def __init__(self):
-        self.s3_client = boto3.client("s3", region_name="ap-south-1")
+        from scribe_core.storage import get_blob_store
+
+        self.store = get_blob_store()
         self.destination_bucket = os.getenv("S3_COMBINED_AUDIO_BUCKET", "voice-records-audio")
 
     def _parse_s3_path(self, s3_path: str) -> Tuple[str, str]:
@@ -42,9 +44,13 @@ class S3AudioCombiner:
             logger.info(
                 f"Uploading file {file_path} to {file_key} in bucket {bucket_name}"
             )
-            self.s3_client.upload_file(
-                file_path, bucket_name, file_key, ExtraArgs=extra_args
-            )
+            with open(file_path, "rb") as fh:
+                self.store.put(
+                    bucket_name,
+                    file_key,
+                    fh.read(),
+                    content_type=extra_args.get("ContentType", "application/octet-stream"),
+                )
             logger.info(f"Successfully uploaded {file_key}", severity="medium")
             return True
         except Exception as e:
@@ -52,16 +58,9 @@ class S3AudioCombiner:
             return False
 
     def _get_numeric_files(self, bucket: str, prefix: str) -> List[Tuple[int, str]]:
-        paginator = self.s3_client.get_paginator("list_objects_v2")
-        pages = paginator.paginate(Bucket=bucket, Prefix=prefix)
-
         numeric_files = []
-        for page in pages:
-            if "Contents" not in page:
-                continue
-
-            for obj in page["Contents"]:
-                s3_key = obj["Key"]
+        for s3_key in self.store.list(bucket, prefix):
+            if True:
                 if s3_key.endswith("/"):
                     continue
 
@@ -136,7 +135,8 @@ class S3AudioCombiner:
                 logger.info(
                     f"Processing {idx}/{len(numeric_files)}: {filename}, txn_id={txn_id}, b_id={b_id}"
                 )
-                self.s3_client.download_file(source_bucket, s3_key, temp_file)
+                with open(temp_file, "wb") as fh:
+                    fh.write(self.store.get(source_bucket, s3_key))
 
                 audio = AudioSegment.from_file(temp_file)
                 combined += audio

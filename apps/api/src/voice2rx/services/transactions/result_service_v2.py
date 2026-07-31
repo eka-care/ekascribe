@@ -729,10 +729,9 @@ class ResultServiceV2:
             return ""
 
         try:
-            response = boto_s3_client.get_object(
-                Bucket=self.bucket_name, Key=document_path
-            )
-            content = response["Body"].read().decode("utf-8")
+            from scribe_core.storage import get_blob_store
+
+            content = get_blob_store().get(self.bucket_name, document_path).decode("utf-8")
             return content
         except Exception as e:
             logger.error(

@@ -37,13 +37,19 @@ OK, FAIL, SKIP, WARN = "  [ok]  ", "  [FAIL]", "  [skip]", "  [warn]"
 
 
 def _load_env() -> None:
+    """Load .env into the process env. Last occurrence of a key wins (dotenv
+    convention); real environment variables still take precedence."""
     env_path = ROOT / ".env"
-    if env_path.exists():
-        for line in env_path.read_text().splitlines():
-            line = line.strip()
-            if line and not line.startswith("#") and "=" in line:
-                k, _, v = line.partition("=")
-                os.environ.setdefault(k.strip(), v.strip())
+    if not env_path.exists():
+        return
+    parsed: dict[str, str] = {}
+    for line in env_path.read_text().splitlines():
+        line = line.strip()
+        if line and not line.startswith("#") and "=" in line:
+            k, _, v = line.partition("=")
+            parsed[k.strip()] = v.strip()
+    for k, v in parsed.items():
+        os.environ.setdefault(k, v)
 
 
 def step_env(non_interactive: bool) -> bool:
@@ -158,8 +164,11 @@ def step_queue() -> bool:
             n = conn.execute(
                 "SELECT count(*) FROM procrastinate_jobs WHERE task_name='setup_probe'"
             ).fetchone()[0]
-        assert n >= 1
-        print(f"{OK} queue enqueue round-trip (job rows: {n})")
+            assert n >= 1
+            # clean up: probe jobs have no real task — don't leave them for the worker
+            conn.execute("DELETE FROM procrastinate_jobs WHERE task_name='setup_probe'")
+            conn.commit()
+        print(f"{OK} queue enqueue round-trip verified (probe cleaned up)")
         return True
     except Exception as e:
         print(f"{FAIL} queue: {e}")

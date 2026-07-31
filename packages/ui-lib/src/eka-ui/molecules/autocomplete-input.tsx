@@ -87,8 +87,6 @@ export function AutocompleteInput({
   };
 
   const handleSelect = (item: any) => {
-    setSearchValue(item.name || item.label || String(item));
-    onChange(item.name || item.label || String(item));
     onSelect?.(item);
     setOpen(false);
   };
@@ -101,9 +99,8 @@ export function AutocompleteInput({
   };
 
   const handleInputFocus = () => {
-    if (searchValue.length > 0) {
-      setOpen(true);
-    }
+    // Don't open on programmatic focus (e.g. dialog auto-focus on mount)
+    // Only open if the user has actively interacted (typed something)
   };
 
   return (

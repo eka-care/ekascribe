@@ -319,10 +319,11 @@ class ContextResolutionService:
 
     def _download_s3_bytes(self, bucket: str, key: str):
         try:
-            s3_client = get_s3_client()
-            response = s3_client.get_object(Bucket=bucket, Key=key)
-            body = response["Body"].read()
-            content_type = response.get("ContentType", "") or ""
+            from scribe_core.storage import get_blob_store
+            import mimetypes
+
+            body = get_blob_store().get(bucket, key)
+            content_type = mimetypes.guess_type(key)[0] or ""
             return body, content_type
         except Exception as e:
             logger.warning(

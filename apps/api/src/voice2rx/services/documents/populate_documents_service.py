@@ -102,6 +102,10 @@ class PopulateDocumentsService:
             template_id = f"transcript_{lang}" if lang else "transcript"
 
             existing_doc_id = self.document_service.get_document_id_by_session_and_template(session_id, template_id)
+            if not existing_doc_id and lang:
+                existing_doc_id = self.document_service.get_document_id_by_session_and_template(
+                    session_id, "transcript"
+                )
             if not existing_doc_id:
                 raise Exception(f"transcript entry not found for session-id:{session_id}")
             

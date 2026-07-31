@@ -9,6 +9,7 @@ import {
   handleUserLogout,
 } from '@/utils/user-auth-logout-utility-methods';
 import { ONBOARDING_STEP } from '@/constants/enums';
+import { FEATURES } from '@/config/features';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import useGetWhoAmI from '@/shared-hooks/use-get-who-am-i';
 import useOnboardingManager from '@/features/onboarding/hooks/use-onboarding-manager';
@@ -39,6 +40,10 @@ const isPublicRoute = (pathname: string): boolean =>
 const isAllowedRoute = (pathname: string, step: ONBOARDING_STEP | null): boolean => {
   // The /onboarding page owns its own gate — let it decide internally.
   if (pathname.startsWith('/onboarding')) return true;
+  // Onboarding disabled for on-prem (plan decision #8): no route requires it,
+  // so never force the onboarding redirect (which would loop against the
+  // onboarding page's own "feature off → /new-session" gate).
+  if (!FEATURES.onboarding) return true;
   // First-time users (no step) must enter onboarding before the main app.
   if (!step) return false;
   return true;

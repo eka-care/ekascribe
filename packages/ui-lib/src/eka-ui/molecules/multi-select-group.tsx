@@ -181,10 +181,10 @@ export function MultiSelectGroup<T extends BaseMultiSelectOption = MultiSelectOp
       {/* Error and validation messages */}
       {error && <p className="text-sm text-red-500 mt-3">{error}</p>}
       {required && !isValid && (
-        <p className="text-sm text-red-500 mt-3">Please select at least one option</p>
+        <p className="text-sm text-[var(--color-danger-default)] mt-3">Please select at least one option</p>
       )}
       {maxSelections && currentNonExtraSelections >= maxSelections && (
-        <p className="text-sm text-blue-600 mt-3">
+        <p className="text-sm text-[var(--color-primary)] mt-3">
           {maxSelections === 1
             ? 'You can select only 1 option'
             : `Maximum ${maxSelections} selections allowed`}

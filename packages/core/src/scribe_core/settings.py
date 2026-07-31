@@ -9,7 +9,7 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -63,7 +63,10 @@ class Settings(BaseSettings):
     echo_default_llm_provider: str = "openai_compatible"
     echo_llm_base_url: str = "http://localhost:11434/v1"  # vLLM/Ollama; or api.openai.com/v1
     echo_llm_api_key: str | None = None
-    echo_llm_model: str = "qwen3:14b"
+    echo_llm_model: str = Field(
+        default="qwen3:14b",
+        validation_alias=AliasChoices("ECHO_LLM_MODEL", "ECHO_DEFAULT_LLM_MODEL"),
+    )
 
     # --- Prompts (file provider is the on-prem default) ---------------------
     echo_prompt_provider: Literal["file", "langfuse"] = "file"
@@ -97,6 +100,35 @@ class Settings(BaseSettings):
         return self.queue_dsn or self.database_url
 
 
+def _export_env_file() -> None:
+    """Export .env into os.environ (setdefault — real env vars win).
+
+    pydantic-settings reads .env for Settings fields, but the forked voice2rx
+    code and echo-sdk read os.getenv() directly (ECHO_DEFAULT_TRANSCRIBER_PROVIDER,
+    SARVAM_API_KEY, ANTHROPIC_API_KEY, ...). Without this export, those reads
+    silently miss .env in any process that wasn't started by the setup script.
+    Last occurrence of a key in the file wins (dotenv convention).
+    """
+    import os
+    from pathlib import Path
+
+    path = Path(os.getenv("ENV_FILE", ".env"))
+    if not path.is_file():
+        return
+    parsed: dict = {}
+    try:
+        for line in path.read_text().splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, _, v = line.partition("=")
+                parsed[k.strip()] = v.strip()
+    except OSError:
+        return
+    for k, v in parsed.items():
+        os.environ.setdefault(k, v)
+
+
 @lru_cache
 def get_settings() -> Settings:
+    _export_env_file()
     return Settings()

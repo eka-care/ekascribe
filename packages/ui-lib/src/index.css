@@ -1,7 +1,6 @@
-
-@import "tailwindcss";
-@import "./eka-ui/styles/colors.css";
-@import "tw-animate-css";
+@import 'tailwindcss';
+@import './eka-ui/styles/colors.css';
+@import 'tw-animate-css';
 /* ---break---
 */
 @custom-variant dark (&:is(.dark *));
@@ -41,10 +40,10 @@ not in tailwind.config.ts
   --color-sidebar-ring: var(--color-border-primary-ring);
   --color-sidebar-accent: var(--color-background-primary-subtle);
 
-  --color-yellow-2: #FEFCE9;
-  --color-yellow-8: #D5AE39;
-  --color-green-10: #2B9A66;
-  --color-yellow-400: #FACC15;
+  --color-yellow-2: #fefce9;
+  --color-yellow-8: #d5ae39;
+  --color-green-10: #2b9a66;
+  --color-yellow-400: #facc15;
 }
 
 /* Apply theme classes to data-theme attributes */
@@ -453,37 +452,53 @@ not in tailwind.config.ts
   --color-border-neutrals-default: var(--color-neutral-400);
   --color-border-primary-ring: var(--color-primary-500);
   --color-success: var(--color-success-500);
-  }
+}
 
 [data-theme='client'] {
-  /* For client theme, use neutral colors as fallback */
-  --color-primary: var(--color-neutral-700);
-  --color-primary-foreground: var(--color-neutral-100);
-  --color-secondary: var(--color-neutral-200);
-  --color-secondary-foreground: var(--color-neutral-900);
-  --color-background: var(--color-neutral-100);
-  --color-foreground: var(--color-neutral-900);
-  --color-card: var(--color-neutral-100);
-  --color-card-foreground: var(--color-neutral-900);
-  --color-popover: var(--color-neutral-100);
-  --color-popover-foreground: var(--color-neutral-900);
- 
-  --color-accent: var(--color-neutral-200);
-  --color-accent-foreground: var(--color-neutral-900);
-  --color-destructive: var(--color-danger-500);
-  --color-destructive-foreground: var(--color-neutral-100);
- 
+  /* Neutral colors for client theme (white backgrounds like patient-light) */
+  --color-neutral-100: #ffffff;
+  --color-neutral-200: #f5f5f5;
+  --color-neutral-300: #ededed;
+  --color-neutral-400: #d1d1d1;
+  --color-neutral-500: #a8a8a8;
+  --color-neutral-600: #767676;
+  --color-neutral-700: #595959;
+  --color-neutral-800: #383838;
+  --color-neutral-900: #1a1a1a;
 
-  --color-primary: var(--color-primary-background-default);
-  --color-primary-foreground: var(--color-foreground-on-primary);
-  --color-muted: var(--color-border-neutrals-default);
-  --color-muted-foreground: var(--color-form-input-foreground-placeholder);
-  --color-border: var(--color-border-neutrals-default);
-  --color-input: var(--color-border-neutrals-default);
-  --color-ring: var(--color-foreground-primary-default);
+  /* Background colors - white like patient-light */
+  --color-background: #ffffff;
+  --color-card: #ffffff;
+  --color-popover: #ffffff;
+  --color-secondary: #f5f5f5;
+  --color-accent: #f5f5f5;
+  --color-muted: #ededed;
+  --color-input: #f5f5f5;
+
+  /* Foreground colors */
+  --color-foreground: #1a1a1a;
+  --color-card-foreground: #1a1a1a;
+  --color-popover-foreground: #1a1a1a;
+  --color-secondary-foreground: #1a1a1a;
+  --color-accent-foreground: #1a1a1a;
+  --color-muted-foreground: #a8a8a8;
+
+  /* Primary colors (will be overridden by generated palette if primaryColor is provided) */
+  --color-primary: var(--color-primary-background-default, var(--color-neutral-700));
+  --color-primary-foreground: var(--color-foreground-on-primary, var(--color-neutral-100));
+
+  /* Destructive colors */
+  --color-destructive: #d92d20;
+  --color-destructive-foreground: #ffffff;
+
+  /* Border and ring */
+  --color-border: #d1d1d1;
+  --color-ring: var(
+    --color-primary-background-default,
+    var(--color-primary-700, var(--color-neutral-700))
+  );
 }
 
 /* the client will provide the token colors for values and we will map it to shadcn/ui colors,
 the value tokens can be updated by app users
  */
-

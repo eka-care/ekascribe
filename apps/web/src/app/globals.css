@@ -1,4 +1,8 @@
 @import "tailwindcss";
+/* Tailwind v4 does not auto-scan packages outside apps/web. The design-system
+   components (sidebar, etc.) live in packages/ui-lib/src and use utility classes
+   that must be generated here, or the layout collapses. */
+@source "../../../../packages/ui-lib/src";
 @import "../../../../packages/ui-lib/src/index.css";
 @import "tw-animate-css";
 @plugin "@tailwindcss/typography";

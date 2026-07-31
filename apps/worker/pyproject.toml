@@ -6,7 +6,7 @@ requires-python = ">=3.11"
 dependencies = [
     "scribe-core",
     "scribe-api",
-    "echo",
+    "echo[sarvam]",
     "procrastinate>=2.13",
     "httpx>=0.27",
     "orjson>=3.10",

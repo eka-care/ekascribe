@@ -4,6 +4,9 @@ __pycache__/
 .venv/
 node_modules/
 dist/
+# vendored SDK dists ARE the package source (no build step) — keep them tracked
+!packages/scribe-client-sdk/**/dist/
+!packages/scribe-client-sdk/**/dist/**
 .next/
 storage/
 logs/

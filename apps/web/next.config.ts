@@ -3,6 +3,9 @@ import path from 'path';
 import webpack from 'webpack';
 
 const nextConfig: NextConfig = {
+  // Pin the workspace root so Next ignores stray lockfiles in parent dirs
+  // (e.g. a ~/yarn.lock) when detecting the monorepo root.
+  outputFileTracingRoot: path.join(__dirname, '../../'),
   experimental: {
     typedRoutes: true,
   },

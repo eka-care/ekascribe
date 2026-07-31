@@ -12,6 +12,7 @@ export type PillItem = {
   value: string;
   variant?: ButtonVariant;
   size?: ButtonSize;
+  className?: string;
   disabled?: boolean;
   onClick?: (item: PillItem) => void;
 };
@@ -32,7 +33,7 @@ export const Pills: React.FC<PillsProps> = ({ items, onItemClick, className, pil
           type="button"
           variant={item.variant ?? 'outline'}
           size={item.size ?? 'sm'}
-          className={cn('rounded-full px-3 h-8 text-xs font-medium', pillClassName)}
+          className={cn('rounded-full px-3 h-8 text-xs font-medium', pillClassName, item.className)}
           disabled={item.disabled}
           onClick={() => {
             if (item.disabled) return;

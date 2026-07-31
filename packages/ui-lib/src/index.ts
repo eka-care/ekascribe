@@ -125,6 +125,7 @@ export { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 export { Toaster } from '@/components/ui/sonner';
 
 export { ThemeProvider, useTheme } from './eka-ui/organisms/theme-provider';
+export type { CustomThemeVariables } from './eka-ui/organisms/theme-provider';
 export { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 export { Switch } from '@/components/ui/switch';
@@ -145,6 +146,9 @@ export { CustomButton } from './eka-ui/molecules/custom-button';
 
 // List Item
 export { ListItem } from './eka-ui/molecules/list-item';
+
+export { default as ThumbsUpIcon } from './eka-ui/icons/ThumbsUp';
+export { default as ThumbsDownIcon } from './eka-ui/icons/ThumbsDown';
 // Export assets
 export { default as voiceListeningGif } from './eka-ui/assets/voice-listning.gif';
 
@@ -201,3 +205,5 @@ export {
   SheetTitle,
   SheetDescription,
 } from './shadcn-ui/components/ui/sheet';
+
+export { CustomSelect } from './eka-ui/molecules/custom-select';

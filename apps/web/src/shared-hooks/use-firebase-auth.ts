@@ -9,6 +9,14 @@ import {
 } from '../lib/firebase';
 import { GET_COG_HOST } from '@/fetch-client/helper';
 import { getTransport } from '@/transport';
+import { FEATURES } from '@/config/features';
+
+// Firebase powers the appointment-queue / WhatsApp-Rx feature only. On-prem it
+// is off by default (plan decision #8), so unless the feature is enabled AND a
+// Firebase API key is configured, this hook stays a no-op — otherwise initializing
+// Firebase with an empty key throws auth/invalid-api-key and crashes the app.
+const FIREBASE_ENABLED =
+  FEATURES.appointmentQueue && !!process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
 
 interface UseFirebaseAuthReturn {
   user: User | null;
@@ -48,6 +56,10 @@ export const useFirebaseAuth = (): UseFirebaseAuthReturn => {
   }, []);
 
   const signIn = useCallback(async () => {
+    if (!FIREBASE_ENABLED) {
+      setLoading(false);
+      return;
+    }
     if (isFirebaseAuthenticated()) {
       setLoading(false);
       return;
@@ -83,6 +95,9 @@ export const useFirebaseAuth = (): UseFirebaseAuthReturn => {
   // Force re-authentication (bypasses existing auth check)
   // Use this when Firebase returns permission/auth errors
   const forceReAuth = useCallback(async () => {
+    if (!FIREBASE_ENABLED) {
+      return;
+    }
     if (signInAttempts.current >= MAX_SIGN_IN_ATTEMPTS) {
       return;
     }
@@ -111,6 +126,10 @@ export const useFirebaseAuth = (): UseFirebaseAuthReturn => {
 
   // Listen to auth state changes
   useEffect(() => {
+    if (!FIREBASE_ENABLED) {
+      setLoading(false);
+      return;
+    }
     const unsubscribe = onFirebaseAuthStateChanged((firebaseUser: User | null) => {
       setUser(firebaseUser);
       if (firebaseUser) {
@@ -123,6 +142,9 @@ export const useFirebaseAuth = (): UseFirebaseAuthReturn => {
 
   // Auto sign-in on mount
   useEffect(() => {
+    if (!FIREBASE_ENABLED) {
+      return;
+    }
     if (!signInAttempted.current) {
       signInAttempted.current = true;
       signIn();

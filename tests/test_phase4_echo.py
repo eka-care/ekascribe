@@ -85,7 +85,7 @@ def test_sarvam_provider_registered(monkeypatch):
     config = TranscriberConfig(provider="sarvam", language="hi")
     assert config.model == "saarika:v2.5"  # gemini env default swapped out
     t = get_transcriber(config)
-    assert t.base_url == "https://api.sarvam.ai"
+    assert t.base_url is None  # sarvamai SDK default endpoint (v0.3.10)
     assert t._language_code() == "hi-IN"
 
 
