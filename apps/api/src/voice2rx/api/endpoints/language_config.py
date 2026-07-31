@@ -69,7 +69,7 @@ SUPPORTED_CONFIG_DATA = {
         },
     }
 }
-_default_my_templates = ["9d9675c6-b29b-424a-abac-99ddd3b8909c", "19288d2f-81a9-46a6-b804-9651242a9b3e","7d03dd95-45b2-41e1-a5d3-fba98fee0418"]
+_default_my_templates = ["9d9675c6-b29b-424a-abac-99ddd3b8909c", "2f1c9a44-7e6b-4c21-9b3a-1d2e3f4a5b6c", "19288d2f-81a9-46a6-b804-9651242a9b3e", "3a2d8b55-6f7c-4d32-8c4b-2e3f4a5b6c7d", "7d03dd95-45b2-41e1-a5d3-fba98fee0418"]
 
 # TODO: Move this to DB on business level
 HARDCODED_TEMPLATES = {

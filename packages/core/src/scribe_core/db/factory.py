@@ -27,10 +27,9 @@ def get_dynamo_client():
     s = get_settings()
     if s.db_backend == "postgres":
         from scribe_core.db.shims import PgClient
-
         return PgClient()
+        
     import boto3
-
     return boto3.client(
         "dynamodb", region_name=s.aws_region, endpoint_url=s.dynamodb_endpoint_url
     )

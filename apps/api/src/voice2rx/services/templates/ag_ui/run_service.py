@@ -43,7 +43,7 @@ _SUPPRESSED_EVENT_TYPES = frozenset({EventType.TOOL_CALL_ARGS})
 
 # this is only for debug on local system , won't run on prod or stage. 
 # // it dumps a complete prompt file 
-_DEBUG_PROMPT_PATH = Path(__file__).parent / "final_prompt_debug.txt"
+_DEBUG_PROMPT_PATH = Path(os.getenv("LOG_DIR", str(Path(__file__).parent))) / "final_prompt_debug.txt"
 def _dump_final_prompt_for_debug(echo_config, tools, inputs) -> None:
     try:
         prompt = f"You are a {echo_config.persona.role}\n\n{echo_config.task.description}"
@@ -52,10 +52,24 @@ def _dump_final_prompt_for_debug(echo_config, tools, inputs) -> None:
         header = (
             f"# generated_at={datetime.now().isoformat()}\n"
             f"# template_id={inputs.template_id}\n"
+            f"# llm_model={os.getenv('ECHO_DEFAULT_LLM_MODEL') or os.getenv('ECHO_LLM_MODEL')}\n"
+            f"# llm_provider={os.getenv('ECHO_DEFAULT_LLM_PROVIDER') or os.getenv('ECHO_DEFAULT_PROVIDER')}\n"
             f"# available_tools={inputs.available_tools!r}\n"
             f"# registered_tools={[t.name for t in tools]}\n\n"
         )
-        _DEBUG_PROMPT_PATH.write_text(header + prompt + "\n", encoding="utf-8")
+        body = (
+            header
+            + "===== SYSTEM PROMPT (role + task.description) =====\n"
+            + prompt
+            + "\n\n===== EXPECTED_OUTPUT =====\n"
+            + (echo_config.task.expected_output or "")
+            + "\n\n===== TRANSCRIPT (user message) =====\n"
+            + (inputs.transcript or "")
+            + "\n"
+        )
+        _DEBUG_PROMPT_PATH.write_text(body, encoding="utf-8")
+        print("\n<<<<<<<<<< AG_UI FINAL PROMPT >>>>>>>>>>\n" + body +
+              "\n<<<<<<<<<< END AG_UI FINAL PROMPT >>>>>>>>>>\n", flush=True)
         logger.info("final prompt dumped for debug", path=str(_DEBUG_PROMPT_PATH))
     except Exception as e:
         logger.warning("failed to write final prompt debug file", error=str(e), severity="low")
@@ -149,6 +163,7 @@ def build_scribe_run_components(
         "txn_id": inputs.txn_id,
         "b_id": inputs.b_id,
     }
+    _dump_final_prompt_for_debug(echo_config, tools, inputs)
 
     return agent, ctx, state
 

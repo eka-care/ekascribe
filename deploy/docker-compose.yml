@@ -24,6 +24,8 @@ services:
     env_file: ../.env
     environment:
       DATABASE_URL: postgresql://scribe:scribe@postgres:5432/scribe
+      # override .env's relative ./storage so api + worker share the mounted volume
+      STORAGE_ROOT: /data/storage
     volumes:
       - storage:/data/storage
       - logs:/data/logs
@@ -40,6 +42,10 @@ services:
     env_file: ../.env
     environment:
       DATABASE_URL: postgresql://scribe:scribe@postgres:5432/scribe
+      # share the same audio storage as the api container
+      STORAGE_ROOT: /data/storage
+      # PATCH callbacks go to the api service, not the worker's own localhost
+      SELF_URL: http://api:8000
     volumes:
       - storage:/data/storage
       - logs:/data/logs

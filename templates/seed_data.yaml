@@ -1,82 +1,336 @@
-# Seed sections + default templates loaded by scripts/setup.py (Phase 6).
-#
-# PLACEHOLDER CONTENT: the production default templates' bodies live in
-# Langfuse (plan A2 / decision #10). When the selective export lands, replace
-# the `desc` bodies below (keep the ids — they are the 3 default-template UUIDs
-# hardcoded in language_config.py).
+# Seed data loaded by scripts/setup.py.
+# FIVE description/markdown-based default templates (no section-wise templates).
+# Each template's `desc` is the full structuring prompt; `section_ids` stays empty
+# so input_preparers.py routes it through the markdown agent.
+# The first three ids are the hardcoded defaults referenced in language_config.py,
+# stream_session_router.py, and patient_summary_service.py — do not change them.
 
-sections:
-  - id: "sec-chief-complaint"
-    title: "Chief Complaint"
-    desc: "The primary reason for the visit, in the patient's words."
-    format: "P"
-  - id: "sec-hpi"
-    title: "History of Present Illness"
-    desc: "Chronological narrative of the presenting problem: onset, duration, severity, modifying factors, associated symptoms."
-    format: "P"
-  - id: "sec-examination"
-    title: "Examination"
-    desc: "Vitals and positive/relevant negative findings on examination."
-    format: "B"
-  - id: "sec-diagnosis"
-    title: "Diagnosis / Assessment"
-    desc: "Working diagnosis or differential, with reasoning where stated."
-    format: "B"
-  - id: "sec-medications"
-    title: "Medications"
-    desc: "Prescribed medications: name, strength, frequency, duration, instructions."
-    format: "B"
-  - id: "sec-investigations"
-    title: "Investigations"
-    desc: "Labs and imaging ordered or reviewed."
-    format: "B"
-  - id: "sec-advice"
-    title: "Advice / Plan"
-    desc: "Treatment plan, lifestyle advice, and patient instructions."
-    format: "B"
-  - id: "sec-follow-up"
-    title: "Follow-up"
-    desc: "Follow-up interval and red-flag symptoms warranting earlier review."
-    format: "P"
-
+sections: []
 templates:
-  - id: "9d9675c6-b29b-424a-abac-99ddd3b8909c"
-    title: "Clinical Note"
-    type: "default"
-    desc: "Structured clinical note covering the full consultation."
-    section_ids:
-      - "sec-chief-complaint"
-      - "sec-hpi"
-      - "sec-examination"
-      - "sec-diagnosis"
-      - "sec-medications"
-      - "sec-investigations"
-      - "sec-advice"
-      - "sec-follow-up"
-  - id: "19288d2f-81a9-46a6-b804-9651242a9b3e"
-    title: "SOAP Note"
-    type: "default"
-    desc: |
-      # SOAP Note
+- id: 9d9675c6-b29b-424a-abac-99ddd3b8909c
+  title: Clinical Notes
+  type: default
+  desc: |-
+    Convert the doctor–patient consultation into a structured clinical note. Tag each section with its kind (list / table / narrative). Include only sections that have data.
+    1.  Patient Demographics — list
+    - Name, DOB, gender, contact information
+    2.  Visit Information — list
+    - Date/time of encounter, visit type (first visit / follow-up)
+    3.  Chief Complaint — list
+    - Primary reason for visit and duration of symptoms
+    4.  History of Present Illness — list
+    - Chronological narrative: onset, location, duration, characterization, aggravating/alleviating factors, associated symptoms, prior treatments attempted
+    5.  Review of Systems — list
+    - Systematic review by body system, with positives and pertinent negatives
+    6.  Past Medical History — list
+    - Chronic conditions, previous surgeries/procedures, major hospitalizations, significant past illnesses
+    7.  Current Medications / Treatment — table
+    - columns: Medication, Dose, Frequency, Duration
+    - Include current medications/treatments, OTC medications, supplements/herbal remedies. Do not infer generics or indications.
+    8.  Allergies — list
+    - Medication, food, and environmental allergies with the nature of the reaction
+    9.  Social History — list
+    - Occupation / work environment, living situation, tobacco / alcohol / substance use, diet / exercise patterns, relevant social determinants of health
+    10. Family History — list
+    - Hereditary conditions and health status of immediate family members, with relationship
+    11. Lifestyle Habits / History — list
+    - Smoking history (current / ex-smoker, pack-years), alcohol and substance use, dietary habits, physical activity, childhood history, occupational exposures, other long-term lifestyle factors
+    12. Vital Signs — list
+    - Temperature, pulse, respiratory rate, blood pressure, pain score, height, weight, BMI, oxygen saturation
+    13. Physical Examination — list
+    - General appearance and findings by body system, with pertinent positives and negatives
+    14. Laboratory / Diagnostic Results — table
+    - columns: Test, Result, Date
+    - Test results, imaging findings, and previous significant results for comparison
+    15. Assessment — list
+    - Diagnoses, clinical reasoning, differential diagnoses
+    16. Treatment Plan — list
+    - Treatment plan for the diagnosis, medications prescribed, ordered tests / procedures
+    17. Procedures Performed — list
+    - Description of procedures, findings / outcomes, complications (if any)
+    18. Advices — list
+    - Home care instructions, warning signs to watch for, return precautions
+    19. Follow-up Instructions — list
+    - Date / time / duration and instructions for the follow-up appointment
+    20. Referrals — list
+    - Referral to another doctor / speciality / ward, with reason
+    RULES
+    - Include only sections that have data. Omit any section with no data — never write "not mentioned", "not specified", or placeholders like [?], [unknown].
+    - Never fabricate or infer. Write only what is explicitly stated or clearly implied; do not predict drug generics, indications, or interpretations.
+    - Capture pertinent negatives as well as positive findings (e.g. "no fever", "no history of diabetes").
+    - Translate all output to English, whatever the language of consultation.
+    - Write in third person ("the patient", "he", "she"); never address the patient as "you".
+    - Do not repeat the same information across sections.
+    - If there is no medically relevant content whatsoever, return exactly: No medical information is available in this conversation.
+  section_ids: []
+- id: 2f1c9a44-7e6b-4c21-9b3a-1d2e3f4a5b6c
+  title: Default Prescription Print
+  type: default
+  desc: |-
+    Convert the transcription into a structured clinical note. Return each section with its kind (one of: list, table, narrative). Include only sections that have data.
+    SECTIONS — keep this order:
+    Patient Demographics — list — Name, DOB, Age, Gender, Contact
+    Visit Information — list — Date/time, visit type (first visit / follow-up)
+    Chief Complaint — list — primary reason + duration
+    History of Present Illness — list — onset, location, duration, character, aggravating/relieving factors, associated symptoms, prior treatment
+    Review of Systems — list — positives + pertinent negatives (e.g. "No chest pain")
+    Past Medical History — list — chronic conditions, surgeries, hospitalizations (+ year if stated)
+    Medication History — table — columns: Medication, Dose, Frequency, Reason (ongoing meds only)
+    Allergies — table — columns: Type, Allergen, Reaction
+    Social History — list — Occupation, Living situation, Tobacco, Alcohol, Substance use, Diet, Exercise
+    Family History — table — columns: Relation, Condition
+    Travel History — list
+    Vaccination History — list
+    Vital Signs — list — Temperature, Pulse, RR, BP, SpO2, Height, Weight, BMI, Pain score
+    Physical Examination — list — each item "system/area: finding" (include pertinent negatives)
+    Laboratory/Diagnostic Results — table — columns: Test, Result, Reference Range
+    Past Investigations — table — columns: Test, Date, Result
+    Assessment — list — diagnoses, differentials, clinical reasoning
+    Prescribed Medications — medication_table — columns: Medication, Dose, Quantity, Route, Frequency, Duration, Instructions (see below)
+    Prescribed Investigations — list — ordered tests (+ urgency if stated)
+    Prescribed Procedures — list — procedure + schedule/details
+    Prescribed Vaccinations — list — vaccine + schedule
+    Procedures Performed — list — procedure, findings/outcome, complications
+    Advice — list — home care, warning signs, return precautions
+    Follow-up — list — timeline + purpose
+    Referral — list — Doctor, Speciality, Reason
+    Notes — narrative — medically relevant info not fitting above (always last)
+    PRESCRIBED MEDICATIONS — one row per drug:
+    Medication column: include the form prefix when spoken (e.g. "Tab. Paracetamol", "Syp. Ambroxol", "Cap. Amoxicillin", "Inj. Diclofenac").
+    Fill only the columns explicitly spoken; leave a cell empty if that detail was not stated. Never guess.
+    Expand frequency abbreviations: OD → once daily, BD → twice daily, TDS → three times daily, QID → four times daily, SOS → as needed, stat → immediately.
+    RULES
+    Do not include section numbering anywhere in the output. Section titles must appear as plain names (e.g. "Chief Complaint", not "3. Chief Complaint").
+    Omit any section that has no data. Never emit an empty section, a placeholder, or markers like [?], [unknown], [not specified].
+    Never fabricate, guess, or infer (do not predict drug generics, indications, or reference ranges). Write only what is stated or clearly implied.
+    Capture explicit negatives (e.g. "No fever", "No history of diabetes").
+    Translate all content to English if the transcription is in another language.
+    Use third person, professional clinical language ("the patient", "he", "she"); never address the patient as "you".
+    Do not repeat the same information across sections.
+    If there is no medically relevant content whatsoever, return exactly: No medical information is available in this conversation.
+  section_ids: []
+- id: 19288d2f-81a9-46a6-b804-9651242a9b3e
+  title: SOAP Notes
+  type: default
+  desc: |-
+    Convert the doctor–patient consultation into a structured SOAP note. Always include all four sections; each is descriptive prose (narrative). If a section has no data, write "None".
+    1.  Subjective — narrative
+    - Information reported by the patient: chief complaint and duration; history of present illness (onset, location, duration, character, radiation, aggravating/relieving factors, associated symptoms, progression, prior treatment and response); relevant review of systems with positives and pertinent negatives; pertinent past medical, surgical, medication, allergy, family, and social/lifestyle history as volunteered. Capture the patient's own description of symptoms and concerns.
+    2.  Objective — narrative
+    - Measurable, observable data from the encounter: vital signs (temperature, pulse, respiratory rate, blood pressure, SpO2, height, weight, BMI, pain score); general appearance and physical examination findings by system, with pertinent positives and negatives; results of laboratory tests, imaging, and other investigations reviewed at this visit (with values and dates as stated); in-clinic procedures performed and their findings.
+    3.  Assessment — narrative
+    - The clinician's interpretation of the subjective and objective data: primary / working diagnosis; differential diagnoses; severity or stage; relevant risk factors; and any clinical reasoning, prognosis, or risk stratification explicitly discussed.
+    4.  Plan — narrative
+    - The management roadmap: medications prescribed or modified (name, dose, route, frequency, duration as stated); non-pharmacological measures; investigations or tests ordered; procedures planned; patient education and counselling; warning signs / return precautions; referrals (specialty, reason); and follow-up timing and instructions.
+    RULES
+    - Always output all four sections in order. If a section has no data, write exactly: None
+    - Never fabricate or infer. Write only what is explicitly stated or clearly implied; do not predict drug generics, indications, diagnoses, or interpretations.
+    - Capture pertinent negatives as well as positive findings (e.g. "no fever", "denies chest pain").
+    - Translate all output to English, whatever the language of consultation.
+    - Write in third person ("the patient", "he", "she"); never address the patient as "you".
+    - Do not repeat the same information across sections (subjective vs objective vs assessment vs plan).
+    - If there is no medically relevant content whatsoever, return exactly: No medical information is available in this conversation.
+  section_ids: []
+- id: 3a2d8b55-6f7c-4d32-8c4b-2e3f4a5b6c7d
+  title: Eka EMR Template
+  type: default
+  desc: |-
+    Convert the doctor–patient consultation into a single structured EMR clinical note rendered as clean markdown. Tag each section with its kind (list / table / narrative). Include only sections that have data.
+    1.  Patient Demographics — list
+    - Name, age, gender, contact, address / area
+    2.  Visit Information — list
+    - Date/time of encounter, visit type (first visit / follow-up)
+    3.  Chief Complaint — list
+    - Primary reason for visit with duration
+    4.  History of Present Illness — narrative
+    - Onset, location, duration, character, aggravating/relieving factors, associated symptoms, prior treatment and response
+    5.  Past Medical & Surgical History — list
+    - Chronic conditions (with duration if stated), previous surgeries / hospitalizations, significant past illnesses
+    6.  Medications — table
+    - columns: Medication, Dose, Frequency, Duration
+    - Current and prescribed medications, OTC medications, supplements. Do not infer generics or indications.
+    7.  Allergies — list
+    - Drug, food, and environmental allergies with the nature of the reaction
+    8.  Vital Signs — list
+    - Temperature, pulse, respiratory rate, blood pressure, SpO2, height, weight, BMI (only if stated), pain score
+    9.  Physical Examination — list
+    - General appearance and findings by body system, with pertinent positives and negatives
+    10. Laboratory / Diagnostic Results — table
+    - columns: Test, Result, Date
+    - Labs, imaging, and previous results reviewed. Do not infer or calculate values.
+    11. Assessment / Diagnosis — list
+    - Working diagnosis, differential diagnoses, clinical reasoning (only as stated)
+    12. Treatment Plan — list
+    - Medications prescribed (name, dose, route, frequency, duration as stated), procedures, non-pharmacological measures
+    13. Advice — list
+    - Home care instructions, warning signs, return precautions
+    14. Follow-up — list
+    - Interval / date and instructions; conditions to return earlier
+    15. Referrals — list
+    - Specialty, reason, urgency, facility / doctor if stated
+    RULES
+    - Render the whole note as markdown with the section titles as headings; include only sections that have data. Omit any section with no data — never write "not mentioned", "not specified", or placeholders like [?], [unknown].
+    - Never fabricate or infer. Write only what is explicitly stated or clearly implied; do not predict drug generics, indications, or interpretations.
+    - Capture pertinent negatives as well as positive findings (e.g. "no fever", "no history of diabetes").
+    - Translate all output to English, whatever the language of consultation.
+    - Write in third person ("the patient", "he", "she"); never address the patient as "you".
+    - Do not repeat the same information across sections.
+    - If there is no medically relevant content whatsoever, return exactly: No medical information is available in this conversation.
+  section_ids: []
+- id: 7d03dd95-45b2-41e1-a5d3-fba98fee0418
+  title: General Physician Note
+  type: default
+  desc: |-
+    Convert the doctor–patient consultation into a structured General Physician (GP) OPD clinical note. Tag each section with its kind (list / table / narrative). Include only sections that have data.
 
-      ## Subjective
-      {Patient-reported symptoms, history, and concerns}
+    1. Patient Demographics — list
 
-      ## Objective
-      {Examination findings and vitals}
+    * Full Name
+    * Age (years; for children <5, years and months)
+    * Gender (Male / Female / Other)
+    * Contact Number
+    * Address / Area (locality or city)
 
-      ## Assessment
-      {Diagnosis or differential}
+    2. Visit Information — list
 
-      ## Plan
-      {Medications, investigations, advice, follow-up}
-    section_ids: []
-  - id: "7d03dd95-45b2-41e1-a5d3-fba98fee0418"
-    title: "Consultation Summary"
-    type: "default"
-    desc: |
-      # Consultation Summary
+    * Visit Date
+    * Visit Type (First Visit / Follow-Up / Emergency Walk-In / Review After Investigation)
+    * Referred By
 
-      {One-paragraph summary of the visit: presenting problem, key findings,
-      diagnosis, and agreed plan, written for the patient's record}
-    section_ids: []
+    3. Chief Complaint — list
+
+    * Primary Complaint with duration (e.g. "fever for 3 days"); if multiple, in order of priority
+    * Duration of Complaint (exact, as stated)
+
+    4. History of Present Illness (HPI) — list
+
+    * Illness Narrative using SOCRATES where applicable (Site, Onset, Character, Radiation, Associated symptoms, Timing/pattern, Exacerbating/Relieving factors, Severity); include progression, self-medication or prior treatment, and response
+    * Fever Details (if fever): temperature (°F/°C), duration, pattern (Continuous / Intermittent / Remittent / Hectic), chills/rigors (present/absent), associated rash (present/absent)
+    * Pain Details (if pain): site, character (dull aching / sharp / burning / colicky / throbbing / cramping), severity (0–10), radiation, aggravating factors, relieving factors
+
+    5. Review of Systems — list (positives and pertinent negatives for each)
+
+    * Cardiovascular: chest pain, palpitations, dyspnoea on exertion, ankle swelling, syncope
+    * Respiratory: cough (dry/productive), sputum, breathlessness, wheeze, haemoptysis
+    * Gastrointestinal: nausea, vomiting, abdominal pain, bloating, altered bowel habits, blood in stool, jaundice
+    * Genitourinary: dysuria, frequency, nocturia, haematuria, urinary retention, discharge
+    * Neurological: headache, dizziness, vertigo, tingling/numbness, weakness, seizures, altered consciousness
+    * Musculoskeletal: joint pain, swelling, stiffness, muscle pain, backache
+    * ENT / Eyes: sore throat, runny nose, nasal congestion, ear pain, visual disturbance
+    * Skin: rash, itching, jaundice, pallor, cyanosis
+
+    6. Past Medical History — list
+
+    * Chronic Conditions (Hypertension, Diabetes, Hypo/Hyperthyroidism, Asthma, COPD, CAD, Heart Failure, CKD, Epilepsy, Stroke, TB, Anaemia, Obesity, Other) with duration if stated
+    * Previous Hospitalizations / Surgeries (hospital, year, reason)
+    * Previous Illnesses / Infections (typhoid, dengue, COVID-19, hepatitis)
+
+    7. Current Medications — table
+
+    * columns: Medication, Dose, Frequency, Duration
+    * Include prescription meds; OTC / self-medicated (Paracetamol, antacids, cough syrups); herbal / traditional (Ayurvedic, homeopathic, home remedies). Do not infer generic names or doses.
+
+    8. Allergies — list
+
+    * Drug Allergies: drug and reaction; state "No known drug allergies (NKDA)" if none
+    * Food / Environmental Allergies
+
+    9. Family History — list
+
+    * Hereditary / familial conditions with relationship to patient (e.g. diabetes in parents, hypertension in siblings, cardiac disease)
+
+    10. Social & Lifestyle History — list
+
+    * Occupation
+    * Tobacco Use (Non-smoker / Current smoker / Ex-smoker / Chews tobacco / Smokeless tobacco; pack-years if mentioned)
+    * Alcohol Use (None / Social / Regular / Heavy / Ex-drinker; quantity/frequency)
+    * Diet (Vegetarian / Non-Vegetarian / Vegan / Mixed)
+    * Physical Activity (sedentary / active / walks daily)
+    * Marital Status (Single / Married / Divorced / Widowed)
+
+    11. Vital Signs — list
+
+    * Blood Pressure (systolic/diastolic mmHg; arm — Left / Right / Both)
+    * Heart Rate / Pulse (bpm; regular/irregular)
+    * Respiratory Rate (breaths/min)
+    * Temperature (°F / °C as stated)
+    * SpO2 (%; room air or supplemental oxygen)
+    * Weight (kg)
+    * Height (cm)
+    * BMI (kg/m²; only if explicitly stated — do not calculate)
+    * Blood Glucose (if measured): value (mg/dL), type (Fasting / Post-prandial / Random / HbA1c)
+
+    12. Physical Examination — list (positives and pertinent negatives)
+
+    * General Appearance: conscious/oriented, well/ill-looking, pallor, icterus, cyanosis, clubbing, lymphadenopathy, oedema
+    * Cardiovascular: heart sounds (S1, S2, murmurs), apex beat, peripheral pulses
+    * Respiratory: air entry, breath sounds (vesicular/bronchial), added sounds (wheeze, rhonchi, crepitations), chest expansion
+    * Abdominal: tenderness (location), organomegaly, bowel sounds, guarding/rigidity
+    * Neurological: consciousness (GCS if mentioned), cranial nerves, motor/sensory deficits, reflexes, gait
+    * ENT: throat (congested / inflamed tonsils), nasal mucosa, ear findings
+    * Skin / Dermatological: rash, lesions, pallor, icterus, urticaria — location, morphology, distribution
+    * Musculoskeletal: joint swelling, tenderness, range of motion, deformity
+
+    13. Investigations Ordered / Results Reviewed — table
+
+    * columns: Investigation, Result / Status, Date
+    * Lab tests ordered (CBC, LFT, RFT, thyroid profile, blood culture, dengue NS1); imaging ordered (X-ray, USG, CT) with indication; previous results reviewed with values (e.g. "HbA1c 8.2%", "Hb 9.4 g/dL"). Do not infer or calculate values.
+
+    14. Assessment / Diagnosis — list
+
+    * Primary / Working Diagnosis (ICD-10 only if explicitly stated)
+    * Secondary Diagnoses / Comorbidities active at this visit
+    * Differential Diagnoses (only if explicitly mentioned)
+    * Clinical Reasoning (stated reasoning, risk stratification, diagnostic impression)
+
+    15. Treatment Plan — list
+
+    * Medications Prescribed: each drug — name, dose, route, frequency, duration as stated (e.g. "Tab. Paracetamol 500 mg orally three times daily × 5 days"). Do not infer or substitute generics.
+    * Non-Pharmacological Measures (dietary modifications, activity restrictions, hydration, wound care, physiotherapy)
+    * Procedures Performed (nebulization, IV drip, wound dressing, injection)
+
+    16. Patient Advice & Counselling — list
+
+    * Lifestyle & Dietary Advice (e.g. increase fluids, avoid spicy food, bed rest)
+    * Warning Signs / Red Flags (when to return)
+    * Vaccination / Preventive Advice (flu, Hep B, other immunisation discussed or given)
+
+    17. Follow-Up Instructions — list
+
+    * Follow-Up Date / Duration (e.g. "review after 5 days")
+    * Follow-Up Conditions (return earlier if — e.g. fever >104°F, breathing worsens)
+    * Pending Reports / Tests awaited
+
+    18. Referrals — list
+
+    * Referral specialty, reason, urgency, facility/doctor name (e.g. "referred to cardiologist for chest pain evaluation")
+
+    19. Follow-Up Note (follow-up visits only) — list
+
+    * Response to Previous Treatment (improved / no change / worsened)
+    * Medication Compliance (Compliant / Partially compliant / Non-compliant / Not assessed)
+    * New Complaints Since Last Visit
+    * Changes to Management (dose changes, additions / discontinuations)
+
+    CLINICAL CUES
+
+    * Fever: capture temperature (°F/°C), duration, pattern (continuous / intermittent / remittent / hectic), and associated chills/rigors and rash.
+    * Pain: capture SOCRATES (site, onset, character, radiation, associated symptoms, timing, exacerbating/relieving factors, severity 0–10).
+    * Screen common comorbidities (hypertension, diabetes, thyroid, asthma/COPD); record screened negatives in Past Medical History (e.g. "no diabetes").
+    * Capture drug/brand names exactly as stated (e.g. Calpol, Dolo, Pan-D); do not convert brand ↔ generic.
+    * Prescription completeness: each drug needs name + dose + frequency + duration; if an element was not stated, leave it blank — do not fill in typical values.
+    * Document measured values only — do not label BP as "hypertensive" or temperature as "febrile" unless the doctor states it.
+    * In multi-system presentations, capture all complaints; do not prioritise one unless the doctor does.
+    * Paediatric (<18): capture the accompanying guardian's name, relationship, and concerns; weight-for-age if a growth concern is raised.
+    * Follow-ups: document what changed since the last visit — symptom status, compliance, new investigations, medication adjustments, overall trajectory.
+
+    RULES
+
+    * Include only sections that have data. Omit any section with no data — never write "not mentioned", "not applicable", or placeholders like [?], [unknown], [not specified].
+    * Never fabricate or infer. Write only what is explicitly stated or clearly implied; do not predict generic drug names, diagnoses, or interpretations.
+    * Capture pertinent negatives as well as positive findings (e.g. "no fever", "no history of diabetes", "denies chest pain").
+    * Translate all output to English, whatever the language of consultation.
+    * Write in third person ("the patient", "he", "she"); never address the patient as "you".
+    * Do not repeat the same information across sections.
+    * If there is no medically relevant content whatsoever, return exactly: No medical information is available in this conversation.
+  section_ids: []

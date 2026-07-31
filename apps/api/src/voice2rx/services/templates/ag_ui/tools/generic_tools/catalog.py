@@ -7,7 +7,7 @@ import yaml
 from logs.custom_logger import get_logger
 from pydantic import BaseModel, ConfigDict
 
-from .generic import NAME_TO_TOOL, _GenericEmitTool
+from .generic import DISABLED_TOOLS, NAME_TO_TOOL, _GenericEmitTool
 
 logger = get_logger(__name__)
 
@@ -53,8 +53,9 @@ def load_tool_prompts() -> ToolPromptsConfig:
             f"Failed to load tool prompts from {_TOOL_PROMPTS_PATH}: {e}"
         ) from e
 
+    # Disabled tools keep their yaml entries so re-enabling is a one-line change.
     missing = set(NAME_TO_TOOL) - set(config.tools)
-    unknown = set(config.tools) - set(NAME_TO_TOOL)
+    unknown = set(config.tools) - set(NAME_TO_TOOL) - DISABLED_TOOLS
     if missing or unknown:
         raise RuntimeError(
             f"tool_prompts.yaml out of sync with NAME_TO_TOOL registry: "
@@ -83,7 +84,7 @@ def validate_available_tools(value: Optional[str]) -> Optional[str]:
     if stripped.lower() == "all":
         return "all"
     tokens = _parse_tokens(stripped)
-    unknown = [t for t in tokens if t not in NAME_TO_TOOL]
+    unknown = [t for t in tokens if t not in NAME_TO_TOOL and t not in DISABLED_TOOLS]
     if unknown:
         raise ValueError(
             f"Unknown tools in available_tools: {unknown}. "
@@ -111,7 +112,9 @@ class ToolCatalog:
             return [self._spec(name) for name in NAME_TO_TOOL]
 
         tokens = _parse_tokens(available_tools)
-        unknown = [t for t in tokens if t not in NAME_TO_TOOL]
+        unknown = [
+            t for t in tokens if t not in NAME_TO_TOOL and t not in DISABLED_TOOLS
+        ]
         if unknown:
             logger.warning(
                 "available_tools contains unknown tool names; ignoring them",

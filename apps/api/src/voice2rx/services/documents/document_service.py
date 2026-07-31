@@ -218,7 +218,6 @@ class DocumentService:
 
         try:
             from scribe_core.storage import get_blob_store
-
             get_blob_store().put(
                 self.bucket_name,
                 file_key,

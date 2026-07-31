@@ -124,6 +124,13 @@ ORDER BY rank ASC, score DESC, name ASC
 LIMIT %(limit)s
 """
 
+HAS_WORKSPACE_SQL = """
+SELECT 1
+FROM datasets_medication
+WHERE workspace_id = %(b_id)s AND is_active = TRUE
+LIMIT 1
+"""
+
 
 def canon_strength(strength: str) -> str:
     """Number-sequence canonical form for strength comparison:
@@ -159,6 +166,8 @@ class MedicationSearchBackend(Protocol):
         form: str = "",
         limit: int = DEFAULT_SUGGESTION_LIMIT,
     ) -> List[MedicationHit]: ...
+
+    async def has_workspace(self, b_id: str) -> bool: ...
 
 
 def _row_to_hit(row: Dict[str, Any], rank: int, score: float) -> MedicationHit:
@@ -230,6 +239,12 @@ class PostgresMedicationSearch:
             },
         )
         return [_row_to_hit(r, int(r["rank"]), float(r["score"])) for r in rows]
+
+    async def has_workspace(self, b_id: str) -> bool:
+        rows = await self._get_client().fetch_all(
+            HAS_WORKSPACE_SQL, params={"b_id": b_id}
+        )
+        return bool(rows)
 
 
 def _word_similarity(query: str, text: str) -> float:
@@ -361,6 +376,13 @@ class CsvMedicationSearch:
 
         ordered = sorted(best.values(), key=lambda h: (h.rank, -h.score, h.name))
         return ordered[:limit]
+
+    async def has_workspace(self, b_id: str) -> bool:
+        return any(
+            row.get("workspace_id", "") == b_id
+            and row.get("is_active", "").lower() not in ("false", "0")
+            for row in self._load()
+        )
 
 
 BUNDLED_CATALOG_CSV = os.path.join(os.path.dirname(__file__), "drug_catalog.csv")

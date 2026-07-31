@@ -225,7 +225,17 @@ ALL_GENERIC_TOOLS: Dict[SectionKind, Type[_GenericEmitTool]] = {
     SectionKind.LAB_INVESTIGATIONS: LabInvestigationsTool,
 }
 
-# Name-keyed registry for template-driven tool selection (available_tools).
+# switch for turning off tools
+DISABLED_TOOLS: frozenset = frozenset(
+    {
+        "add_patient_medical_history",
+        "add_diagnosis",
+        "add_examination_findings",
+        "add_lab_investigations"
+    }
+)
+
+# name-keyed registry for template-driven tool selection (available_tools).
 NAME_TO_TOOL: Dict[str, Type[_GenericEmitTool]] = {
     cls.name: cls
     for cls in (
@@ -242,4 +252,5 @@ NAME_TO_TOOL: Dict[str, Type[_GenericEmitTool]] = {
         ExaminationFindingsTool,
         LabInvestigationsTool,
     )
+    if cls.name not in DISABLED_TOOLS
 }

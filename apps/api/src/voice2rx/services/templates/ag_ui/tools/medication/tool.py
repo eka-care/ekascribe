@@ -87,6 +87,8 @@ _FORM_WORDS = frozenset(
     }
 )
 
+DEFAULT_CATALOG_WORKSPACE = "default"
+
 
 def normalize_drug_query(dictated_name: str) -> str:
     """Trim + drop dosage-form words; fall back to the trimmed original
@@ -274,6 +276,7 @@ async def enrich_medication_payload(
     backend: MedicationSearchBackend,
     suggestion_limit: int = DEFAULT_SUGGESTION_LIMIT,
     match_threshold: float = DEFAULT_MATCH_THRESHOLD,
+    session_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     rows = [dict(r) for r in payload.get("rows", [])]
     all_terms = [SearchTerms.from_row(r) for r in rows]
@@ -295,6 +298,7 @@ async def enrich_medication_payload(
                 "medication catalog search failed; row left unmatched",
                 drug=terms.name,
                 b_id=b_id,
+                session_id=session_id,
                 error=str(e),
             )
             return []
@@ -326,7 +330,27 @@ async def enrich_medication_payload(
 
 
 def _search_enabled() -> bool:
-    return True
+    return False
+
+async def _resolve_catalog_workspace(
+    b_id: str, backend: MedicationSearchBackend, session_id: Optional[str] = None
+) -> str:
+    """A business searches its own formulary only when the catalog holds
+    at least one active row for it; otherwise search the shared catalog
+    stored under workspace_id "default". Fail-open to the shared catalog
+    on any lookup error."""
+    try:
+        if await backend.has_workspace(b_id):
+            return b_id
+    except Exception as e:
+        logger.warning(
+            "formulary existence check failed; using default catalog",
+            b_id=b_id,
+            session_id=session_id,
+            error=str(e),
+        )
+    return DEFAULT_CATALOG_WORKSPACE
+
 
 class MedicationTableTool(BaseTool):
     name = "add_medication_table"
@@ -350,26 +374,35 @@ class MedicationTableTool(BaseTool):
         if not _search_enabled():
             return payload
         b_id = (tool_context or {}).get("b_id")
+        session_id = (tool_context or {}).get("txn_id")
         if not b_id:
-            logger.warning(f"{self.name}: no b_id in tool_context; skipping catalog enrichment")
-            return payload
-        
-        try:
-            timeout = float(os.getenv("MEDICATION_SEARCH_TIMEOUT", "3"))
-            return await asyncio.wait_for(
-                enrich_medication_payload(
-                    payload,
-                    b_id=str(b_id),
-                    backend=get_medication_search_backend(),
-                    suggestion_limit=DEFAULT_SUGGESTION_LIMIT,
-                    match_threshold=DEFAULT_MATCH_THRESHOLD
-                ),
-                timeout=timeout,
+            logger.warning(f"{self.name}: no b_id in tool_context; skipping catalog enrichment",
+                session_id=session_id,
             )
+            return payload
+
+        try:
+            timeout = float(os.getenv("MEDICATION_SEARCH_TIMEOUT", "5"))
+            backend = get_medication_search_backend()
+            async def _resolve_and_enrich() -> Dict[str, Any]:
+                search_bid = await _resolve_catalog_workspace(
+                    str(b_id), backend, session_id=session_id
+                )
+                return await enrich_medication_payload(
+                    payload,
+                    b_id=search_bid,
+                    backend=backend,
+                    suggestion_limit=DEFAULT_SUGGESTION_LIMIT,
+                    match_threshold=DEFAULT_MATCH_THRESHOLD,
+                    session_id=session_id,
+                )
+
+            return await asyncio.wait_for(_resolve_and_enrich(), timeout=timeout)
         except Exception as e:
             logger.warning(
                 f"{self.name}: catalog enrichment failed; emitting section unenriched",
                 b_id=str(b_id),
+                session_id=session_id,
                 error=str(e),
             )
             return payload

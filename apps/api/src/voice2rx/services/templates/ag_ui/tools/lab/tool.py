@@ -383,7 +383,7 @@ async def enrich_lab_investigations_payload(
 
 
 def _search_enabled() -> bool:
-    return True
+    return False
 
 
 class LabInvestigationsTool(BaseTool):
