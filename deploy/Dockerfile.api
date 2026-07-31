@@ -20,6 +20,8 @@ COPY scripts ./scripts
 COPY .env.example ./
 
 ENV STORAGE_ROOT=/data/storage LOG_DIR=/data/logs ECHO_PROMPT_DIR=/app/prompts
+# src-layout packages (logs, voice2rx, scribe_api, medical_record) importable regardless of install mode
+ENV PYTHONPATH=/app/apps/api/src
 EXPOSE 8000
 # EXECUTION_MODE=inprocess (default) runs the pipeline in-process — use 1 worker
 # so background jobs + in-memory state stay in one process. For EXECUTION_MODE=worker,

@@ -16,4 +16,5 @@ RUN uv sync --all-packages --frozen --no-dev
 COPY prompts ./prompts
 
 ENV STORAGE_ROOT=/data/storage LOG_DIR=/data/logs ECHO_PROMPT_DIR=/app/prompts
+ENV PYTHONPATH=/app/apps/api/src:/app/apps/worker/src
 CMD ["uv", "run", "procrastinate", "--app", "scribe_worker.main.queue_app", "worker", "-q", "scribe"]
