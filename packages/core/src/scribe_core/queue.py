@@ -27,8 +27,8 @@ PROCRASTINATE_QUEUE = "scribe"
 
 class TaskQueue(ABC):
     @abstractmethod
-    def enqueue(self, task: str, payload: Dict[str, Any]) -> bool:
-        """Durably enqueue a job. Returns True on success."""
+    def enqueue(self, task: str, payload: Dict[str, Any], delay_seconds: int = 0) -> bool:
+        """Durably enqueue a job (optionally deferred by delay_seconds). Returns True on success."""
 
 
 class ProcrastinateQueue(TaskQueue):
@@ -44,8 +44,11 @@ class ProcrastinateQueue(TaskQueue):
         )
         self._app.open()
 
-    def enqueue(self, task: str, payload: Dict[str, Any]) -> bool:
-        self._app.configure_task(name=task, queue=PROCRASTINATE_QUEUE).defer(**payload)
+    def enqueue(self, task: str, payload: Dict[str, Any], delay_seconds: int = 0) -> bool:
+        kwargs = {"name": task, "queue": PROCRASTINATE_QUEUE}
+        if delay_seconds and delay_seconds > 0:
+            kwargs["schedule_in"] = {"seconds": int(delay_seconds)}
+        self._app.configure_task(**kwargs).defer(**payload)
         return True
 
 
@@ -58,18 +61,19 @@ class SQSTaskQueue(TaskQueue):
         s = get_settings()
         self._client = boto3.client("sqs", region_name=s.aws_region)
 
-    def enqueue(self, task: str, payload: Dict[str, Any]) -> bool:
+    def enqueue(self, task: str, payload: Dict[str, Any], delay_seconds: int = 0) -> bool:
         import orjson
 
         url = self._client.get_queue_url(QueueName=task)["QueueUrl"]
-        self._client.send_message(QueueUrl=url, MessageBody=orjson.dumps(payload).decode())
+        kwargs = {"QueueUrl": url, "MessageBody": orjson.dumps(payload).decode()}
+        if delay_seconds and delay_seconds > 0:
+            kwargs["DelaySeconds"] = min(int(delay_seconds), 900)  # SQS max 15 min
+        self._client.send_message(**kwargs)
         return True
 
 
 _queue: Optional[TaskQueue] = None
 _lock = threading.Lock()
-
-
 def get_task_queue() -> TaskQueue:
     global _queue
     if _queue is None:

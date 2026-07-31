@@ -29,7 +29,21 @@ logger = get_logger(__name__)
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    # In-process background job runner (EXECUTION_MODE=inprocess): runs the
+    # scribe pipeline in this process instead of a separate procrastinate worker.
+    s = get_settings()
+    if s.execution_mode == "inprocess":
+        import asyncio
+
+        from voice2rx.background.runner import get_background_runner
+
+        get_background_runner().start(asyncio.get_running_loop())
+        logger.info("in-process background job runner enabled")
     yield
+    if get_settings().execution_mode == "inprocess":
+        from voice2rx.background.runner import get_background_runner
+
+        get_background_runner().shutdown()
 
 
 def create_app() -> FastAPI:
@@ -143,6 +157,7 @@ def create_app() -> FastAPI:
         storage=s.storage_backend,
         db=s.db_backend,
         queue=s.queue_backend,
+        execution_mode=s.execution_mode,
     )
     return app
 

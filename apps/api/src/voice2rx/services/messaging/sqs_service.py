@@ -42,11 +42,11 @@ class SQSService:
 
         if get_settings().queue_backend == "postgres":
             try:
-                from scribe_core.queue import get_task_queue
+                from voice2rx.background.dispatch import dispatch
 
                 task = self.QUEUE_TASK_MAP.get(queue_name, queue_name)
                 payload = json.loads(json.dumps(message_body, cls=DecimalEncoder))
-                get_task_queue().enqueue(task, {"message": payload})
+                dispatch(task, {"message": payload})
                 return {"success": True, "message_id": f"pg:{task}"}
             except Exception as e:
                 return {"success": False, "error": str(e)}

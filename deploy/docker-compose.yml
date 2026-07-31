@@ -36,6 +36,10 @@ services:
         condition: service_healthy
 
   worker:
+    # Only needed for EXECUTION_MODE=worker. Start with: docker compose --profile worker up
+    # (and set EXECUTION_MODE=worker + UVICORN_WORKERS on api). Default mode
+    # (inprocess) runs the pipeline inside the api container, so this stays off.
+    profiles: ["worker"]
     build:
       context: ..
       dockerfile: deploy/Dockerfile.worker

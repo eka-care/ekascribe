@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     storage_backend: Literal["local", "s3"] = "local"
     db_backend: Literal["postgres", "dynamodb"] = "postgres"
     queue_backend: Literal["postgres", "sqs"] = "postgres"
+    # Where the on-prem pipeline runs (when queue_backend=postgres):
+    #   inprocess = FastAPI in-process background jobs (single container, no worker)
+    #   worker    = defer to Postgres/procrastinate; apps/worker consumes
+    execution_mode: Literal["worker", "inprocess"] = "inprocess"
     state_backend: Literal["postgres", "redis"] = "postgres"
 
     # --- Storage ------------------------------------------------------------

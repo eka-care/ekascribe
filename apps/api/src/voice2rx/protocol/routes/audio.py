@@ -281,12 +281,10 @@ async def upload_audio(
             
             # On-prem pipeline: transcribe each chunk as it lands (plan B3).
             from scribe_core.settings import get_settings as _gs
-
             if _gs().queue_backend == "postgres":
                 try:
-                    from scribe_core.queue import get_task_queue
-
-                    get_task_queue().enqueue(
+                    from voice2rx.background.dispatch import dispatch
+                    dispatch(
                         "transcribe_chunk",
                         {
                             "txn_id": session_id,
@@ -303,7 +301,7 @@ async def upload_audio(
                         severity="medium",
                     )
 
-            # Update transaction with simplified filename (e.g., "0.webm", "1.mp3")
+            # update transaction with simplified filename (e.g., "0.webm", "1.mp3")
             simple_filename = result["filename"]
             current_files = session_data.get("client_uploaded_files", [])
             

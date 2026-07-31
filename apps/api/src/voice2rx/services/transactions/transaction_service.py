@@ -713,9 +713,9 @@ class TransactionService:
             if get_settings().queue_backend == "postgres":
                 # On-prem: the worker's vad_session task replaces the chunker
                 # lambda behind SNS (plan B3).
-                from scribe_core.queue import get_task_queue
+                from voice2rx.background.dispatch import dispatch
 
-                get_task_queue().enqueue("vad_session", {"message": sns_payload})
+                dispatch("vad_session", {"message": sns_payload})
                 sns_response = {"backend": "postgres", "task": "vad_session"}
             else:
                 sns_response = self.sns_client.publish(
