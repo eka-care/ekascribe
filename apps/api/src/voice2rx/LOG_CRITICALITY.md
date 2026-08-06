@@ -9,7 +9,6 @@ dashboards vs. noise**, so you can wire alert conditions to the right severity.
 Each notable logger call now carries a `severity=` keyword argument, e.g.:
 
 ```python
-logger.error("eka_usage_sdk error", error=str(exc), ctx=ctx, severity="critical")  # usage metering failure, revenue leak
 logger.warning("Skipping non-numeric file", filename=filename, severity="medium")   # skipping non-numeric file
 logger.error("swagger spec missing", severity="low")                                # swagger spec missing
 ```
@@ -64,7 +63,6 @@ Grouped by domain, with the hottest files. These are the surfaces to build alert
 conditions around.
 
 ### 1. Billing / usage metering — revenue leak
-- `voice2rx/utils/eka_usage_client.py` — metering call failure, pending usage events lost,
   usage-record failure. **Directly loses billable events.**
 
 ### 2. Transaction lifecycle — core money + clinical entry point
@@ -79,7 +77,6 @@ conditions around.
   found", combined-audio upload / credential / AWS failures.
 - `voice2rx/services/transactions/audio_service.py` — audio metadata persistence failures.
 - `voice2rx/model_orms/audio_details_orm.py` — audio write/update failures.
-- `voice2rx/streaming/api/stream_ws_router.py` — WS rejected (audio lost), live stream
   error, final chunk lost, session commit lost.
 - `voice2rx/protocol/routes/audio.py`, `protocol/adaptors/audio_adaptor.py`,
   `protocol/services/s3_async_service.py` — chunk upload / async S3 write failures.
@@ -104,7 +101,6 @@ conditions around.
 ### 5. External delivery of the patient record
 - `voice2rx/services/publish/publish_service.py` — config load failure blocks all publishing;
   integration delivery raised.
-- `voice2rx/services/publish/integrations/emr_webhook.py` — EMR/vault delivery + webhook failures.
 - `voice2rx/services/messaging/webhook.py` — webhook delivery failures.
 - `voice2rx/services/messaging/process_fhir_data.py` — FHIR ingest HTTP/network/timeout
   failures, source download failure, processing failure.
@@ -148,7 +144,6 @@ Safe to ignore for alerting.
 ## Suggested New Relic wiring
 
 1. **Alert (page)** on any log with `severity = 'critical'` in domains 1–5 above — especially
-   `eka_usage_client`, `combine_audios`, `stream_ws_router`, `emr_webhook`,
    `process_fhir_data`, and unhandled 5xx from `error_handler`.
 2. **Warning threshold** on rate spikes of `severity = 'medium'` (e.g. prompt-fallback rate, parse-fallback
    rate, DynamoDB read-failure rate) — a rising trend is an early warning.

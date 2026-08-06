@@ -38,7 +38,6 @@ from voice2rx.core.exceptions import (
     TransactionNotFoundException,
 )
 from voice2rx.services.transactions.transaction_service import TransactionService
-from voice2rx.utils.fhir_utils import fetch_intermediate_fhir_result
 from voice2rx.utils.time_utils import iso_to_epoch
 
 logger = get_logger(__name__)
@@ -50,42 +49,9 @@ PROCESSING_TIMEOUT_SECONDS = 120
 
 # Template configurations
 LEGACY_TEMPLATE_IDS = ["clinical_note_template", "transcript_template"]
-INTEGRATION_TEMPLATE_IDS = [
-    "fhir_template_v2",
-    "eka_emr_template",
-    "nic_template",
-    "clinikk_template",
-    "eka_emr_to_fhir_template",
-]
+INTEGRATION_TEMPLATE_IDS: list = []
 
 OUTPUT_TEMPLATES = {
-    "fhir_template_v2": {
-        "template_id": "fhir_template_v2",
-        "details": {
-            "name": "V2DD template",
-            "short_description": "Structured medical information in FHIR format",
-            "long_description": "The FHIR Output template organizes extracted medical information into the FHIR standard format, enabling seamless integration with healthcare systems and applications that support FHIR.",
-            "type": "json",
-        },
-    },
-    "nic_template": {
-        "template_id": "nic_template",
-        "details": {
-            "name": "NIC Template",
-            "short_description": "NIC Template",
-            "long_description": "NIC Template",
-            "type": "json",
-        },
-    },
-    "eka_emr_template": {
-        "template_id": "eka_emr_template",
-        "details": {
-            "name": "Eka EMR Format",
-            "short_description": "Structures medical conversations into doctor prescription format of Eka EMR",
-            "long_description": "The Eka EMR template formats clinical conversations into structured doctor prescriptions, including chief complaints, diagnosis, medications, tests, and advice.",
-            "type": "json",
-        },
-    },
     "clinical_note_template": {
         "template_id": "clinical_note_template",
         "details": {
@@ -111,24 +77,6 @@ OUTPUT_TEMPLATES = {
             "short_description": "Raw transcript of the conversations",
             "long_description": "The Transcript template provides the verbatim content of medical conversations without additional structuring or formatting.",
             "type": "text",
-        },
-    },
-    "eka_emr_to_fhir_template": {
-        "template_id": "eka_emr_to_fhir_template",
-        "details": {
-            "name": "Parchi to FHIR",
-            "short_description": "Extracts information in Parchi format and then converts it to FHIR format",
-            "long_description": "The Parchi to FHIR template extracts information in Parchi format and then converts it to FHIR format",
-            "type": "json",
-        },
-    },
-    "clinikk_template": {
-        "template_id": "clinikk_template",
-        "details": {
-            "name": "Clinikk Template",
-            "short_description": "Clinikk Template",
-            "long_description": "Clinikk Template",
-            "type": "json",
         },
     },
 }
@@ -934,7 +882,6 @@ class ResultService:
                 txn_id,
             )
 
-        self._add_fhir_json_template(response, transaction_data)
         # get status code based on the template results.
         if status_flags["all_failed"]:
             status_code = HTTPStatus.INTERNAL_SERVER_ERROR
@@ -1361,30 +1308,3 @@ class ResultService:
             return True
         return False
 
-    def _add_fhir_json_template(
-        self, response: Dict[str, Any], transaction_data: Dict[str, Any]
-    ) -> None:
-        try:
-            b_id = transaction_data.get("b_id", "") or transaction_data.get("c_id", "")
-            txn_id = transaction_data.get("txn_id", "")
-            if b_id == "EC_173373528300322" and transaction_data.get("fhir_ingested"):
-                template_value = fetch_intermediate_fhir_result(txn_id)
-                template_data = {
-                    "template_id": "fhir_json",
-                    "value": template_value,
-                    "type": "json",
-                    "name": "FHIR JSon",
-                    "status": "success",
-                    "errors": [],
-                    "warnings": [],
-                }
-                response["data"]["output"].append(template_data)
-
-        except Exception as e:
-            logger.error(
-                "RESULT SERVICE: Error in adding fhir_json template",
-                txn_id=transaction_data.get("txn_id"),
-                error=str(e),
-                severity="medium",
-            )
-            return

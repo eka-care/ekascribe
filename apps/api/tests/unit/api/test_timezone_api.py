@@ -94,16 +94,15 @@ class TestTimezoneAPI:
         assert "detail" in data
         assert "Invalid timezone" in data["detail"]
 
-    def test_get_config_missing_jwt_payload(self, client):
+    def test_get_config_without_jwt_gets_dev_identity(self, client):
+        # DevAuthMiddleware injects the dev identity when no jwt-payload is
+        # supplied, so an anonymous request resolves to the dev workspace.
         response = client.get(
             "/voice/api/v2/config/",
             params={"timezone": "Asia/Kolkata"}
         )
-        
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-        data = response.json()
-        assert "detail" in data
-        assert "jwt-payload" in data["detail"].lower() or "missing" in data["detail"].lower()
+
+        assert response.status_code == status.HTTP_200_OK
 
     def test_get_config_missing_bid_in_jwt(self, client):
         headers = {"jwt-payload": json.dumps({"uuid": "test-user"})}

@@ -43,8 +43,7 @@ def build_scribe_agent_config_v2(
     
     if not parsed.guardrails or not parsed.approach:
         logger.warning(
-            "agentic_ui_v2 prompt is missing v2 sections; check the Langfuse "
-            "prompt structure",
+            "agentic_ui_v2 prompt is missing v2 sections; check the prompt file",
             has_approach=bool(parsed.approach),
             has_guardrails=bool(parsed.guardrails),
         )
@@ -59,6 +58,16 @@ def build_scribe_agent_config_v2(
         + "\n</tools>"
     )
     expected_output = (parsed.expected_output_for("markdown") or "").strip()
+    if not expected_output and len(tool_specs) > 1:
+        # Default anchor when the prompt file carries no expected_output and
+        # structured tools are in play: reinforce tools-only output.
+        expected_output = (
+            f"Your ENTIRE response is tool calls ({tool_names}). Zero free "
+            "text, zero preambles, zero summaries, zero questions — NEVER ask "
+            "for more information. One call per template section with "
+            "supporting data; arguments in the order: key, display_name, "
+            "order, payload."
+        )
     return EchoAgentConfig(
         persona=PersonaConfig(role=parsed.role(), goal="", backstory=""),
         task=TaskConfig(

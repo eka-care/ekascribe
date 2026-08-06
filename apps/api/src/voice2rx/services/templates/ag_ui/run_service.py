@@ -25,7 +25,6 @@ from voice2rx.agents.agent_config import LLMAgentConfig
 from voice2rx.services.context import ResolvedContext, build_conversation_context
 from voice2rx.services.documents import document_tiptap_service
 from voice2rx.services.documents.document_service import DocumentService
-from voice2rx.services.webhooks import ScribeEvent, build_document_data, emit
 
 from .prompt_assembly import build_ag_ui_agent_config, build_scribe_agent_config_v2
 from .state import ScribeState
@@ -222,26 +221,12 @@ class AgUiRunService:
                     status="success",
                 )
                 self._persist_agui_state(state, document_id)
-                self._emit_document_generated(inputs)
                 yield StateSnapshotEvent(
                     type=EventType.STATE_SNAPSHOT,
                     snapshot=state.snapshot(),
                 )
             yield ev
 
-    def _emit_document_generated(self, inputs: ResolvedRunInputs) -> None:
-        emit(
-            ScribeEvent.DOCUMENT_GENERATE,
-            b_id=inputs.b_id,
-            c_id=inputs.c_id,
-            txn_id=inputs.txn_id,
-            data=build_document_data(
-                session_id=inputs.txn_id,
-                document_id=inputs.document_id,
-                template_id=inputs.template_id,
-                source="ag_ui",
-            ),
-        )
 
     def _persist_agui_state(self, state: ScribeState, document_id: str) -> None:
         try:
@@ -336,7 +321,6 @@ class AgUiRunService:
                     status="success",
                 )
                 self._persist_agui_state(state, inputs.document_id)
-                # self._emit_document_generated(inputs)
                 yield StateSnapshotEvent(
                     type=EventType.STATE_SNAPSHOT,
                     snapshot=state.snapshot(),

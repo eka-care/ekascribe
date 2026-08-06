@@ -16,10 +16,6 @@ from voice2rx.api.schemas.template_schema import (
     SectionCreateResponse, SectionUpdateResponse, TemplateCreateResponse,
     MessageResponse, TemplateUpdateModel, SectionUpdateModel
 )
-from voice2rx.services.templates.langfuse_template_sync import (
-    get_langfuse_template_sync,
-    PROMPT_DELETED,
-)
 
 from logs.custom_logger import get_logger
 logger = get_logger(__name__)
@@ -33,7 +29,6 @@ class TemplateModel(BaseModel):
     section_ids: List[str] = Field(default_factory=list)
     type: Optional[str] = None # default/custom/integration
     available_tools: Optional[str] = None
-    langfuse_prompt_name: Optional[str] = None
     archived: Optional[bool] = None
     archived_at: Optional[str] = None
     created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
@@ -469,18 +464,6 @@ class TemplateService:
             available_tools=template_data.available_tools
         )
 
-        # langfuse sync: markdown-only templates in prod are mirrored as text
-        # prompts. Run BEFORE Dynamo so a Langfuse failure surfaces as 5xx
-        # without leaving a half-written row.
-        sync = get_langfuse_template_sync()
-        if sync.is_active() and template_data.desc and not template_data.section_ids:
-            template.langfuse_prompt_name = sync.create(
-                template_id=template.id,
-                template_name=template_data.title,
-                desc=template_data.desc,
-                wid=wid,
-            )
-
         template_dict = template.model_dump(exclude_none=True)
         dynamo = get_dynamo_client()
 
@@ -519,17 +502,12 @@ class TemplateService:
                 if my_tpl.get("id") not in accessible_map:
                     accessible_map[my_tpl.get("id")] = my_tpl
 
-            sync = get_langfuse_template_sync()
-
             def to_template_response(template):
-                resolved = sync.hydrate_desc(template)
-                if resolved is PROMPT_DELETED:
-                    # prompt deleted from Langfuse (source of truth) -> exclude.
-                    return None
+                # The database is the source of truth for template content.
                 return TemplateResponse(
                     id=template.get("id", ""),
                     title=template.get("title", ""),
-                    desc=resolved or "",
+                    desc=template.get("desc") or "",
                     section_ids=template.get("section_ids", []),
                     default=template.get("wid") == "DEFAULT",
                     is_favorite=template.get("id") in my_template_ids,
@@ -585,39 +563,6 @@ class TemplateService:
         )
 
         update_data = update_model.model_dump(exclude_none=True)
-
-        sync = get_langfuse_template_sync()
-        if sync.is_active():
-            effective_section_ids = (
-                template_data.section_ids
-                if template_data.section_ids is not None
-                else template.get("section_ids")
-            )
-            template_description = (
-                template_data.desc
-                if template_data.desc is not None
-                else template.get("desc")
-            )
-            template_title = template_data.title or template.get("title")
-
-            if template_description and not effective_section_ids:
-                langfuse_prompt_name = template.get("langfuse_prompt_name")
-                if langfuse_prompt_name:
-                    sync.update(
-                        langfuse_prompt_name=langfuse_prompt_name,
-                        template_id=template_id,
-                        template_name=template_title,
-                        desc=template_description,
-                        wid=wid,
-                    )
-                else:
-                    new_prompt_name = sync.create(
-                        template_id=template_id,
-                        template_name=template_title,
-                        desc=template_description,
-                        wid=wid,
-                    )
-                    update_data["langfuse_prompt_name"] = new_prompt_name
 
         update_expression = "SET " + ", ".join([f"#{k} = :{k}" for k in update_data.keys()])
         expression_attribute_names = {f"#{k}": k for k in update_data.keys()}
@@ -701,13 +646,6 @@ class TemplateService:
                 table_name="ekascribe_template",
                 key={"id": template_id}
             )
-            if template:
-                # Langfuse is the source of truth for markdown-only content.
-                resolved = get_langfuse_template_sync().hydrate_desc(template)
-                if resolved is PROMPT_DELETED:
-                    # Prompt deleted from Langfuse -> template content is gone.
-                    return None
-                template["desc"] = resolved
             return template
         except Exception as e:
             logger.error(f"Failed to fetch template {template_id}: {str(e)}", severity="critical")
@@ -740,13 +678,6 @@ class TemplateService:
     def get_template(template_id: str) -> Optional[Dict[str, Any]]:
         dynamo = DynamoHelper('ekascribe_template')
         template = dynamo.get_item({"id": template_id})
-        if template:
-            # Langfuse is the source of truth for markdown-only content; feeds
-            # the convert/agent-run prompt builders too.
-            resolved = get_langfuse_template_sync().hydrate_desc(template)
-            if resolved is PROMPT_DELETED:
-                # Prompt deleted from Langfuse -> treat the template as missing.
-                return None
-            template["desc"] = resolved
+        # The database is the source of truth for template content (desc).
         return template
 

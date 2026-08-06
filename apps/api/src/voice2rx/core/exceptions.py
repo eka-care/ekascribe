@@ -64,7 +64,7 @@ class DatabaseException(Voice2RxException):
 class TransactionLimitExceededException(Voice2RxException):
     def __init__(self):
         super().__init__(
-            message="You're out of free Eka Scribe sessions for today!",
+            message="You're out of free sessions for today!",
             code="txn_limit_exceeded",
             status_code=400,
         )

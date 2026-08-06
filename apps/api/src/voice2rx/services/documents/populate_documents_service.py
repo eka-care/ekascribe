@@ -107,9 +107,25 @@ class PopulateDocumentsService:
                     session_id, "transcript"
                 )
             if not existing_doc_id:
-                raise Exception(f"transcript entry not found for session-id:{session_id}")
-            
-            logger.info("Existing transcript document found, updating content", session_id=session_id, document_id=existing_doc_id)
+                created = self.document_service.create_document(
+                    session_id=session_id,
+                    template_id=template_id,
+                    uuid_val=uuid_val,
+                    wid=b_id,
+                    doc_type="transcript",
+                )
+                existing_doc_id = (created or {}).get("document_id")
+                if not existing_doc_id:
+                    raise Exception(
+                        f"failed to create transcript document for session-id:{session_id}"
+                    )
+                logger.info(
+                    "Created transcript document",
+                    session_id=session_id,
+                    document_id=existing_doc_id,
+                )
+            else:
+                logger.info("Existing transcript document found, updating content", session_id=session_id, document_id=existing_doc_id)
             file_key = self.document_service.write_document_content(
                 s3_url=s3_url,
                 document_id=existing_doc_id,
@@ -142,7 +158,7 @@ class PopulateDocumentsService:
         transaction_data: Optional[Dict[str, Any]] = None,
         processing_error: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, Any]]:
-        if processing_error and processing_status and processing_status in _FAILED_STATUSES:
+        if processing_status and processing_status in _FAILED_STATUSES:
             self._mark_documents_failed(session_id, b_id, output_template_result, transaction_data)
             return []
 
@@ -371,10 +387,16 @@ class PopulateDocumentsService:
         logger.error("Transaction in failed/cancelled state, cannot populate documents", session_id=session_id, b_id=b_id, severity="medium")
         # get all documents and mark them failed if request_failure from the ds_service.
         try:
-            documents = self.document_service.get_documents_for_session(session_id)
-            for doc in documents:
+            request_templates = (transaction_data or {}).get("request_templates", {})
+            doc_ids = [
+                t.get("document_id")
+                for section in ("visual", "integration")
+                for t in request_templates.get(section, [])
+                if t.get("document_id")
+            ]
+            for document_id in doc_ids:
                 self.document_service.update_document(
-                    document_id=doc.get("document_id"),
+                    document_id=document_id,
                     update_data={
                         "status": "failure",
                         "processed_at": get_current_epoch_timestamp(),
@@ -382,32 +404,11 @@ class PopulateDocumentsService:
                 )
         except Exception as e:
             logger.error(
-                "Error marking documents as failed",
+                "Failed to mark documents as failed",
                 session_id=session_id,
                 error=str(e),
-                exc_info=True,
-                severity="critical",
+                severity="medium",
             )
-
-        # doc_id_map: Dict[str, str] = {}
-        # if transaction_data:
-        #     all_templates = TemplateFormatConverter.get_all_templates(transaction_data)
-        #     doc_id_map = {
-        #         t.get("template_id"): t.get("document_id")
-        #         for t in all_templates
-        #         if t.get("template_id") and t.get("document_id")
-        #     }
-
-        # for template_id in (output_template_result or {}):
-        #     document_id = doc_id_map.get(template_id)
-        #     if document_id:
-        #         self.document_service.update_document(
-        #             document_id=document_id,
-        #             update_data={
-        #                 "status": "failure",
-        #                 "processed_at": get_current_epoch_timestamp(),
-        #             },
-        #         )
 
     def _read_output(self, ctx: "PopulateContext") -> Optional[Dict[str, Any]]:
         """Read template output from the appropriate source based on call context."""

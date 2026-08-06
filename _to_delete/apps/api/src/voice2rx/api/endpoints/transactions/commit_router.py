@@ -65,14 +65,14 @@ async def commit_transaction(
             background_tasks=background_tasks,
         )
 
-        # send the request to sqs with transaction data and audio file pahts for structuring.
-        sqs_success = transaction_service.send_commit_to_sqs(
+        # enqueue the processing job with transaction data and audio file paths for structuring.
+        enqueue_success = transaction_service.enqueue_processing(
             txn_id, b_id, 
             transaction_data, 
             audio_files
         )
 
-        if not sqs_success:
+        if not enqueue_success:
             logger.error(
                 "COMMIT API: Failed to send message to SQS",
                 txn_id=txn_id,

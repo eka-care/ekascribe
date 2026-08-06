@@ -17,4 +17,4 @@ logs/
 !apps/api/src/logs/
 !apps/api/src/logs/**
 *.egg-info/
-.next/
+.next//_to_delete/

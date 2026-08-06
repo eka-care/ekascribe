@@ -150,5 +150,8 @@ class TestGetStorageClient:
         b = get_storage_client()
         assert a is b
 
-    def test_default_is_s3(self):
-        assert isinstance(get_storage_client(), S3StorageClient)
+    def test_default_is_local(self):
+        # STORAGE_BACKEND defaults to local on-prem
+        from voice2rx.services.storage import LocalStorageClient
+
+        assert isinstance(get_storage_client(), LocalStorageClient)

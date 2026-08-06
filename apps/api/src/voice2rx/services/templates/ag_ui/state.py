@@ -16,7 +16,6 @@ from .payloads import (  # noqa: F401
     KeyValueItem,
     KeyValuePayload,
     ListPayload,
-    MedicationTablePayload,
     NarrativePayload,
     Section,
     SectionKind,

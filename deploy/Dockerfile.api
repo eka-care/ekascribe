@@ -17,12 +17,11 @@ RUN uv sync --all-packages --frozen --no-dev
 # a .pth adds the whole src dir to sys.path at interpreter startup (site.py).
 RUN printf '/app/apps/api/src\n' > /app/.venv/lib/python3.11/site-packages/ekascribe_src.pth
 
-COPY prompts ./prompts
 COPY templates ./templates
 COPY scripts ./scripts
 COPY .env.example ./
 
-ENV STORAGE_ROOT=/data/storage LOG_DIR=/data/logs ECHO_PROMPT_DIR=/app/prompts
+ENV STORAGE_ROOT=/data/storage LOG_DIR=/data/logs
 # src-layout packages (logs, voice2rx, scribe_api, medical_record) importable regardless of install mode
 ENV PYTHONPATH=/app/apps/api/src
 EXPOSE 8000

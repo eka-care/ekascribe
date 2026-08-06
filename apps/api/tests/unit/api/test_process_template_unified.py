@@ -3,7 +3,7 @@ Tests for the unified process-template endpoint (LIFE-2402):
 
 POST /voice/v1/sessions/{session_id}/process/template[/{template_id}]?document_id=
 
-- x-protocol dispatch: "agent" (default, 202 + poll_url) | "ag-ui" (SSE)
+- x-protocol dispatch: "ag-ui" (default, SSE stream)
 - x-format validated (html/markdown/json) but unused
 - document_id query param: derives template_id from the document, validates
   session ownership / template consistency, and processes into that document
@@ -125,13 +125,6 @@ def mock_session(monkeypatch, mock_docs):
         lambda session_id, b_id: _transaction(),
     )
     background_calls = []
-
-    def fake_generate(**kwargs):
-        background_calls.append(kwargs)
-
-    monkeypatch.setattr(
-        process_template_service, "generate_template_in_background", fake_generate
-    )
     monkeypatch.setattr(
         process_template_service.document_tiptap_service,
         "get_document_record",
@@ -153,19 +146,19 @@ def test_unknown_protocol_returns_400(client, mock_session):
     assert "x-protocol" in response.text
 
 
-def test_agent_protocol_returns_202(client, mock_session):
+def test_agent_protocol_is_removed_returns_400(client, mock_session):
     response = client.post(
         ENDPOINT, headers={**AUTH_HEADERS, "x-protocol": "agent"}
     )
-    assert response.status_code == 202
+    assert response.status_code == 400
 
 
-def test_stream_protocol_is_reserved_returns_400(client, mock_session):
+def test_stream_protocol_returns_400(client, mock_session):
     response = client.post(
         ENDPOINT, headers={**AUTH_HEADERS, "x-protocol": "stream"}
     )
     assert response.status_code == 400
-    assert "not available yet" in response.text
+    assert "x-protocol" in response.text
 
 
 def test_unknown_format_returns_400(client, mock_session):
@@ -177,62 +170,12 @@ def test_unknown_format_returns_400(client, mock_session):
 
 
 def test_supported_format_is_accepted_but_unused(client, mock_session):
+    _install_agui_fakes()
     response = client.post(
         ENDPOINT, headers={**AUTH_HEADERS, "x-format": "markdown"}
     )
-    assert response.status_code == 202
-
-
-# ---------------------------------------------------------------------------
-#  agent protocol (default)
-# ---------------------------------------------------------------------------
-
-
-def test_agent_is_default_and_returns_202_with_poll_url(client, mock_session):
-    response = client.post(ENDPOINT, headers=AUTH_HEADERS)
-    assert response.status_code == 202
-    body = response.json()
-    assert body["session_id"] == SESSION_ID
-    assert body["template_id"] == TEMPLATE_ID
-    assert body["document_id"] == "doc_created"
-    assert body["status"] == "in-progress"
-    assert (
-        body["poll_url"]
-        == f"/voice/v1/sessions/{SESSION_ID}?document_id=doc_created"
-    )
-
-
-def test_agent_creates_fresh_document(client, mock_session, mock_docs):
-    background_calls = mock_session
-    response = client.post(ENDPOINT, headers=AUTH_HEADERS)
-    assert response.status_code == 202
-    mock_docs.create_document.assert_called_once()
-    assert len(background_calls) == 1
-    assert background_calls[0]["document_id"] == "doc_created"
-    assert background_calls[0]["template_id"] == TEMPLATE_ID
-
-
-def test_agent_with_document_id_skips_creation(client, mock_session, mock_docs):
-    mock_docs.get_document.return_value = {
-        "document_id": "doc_given",
-        "session_id": SESSION_ID,
-        "template_id": TEMPLATE_ID,
-    }
-    background_calls = mock_session
-
-    response = client.post(
-        f"{ENDPOINT}?document_id=doc_given", headers=AUTH_HEADERS
-    )
-    assert response.status_code == 202
-    mock_docs.create_document.assert_not_called()
-    assert response.json()["document_id"] == "doc_given"
-    assert background_calls[0]["document_id"] == "doc_given"
-
-
-def test_no_template_id_falls_back_to_first_visual_template(client, mock_session):
-    response = client.post(ENDPOINT_NO_TID, headers=AUTH_HEADERS)
-    assert response.status_code == 202
-    assert response.json()["template_id"] == TEMPLATE_ID
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/event-stream")
 
 
 # ---------------------------------------------------------------------------
@@ -286,16 +229,14 @@ def test_document_id_derives_template_id(client, mock_session, mock_docs):
         "session_id": SESSION_ID,
         "template_id": "tpl_from_doc",
     }
-    background_calls = mock_session
+    captured, _ = _install_agui_fakes()
 
     response = client.post(
         f"{ENDPOINT_NO_TID}?document_id=doc_d", headers=AUTH_HEADERS
     )
-    assert response.status_code == 202
-    body = response.json()
-    assert body["template_id"] == "tpl_from_doc"
-    assert body["document_id"] == "doc_d"
-    assert background_calls[0]["document_id"] == "doc_d"
+    assert response.status_code == 200
+    assert captured["resolver"]["template_id"] == "tpl_from_doc"
+    assert captured["resolver"]["document_id"] == "doc_d"
 
 
 # ---------------------------------------------------------------------------

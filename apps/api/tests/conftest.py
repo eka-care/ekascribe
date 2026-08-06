@@ -8,52 +8,15 @@ from fastapi import Request
 # Set test environment
 os.environ["ENVIRONMENT"] = "test"
 
-# Mock problematic imports at module level
-mock_aioboto3 = MagicMock()
-mock_newrelic = MagicMock()
-mock_newrelic.agent = MagicMock()
+# Mock heavy optional imports at module level
 mock_pydub = MagicMock()
 mock_pydub.AudioSegment = MagicMock()
 # pydub.silence is used by VADChunkingService
 mock_pydub.silence = MagicMock()
 mock_pydub.silence.detect_nonsilent = MagicMock(return_value=[])
 
-# Mock redis so app can load when redis package is not installed (e.g. in CI)
-mock_redis = MagicMock()
-mock_redis.asyncio = MagicMock()
-mock_redis.asyncio.Redis = MagicMock()
-mock_redis.asyncio.from_url = MagicMock(return_value=MagicMock())
-
-sys.modules['aioboto3'] = mock_aioboto3
-sys.modules['newrelic'] = mock_newrelic
-sys.modules['newrelic.agent'] = mock_newrelic.agent
 sys.modules['pydub'] = mock_pydub
 sys.modules['pydub.silence'] = mock_pydub.silence
-sys.modules['redis'] = mock_redis
-sys.modules['redis.asyncio'] = mock_redis.asyncio
-
-# Mock onnxruntime (used by streaming pipeline's Silero VAD shared session)
-# so app can load when onnxruntime is not installed (e.g. in CI / local dev
-# without ML deps).
-mock_onnxruntime = MagicMock()
-sys.modules['onnxruntime'] = mock_onnxruntime
-
-# Mock pipecat (used by streaming pipeline) so app can load when pipecat
-# package is not installed (e.g. in CI / local dev without ML deps).
-mock_pipecat = MagicMock()
-# SileroOnnxModel needs a real class so _silero_shared_session.py can patch
-# its __init__ without hitting MagicMock's __init__ restriction.
-mock_pipecat.audio.vad.silero.SileroOnnxModel = type('SileroOnnxModel', (), {})
-sys.modules['pipecat'] = mock_pipecat
-sys.modules['pipecat.audio'] = mock_pipecat.audio
-sys.modules['pipecat.audio.vad'] = mock_pipecat.audio.vad
-sys.modules['pipecat.audio.vad.silero'] = mock_pipecat.audio.vad.silero
-sys.modules['pipecat.audio.vad.vad_analyzer'] = mock_pipecat.audio.vad.vad_analyzer
-
-# Mock pymysql so SQL-using modules can import in CI without the driver.
-mock_pymysql = MagicMock()
-sys.modules['pymysql'] = mock_pymysql
-sys.modules['pymysql.cursors'] = mock_pymysql.cursors
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -92,8 +55,6 @@ def setup_test_environment():
         "TABLE_NAME": "test-voice2rx-transactions",
         "AUDIO_TABLE_NAME": "test-ekascribe-audio-details", 
         "S3_VADED_BUCKET_NAME": "test-bucket",
-        "SNS_TOPIC_ARN": "arn:aws:sns:test",
-        "SQS_QUEUE_URL": "https://sqs.test.amazonaws.com/test-queue",
         "AWS_ACCESS_KEY_ID": "test-key",
         "AWS_SECRET_ACCESS_KEY": "test-secret",
         "AWS_DEFAULT_REGION": "us-east-1",
@@ -119,7 +80,7 @@ def setup_test_environment():
 @pytest.fixture
 def client():
     """FastAPI test client fixture."""
-    from main import app
+    from scribe_api.main import app
     return TestClient(app)
 
 
@@ -200,15 +161,6 @@ def mock_s3_client():
         mock.return_value = mock_client
         yield mock_client
 
-
-@pytest.fixture
-def mock_sqs_service():
-    """Mock SQS service."""
-    with patch('voice2rx.services.sqs_service.SQSService') as mock:
-        mock_instance = MagicMock()
-        mock.return_value = mock_instance
-        mock_instance.send_message.return_value = True
-        yield mock
 
 
 @pytest.fixture

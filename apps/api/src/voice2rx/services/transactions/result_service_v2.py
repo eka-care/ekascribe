@@ -27,17 +27,17 @@ from voice2rx.services.documents.document_service import DocumentService
 from voice2rx.services.sessions import compute_audio_matrix
 from voice2rx.services.templates.template_service import TemplateService
 from voice2rx.services.storage.s3_service import s3_client as boto_s3_client
-from voice2rx.services.transactions.result_service import OUTPUT_TEMPLATES
 from voice2rx.services.transactions.transaction_service import TransactionService
-from voice2rx.utils.fhir_utils import fetch_intermediate_fhir_result
 from voice2rx.choices import VOICE2RX_PROCESSING_STATUS, DocumentType, Transfer
 from voice2rx.core.exceptions import (
+    ActiveSessionException,
     RequestFailureException,
     ResourceNotFoundException,
     SystemFailureException,
     TransactionNotFoundException,
 )
 from voice2rx.utils.time_utils import epoch_to_iso, get_current_epoch_timestamp, iso_to_epoch
+from voice2rx.model_orms.audio_details_orm import AudioDetailsORM
 
 logger = get_logger(__name__)
 
@@ -47,12 +47,16 @@ POLL_INTERVAL_SECONDS = 0.5
 PROCESSING_TIMEOUT_SECONDS = 120
 PRESIGNED_URL_EXPIRY_SECONDS = 3600
 
-INTEGRATION_TEMPLATE_IDS = [
-    "eka_emr_template",
-    "nic_template",
-    "clinikk_template",
-    "eka_emr_to_fhir_template",
-]
+INTEGRATION_TEMPLATE_IDS: list = []
+
+# Built-in output document ids and their content type. These are the only
+# non-user templates the pipeline writes; everything else is a user template.
+# TODO(rename): ids carry legacy names until the B2/B3 vocabulary pass.
+LEGACY_OUTPUT_TYPE = {
+    "clinical_note_template": "markdown",
+    "clinical_notes_template": "markdown",
+    "transcript_template": "text",
+}
 
 LEGACY_TEMPLATE_IDS = ["clinical_note_template", "transcript_template"]
 
@@ -96,7 +100,10 @@ class ResultServiceV2:
         self.transaction_service = TransactionService()
         self.document_service = document_service or DocumentService()
         self.template_service = TemplateService
+        self.audio_details_repo = AudioDetailsORM()
         self.bucket_name = os.getenv("S3_VADED_BUCKET_NAME", "voice-records")
+
+
 
     def update_document_content(
         self,
@@ -248,6 +255,18 @@ class ResultServiceV2:
             doc_lazy_migrated=transaction.pop("__doc_migration", False)
         )
 
+        # Uncommitted sessions older than the active window are stale — the
+        # client never committed, so polling would spin forever.
+        user_status = (transaction or {}).get("user_status", "")
+        if user_status not in ("commit", "stopped", "cancelled") and self._is_transaction_too_old(
+            transaction or {}
+        ):
+            raise ActiveSessionException(
+                "session was never committed and is past the active window",
+                txn_id=session_id,
+                b_id=b_id,
+            )
+
         processing_status = transaction.get("processing_status") if transaction else None
         if processing_status == VOICE2RX_PROCESSING_STATUS.CANCELLED.value:
                 error = transaction.get("processing_error", {})
@@ -283,6 +302,48 @@ class ResultServiceV2:
 
         # timeout or stuck-document break - return what we have
         return self._build_session_response(ctx)
+
+    async def ensure_documents_exist(
+        self, session_id: str, b_id: str
+    ):
+        """Return the transaction, lazily migrating legacy results into the
+        document table when a session has no documents yet."""
+        from voice2rx.services.documents.populate_documents_service import (
+            PopulateDocumentsService,
+        )
+
+        populate_documents_service = PopulateDocumentsService()
+
+        transaction_data = self.transaction_repo.get_transaction(session_id, b_id)
+        if not transaction_data:
+            logger.warning(
+                "Transaction not found for lazy migration",
+                txn_id=session_id,
+                b_id=b_id,
+                severity="medium",
+            )
+            return None
+
+        if self.has_documents(session_id):
+            return transaction_data
+
+        logger.info(
+            "No documents found, triggering lazy migration",
+            txn_id=session_id,
+            b_id=b_id,
+        )
+        await populate_documents_service.populate_documents(
+            session_id=session_id,
+            b_id=b_id,
+            uuid_val=transaction_data.get("uuid", ""),
+            s3_url=transaction_data.get("s3_url", ""),
+            patch_api_call=False,
+            prompt_s3_url=transaction_data.get("prompt_s3_url", None),
+            transaction_data=transaction_data,
+        )
+        # mark that the document migration has been done for this poll cycle
+        transaction_data["__doc_migration"] = True
+        return transaction_data
 
     def has_documents(self, session_id: str) -> bool:
         """Check if any documents exist for a session."""
@@ -535,7 +596,6 @@ class ResultServiceV2:
             self._populate_output_section(ctx)
 
         # add fhir data
-        self._add_fhir_json_template(ctx)
 
         if ctx.transaction.get("patient_details"):
             ctx.response["data"]["patient_details"] = ctx.transaction.get(
@@ -620,11 +680,11 @@ class ResultServiceV2:
             if not template_id:
                 continue
 
-            if template_id in OUTPUT_TEMPLATES.keys():
-                template_info = OUTPUT_TEMPLATES.get(template_id, {})
+            if template_id in LEGACY_OUTPUT_TYPE:
+                out_type = LEGACY_OUTPUT_TYPE[template_id]
                 document_meta_info[document_id] = {
-                    "template_type": template_info.get("details", {}).get("type", "custom"),
-                    "response_type": template_info.get("details", {}).get("type", "json"),
+                    "template_type": out_type,
+                    "response_type": out_type,
                     "document_name": doc.get("document_name", "") or template_id,
                     "template_name": template_id_to_name_map.get(template_id, "") or template_id,
                 }
@@ -664,13 +724,8 @@ class ResultServiceV2:
         flavour: str,
     ) -> str:
         """Resolve the content type for output section (same logic as V1)."""
-        # Check OUTPUT_TEMPLATES first for known types
-        output_type = (
-            OUTPUT_TEMPLATES.get(template_id, {}).get("details", {}).get("type", "")
-        )
-
-        if template_id == "eka_emr_template":
-            return "eka_emr"
+        # Built-in output docs have a fixed content type
+        output_type = LEGACY_OUTPUT_TYPE.get(template_id, "")
 
         template_type_val = template_map_info.get("template_type", "custom")
 
@@ -696,32 +751,6 @@ class ResultServiceV2:
         audio_matrix.update(self._compute_audio_matrix(ctx.session_id, ctx.b_id))
         ctx.response["data"]["audio_matrix"] = audio_matrix
 
-    def _add_fhir_json_template(self, ctx: "ResultContext") -> None:
-        """Add FHIR json template for specific b_id."""
-        try:
-            b_id = ctx.transaction.get("b_id", "") or ctx.transaction.get("c_id", "")
-            txn_id = ctx.transaction.get("txn_id", "")
-            if b_id == "EC_173373528300322" and ctx.transaction.get("fhir_ingested"):
-                template_value = fetch_intermediate_fhir_result(txn_id)
-                template_data = {
-                    "template_id": "fhir_json",
-                    "value": template_value,
-                    "type": "json",
-                    "name": "FHIR JSon",
-                    "status": "success",
-                    "errors": [],
-                    "warnings": [],
-                }
-                ctx.response["data"]["output"].append(template_data)
-
-        except Exception as e:
-            logger.error(
-                "RESULT SERVICE V2: Error in adding fhir_json template",
-                txn_id=ctx.transaction.get("txn_id"),
-                error=str(e),
-                severity="medium",
-            )
-
     def _read_document_content(self, doc: Dict[str, Any]) -> str:
         """Read document content from S3."""
         document_path = doc.get("document_path", "")
@@ -744,10 +773,13 @@ class ResultServiceV2:
             return ""
 
     def _extract_lang(self, template_id: str) -> str:
-        """Extract language code from transcript template_id."""
+        """Extract language code from a transcript template_id."""
+        if template_id == "transcript":
+            return "raw"
         if template_id.startswith("transcript_"):
-            return template_id.replace("transcript_", "")
-        return "raw"
+            suffix = template_id[len("transcript_"):]
+            return "" if suffix == "template" else suffix
+        return ""
 
     def _get_additional_data(self, transaction_data: Dict[str, Any]) -> Dict[str, Any]:
         """Extract and parse additional_data from transaction."""

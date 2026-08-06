@@ -279,7 +279,7 @@ async def test_template_available_tools_lands_on_resolved_inputs(
         fake_txn_repo,
         fake_s3,
         fake_template_service,
-        template_available_tools="add_list,add_medication_table",
+        template_available_tools="add_list,add_table",
     )
 
     inputs = await mod.run_input_resolver(
@@ -289,7 +289,7 @@ async def test_template_available_tools_lands_on_resolved_inputs(
         jwt_uuid="user-uuid",
     )
 
-    assert inputs.available_tools == "add_list,add_medication_table"
+    assert inputs.available_tools == "add_list,add_table"
 
 
 @pytest.mark.asyncio

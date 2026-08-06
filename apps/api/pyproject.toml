@@ -20,11 +20,9 @@ dependencies = [
     "ag-ui-protocol>=0.1.0",
     "mcp",
     # aws (s3/dynamo backends; endpoint-overridable)
-    "aioboto3>=15.0.0",
     "boto3>=1.38",
     # db / state
     "asyncpg>=0.30",
-    "redis[hiredis]>=5.0",
     # audio
     "pydub>=0.25",
     # Python 3.13 removed stdlib audioop (pydub needs it); this restores it
@@ -42,11 +40,9 @@ dependencies = [
     "google-api-python-client>=2.160",
     "google-auth>=2.38",
     # fhir (feature-flagged, code retained)
-    "scribe2fhir",
 ]
 
 [tool.uv.sources]
-scribe2fhir = { git = "https://github.com/MedScribeAlliance/scribe2fhir.git", subdirectory = "python" }
 
 [build-system]
 requires = ["hatchling"]

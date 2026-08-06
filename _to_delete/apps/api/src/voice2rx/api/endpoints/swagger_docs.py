@@ -43,46 +43,13 @@ def load_openapi_spec(version: str) -> dict:
         with open(spec_file, 'r') as f:
             spec = json.load(f)
         
-        environment = os.getenv("ENV", "dev").lower()
-        
+        from scribe_core.settings import get_settings
+
+        base = get_settings().self_url.rstrip("/")
         if version == "v1":
-            if environment == "prod":
-                spec["servers"] = [
-                    {
-                        "url": "https://api.eka.care",
-                        "description": "Production server"
-                    }
-                ]
-            else:
-                spec["servers"] = [
-                    {
-                        "url": "https://api.dev.eka.care",
-                        "description": "Development server"
-                    },
-                    {
-                        "url": "http://localhost:8000",
-                        "description": "Local development server"
-                    }
-                ]
+            spec["servers"] = [{"url": base, "description": "This deployment"}]
         else:
-            if environment == "prod":
-                spec["servers"] = [
-                    {
-                        "url": "https://api.eka.care/voice/v1",
-                        "description": "Production server"
-                    }
-                ]
-            else:
-                spec["servers"] = [
-                    {
-                        "url": "https://api.dev.eka.care/voice/v1",
-                        "description": "Development server"
-                    },
-                    {
-                        "url": "http://localhost:8000/voice/v1",
-                        "description": "Local development server"
-                    }
-                ]
+            spec["servers"] = [{"url": f"{base}/voice/v1", "description": "This deployment"}]
         
         logger.info(f"Configured {version} spec for {environment} environment with {len(spec['servers'])} server(s)")
         return spec
@@ -291,15 +258,12 @@ async def get_docs_index():
     
     Main landing page for API documentation with links to both v1 (legacy) and v2 (protocol) docs.
     """
-    environment = os.getenv("ENV", "dev").lower()
-    if environment == "prod":
-        base_url = "https://api.eka.care"
-        env_display = "Production"
-        env_badge_color = "#dc3545"
-    else:
-        base_url = "https://api.dev.eka.care"
-        env_display = "Development"
-        env_badge_color = "#28a745"
+    from scribe_core.settings import get_settings
+
+    _s = get_settings()
+    base_url = _s.self_url.rstrip("/")
+    env_display = _s.env.capitalize()
+    env_badge_color = "#dc3545" if _s.env == "prod" else "#28a745"
     
     html = f"""
     <!DOCTYPE html>

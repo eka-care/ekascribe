@@ -14,7 +14,6 @@ from voice2rx.api.endpoints.transactions.handlers import (
     ResponseFormatter,
 )
 from voice2rx.core.exceptions import ResourceNotFoundException
-from voice2rx.services.transactions.result_service import ResultService
 from voice2rx.services.transactions.result_service_v2 import ResultServiceV2
 from voice2rx.services.documents.populate_documents_service import PopulateDocumentsService
 from voice2rx.api.schemas.transaction import ResultUpdateBody, ResultUpdateResponse
@@ -31,7 +30,6 @@ status_api_router_v3 = APIRouter()
 # (TODO: chunk transcript also needs to be modified to fetch from documents instead of template results or logs/transcripts)
 
 populate_documents_service = PopulateDocumentsService()
-result_service = ResultService()
 result_service_v2 = ResultServiceV2()
 document_service = result_service_v2.document_service
 
@@ -253,7 +251,7 @@ async def get_transcript(txn_id: str, file_name: str, request: Request):
             raise ValueError("JWT token is required")
 
         b_id = jwt_token.get("b-id")
-        transcript = result_service.get_chunk_transcript(txn_id, file_name, b_id)
+        transcript = result_service_v2.get_chunk_transcript(txn_id, file_name, b_id)
         return ResponseFormatter.json_response(transcript, status_code=200)
 
     except Exception as e:

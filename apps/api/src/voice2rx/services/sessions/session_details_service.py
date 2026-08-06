@@ -15,7 +15,6 @@ from typing import Any, Dict, List, Optional, Tuple
 import orjson
 
 from logs.custom_logger import get_logger
-from voice2rx.api.endpoints.result_router import _ensure_documents_exist
 from voice2rx.choices import DocumentType, UserStatus, VOICE2RX_PROCESSING_STATUS
 from voice2rx.core.exceptions import ResourceNotFoundException
 from voice2rx.model_orms.document_orm import EkascribeDocumentORM
@@ -57,9 +56,15 @@ class SessionDetailsService:
         transaction_repo: Optional[TransactionORM] = None,
         document_repo: Optional[EkascribeDocumentORM] = None,
         storage_client: Optional[StorageClient] = None,
+        result_service_v2=None,
     ):
         self.max_session_duration = 3600
         self.transaction_repo = transaction_repo or TransactionORM()
+        if result_service_v2 is None:
+            from voice2rx.services.transactions.result_service_v2 import ResultServiceV2
+
+            result_service_v2 = ResultServiceV2()
+        self.result_service_v2 = result_service_v2
         self.document_repo = document_repo or EkascribeDocumentORM()
         self.storage_client = storage_client or get_storage_client()
 
@@ -79,8 +84,7 @@ class SessionDetailsService:
         Any mismatch raises ResourceNotFoundException so existence is not
         leaked across tenants.
         """
-        # txn = self.transaction_repo.get_transaction(session_id, jwt_b_id)
-        txn = await _ensure_documents_exist(session_id, jwt_b_id)
+        txn = await self.result_service_v2.ensure_documents_exist(session_id, jwt_b_id)
         if not txn:
             raise ResourceNotFoundException("Session Not found")
 
@@ -295,7 +299,9 @@ class SessionDetailsService:
                  synthesized_error = {
                         "code": err.get("code"),
                         "msg": (
-                            "No speech detected. Ensure you spoke during the session and your microphone is correctly configured, then try again.",
+                            "No speech detected. Ensure you spoke during the "
+                            "session and your microphone is correctly "
+                            "configured, then try again."
                         ),
                     }
             else:

@@ -23,29 +23,6 @@ class Voice2RxStatus:
         self.store = get_blob_store()
         self.bucket_name = bucket_name
 
-    def fetch_fhir_result(self, session_id):
-        # NOTE(oss): eka-internal FHIR repo — stubbed behind config (plan decision #7).
-        repo_base = os.getenv("EKA_FHIR_REPO_URL")
-        if not repo_base:
-            return ""
-        system_value = f"https://parchi.eka.care|{session_id}"
-        encoded_url = urllib.parse.quote(system_value, safe='')
-        url = repo_base.rstrip("/") + "/internal/api/v1/fhir/o/resource/Composition/" + encoded_url
-        headers  = {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'service-id': 'deepthought'
-        }
-
-        response = requests.get(url=url, headers=headers)
-        if response.status_code == 200:
-            response = response.json()
-            if response.get("entry"):
-                json_str = orjson.dumps(response)
-                return base64.b64encode(json_str).decode()
-            
-        return ""
-    
     def download_s3_file(self, file_key, local_filename, session_id):
         """Helper function to download a file from S3."""
         try:
@@ -109,13 +86,6 @@ class Voice2RxStatus:
         if output_file:
             response["data"]["output"].update(output_file)
 
-        # Fhir output
-        fhir_output = self.download_s3_file(f"{file_path}/fhir.json", "fhir.json", session_id)
-        if fhir_output:
-            if fhir_output.get("entry"):
-                json_str = orjson.dumps(fhir_output)
-                response["data"]["output"]["fhir"] = base64.b64encode(json_str).decode()
-          
         return response, total_resources, total_parsed_resources, markdown_content
  
     def get_file_path(self, profile_data: dict, session_data: str, meta_data: dict) -> str:

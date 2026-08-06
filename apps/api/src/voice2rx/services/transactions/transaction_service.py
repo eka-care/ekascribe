@@ -3,11 +3,9 @@ Transaction service containing business logic for transaction operations.
 """
 
 import os
-import threading
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any
 import orjson
-import boto3
 import json
 from fastapi import BackgroundTasks
 from logs.custom_logger import get_logger
@@ -30,7 +28,7 @@ from voice2rx.choices import (
     UserStatus,
     Action,
 )
-from voice2rx.services.messaging.sqs_service import SQSService
+from voice2rx.background.enqueue import enqueue_pipeline
 from voice2rx.services.transactions.combine_audios import (
     background_audio_combine_task,
 )
@@ -44,26 +42,9 @@ from voice2rx.utils.time_utils import (
 from voice2rx.utils.constants import exculuded_apps
 from voice2rx.utils.user_utils import is_user_paid
 from voice2rx.utils.utils import convert_to_s3_protocol
-from voice2rx.services.webhooks import (
-    ScribeEvent,
-    build_session_data,
-    emit,
-)
 
 logger = get_logger(__name__)
 
-
-_sns_client = None
-_sns_client_lock = threading.Lock()
-
-
-def _get_sns_client():
-    global _sns_client
-    if _sns_client is None:
-        with _sns_client_lock:
-            if _sns_client is None:
-                _sns_client = boto3.client("sns", region_name="ap-south-1")
-    return _sns_client
 
 
 class TransactionService:
@@ -79,12 +60,7 @@ class TransactionService:
         self.template_results_repo = template_results_repo or TxnTemplateResultsORM()
         self.document_service = DocumentService()
         self.config_service = ConfigService()
-        self.sns_client = _get_sns_client()
         self.tempalte_service = TemplateService()
-        self.sns_topic_arn = os.getenv(
-            "SNS_TOPIC_ARN",
-            "arn:aws:sns:ap-south-1:559615561845:voice2rx_batch_events",
-        )
         self.s3_vaded_bucket = os.getenv("S3_VADED_BUCKET_NAME", "voice-records")
 
     def initialize_transaction(
@@ -124,14 +100,6 @@ class TransactionService:
             if result["code"] == "duplicate_entry":
                 raise DuplicateTransactionException(txn_id)
             raise Exception(result["error"])
-
-        emit(
-            ScribeEvent.SESSION_INIT,
-            b_id=b_id,
-            c_id=prepared_data.get("c_id"),
-            txn_id=txn_id,
-            data=build_session_data(txn_id),
-        )
 
         # publish to sns for vadding if it's a non-vaded transfer.
 
@@ -193,12 +161,13 @@ class TransactionService:
         transaction: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, Any]]:
         documents = self.document_service.get_documents_for_session(txn_id)
-        # template_docs = [d
-        #     for d in documents
-        #     if d.get("type") not in (DocumentType.CONTEXT, DocumentType.NOTES, DocumentType.TRANSCRIPT)
-        # ]
-        # if template_docs:
-        #     return documents
+        template_docs = [
+            d
+            for d in documents
+            if d.get("type") not in (DocumentType.CONTEXT, DocumentType.NOTES, DocumentType.TRANSCRIPT)
+        ]
+        if template_docs:
+            return documents
         self._store_document_results(txn_id, transaction)
         return self.document_service.get_documents_for_session(txn_id)
 
@@ -281,14 +250,6 @@ class TransactionService:
             severity="medium",
         )
 
-        emit(
-            ScribeEvent.SESSION_END,
-            b_id=b_id,
-            c_id=transaction.get("c_id"),
-            txn_id=txn_id,
-            data=build_session_data(txn_id),
-        )
-
         return transaction
 
     def _schedule_audio_combine(
@@ -326,7 +287,7 @@ class TransactionService:
             source_s3_path=transaction["s3_url"],
         )
 
-    def send_commit_to_sqs(
+    def enqueue_processing(
         self,
         txn_id: str,
         b_id: str,
@@ -350,16 +311,6 @@ class TransactionService:
             if sqs_data.get("additional_data"):
                 sqs_data["additional_data"] = orjson.loads(sqs_data["additional_data"])
             
-            # remove the templates from output_format_template which are not in OUTPUT_TEMPLATES
-            if sqs_data.get("output_format_template"):
-                from voice2rx.services.transactions.result_service import OUTPUT_TEMPLATES
-                sqs_data["output_format_template"] = [
-                    t for t in sqs_data["output_format_template"]
-                    if t.get("template_id") in OUTPUT_TEMPLATES
-                ]
-
-            # send the message to sqs
-            sqs_client = SQSService()
             action = Action.STRUCTURING.value
             message = {
                 "txn_id": txn_id,
@@ -375,7 +326,7 @@ class TransactionService:
                 txn_id=txn_id,
                 b_id=b_id,
             )
-            sqs_response = sqs_client.send_message("voice2rx", message)
+            sqs_response = enqueue_pipeline(message)
 
             if not sqs_response["success"]:
                 logger.error(
@@ -448,7 +399,6 @@ class TransactionService:
             # Convert to old format for SQS
             sqs_data = TemplateFormatConverter.prepare_for_sqs(transaction_data.copy())
 
-            sqs_service = SQSService()
             messages = []
             file_name_list = []
 
@@ -465,16 +415,8 @@ class TransactionService:
                 message.update(sqs_data)
                 messages.append(message)
 
-            # Send in batches of 10
-            batch_size = 10
-            for i in range(0, len(messages), batch_size):
-                batch = messages[i : i + batch_size]
-                logger.info(
-                    f"TRANSACTION_SERVICE: Sending batch of {len(batch)} messages",
-                    txn_id=txn_id,
-                    b_id=b_id,
-                )
-                sqs_service.send_batch_messages("voice2rx", batch)
+            for message in messages:
+                enqueue_pipeline(message)
 
             # Update transaction with processed files
             transaction = self.transaction_repo.get_transaction(txn_id, b_id)
@@ -708,23 +650,11 @@ class TransactionService:
                 "model_type": item_data.get("model_type"),
             }
 
-            from scribe_core.settings import get_settings
+            # The vad_session task replaces the chunker lambda behind SNS.
+            from voice2rx.background.dispatch import dispatch
 
-            if get_settings().queue_backend == "postgres":
-                # On-prem: the worker's vad_session task replaces the chunker
-                # lambda behind SNS (plan B3).
-                from voice2rx.background.dispatch import dispatch
-
-                dispatch("vad_session", {"message": sns_payload})
-                sns_response = {"backend": "postgres", "task": "vad_session"}
-            else:
-                sns_response = self.sns_client.publish(
-                    TopicArn=self.sns_topic_arn,
-                    Message=json.dumps(sns_payload),
-                    MessageAttributes={
-                        "action": {"DataType": "String", "StringValue": "chunking"}
-                    },
-                )
+            dispatch("vad_session", {"message": sns_payload})
+            sns_response = {"backend": "postgres", "task": "vad_session"}
 
             logger.info(
                 "TRANSACTION_SERVICE: Initialized vadding process",
@@ -775,7 +705,6 @@ class TransactionService:
                     if tid:
                         template_lookup[tid] = entry
 
-            from voice2rx.services.transactions.result_service import OUTPUT_TEMPLATES
             integration_template_ids = {
                 t.get("template_id")
                 for t in request_templates.get("integration", [])
@@ -786,13 +715,10 @@ class TransactionService:
                 template_id = template.get("template_id")
                 # resolve the template name
                 template_name = template.get("template_name")
-                is_integration = template_id in integration_template_ids or template_id in OUTPUT_TEMPLATES
-                if not template_name:
-                    if template_id in OUTPUT_TEMPLATES:
-                        template_name = OUTPUT_TEMPLATES[template_id].get("details", {}).get("name")
-                    elif not is_integration:
-                        details = self.tempalte_service.get_template(template_id=template_id)
-                        template_name = (details or {}).get("title")
+                is_integration = template_id in integration_template_ids
+                if not template_name and not is_integration:
+                    details = self.tempalte_service.get_template(template_id=template_id)
+                    template_name = (details or {}).get("title")
                 try:
                     doc_data = self.document_service.create_document(
                         session_id=txn_id,

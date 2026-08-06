@@ -63,16 +63,6 @@ class TemplateAdaptor:
                 name="Clinical Notes",
                 description="Clinical notes integration template"
             ),
-            "eka_emr_to_fhir_template": TemplateInfo(
-                id="eka_emr_to_fhir_template",
-                name="Eka EMR to FHIR Template",
-                description="EKa EMR to FHIR conversion template"
-            ),
-            "fhir_template_v2": TemplateInfo(
-                id="fhir_template_v2",
-                name="FHIR Template v2",
-                description="FHIR conversion template version 2"
-            ),
         }
     
     async def get_available_templates(

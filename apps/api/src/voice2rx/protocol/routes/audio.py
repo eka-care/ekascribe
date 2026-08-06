@@ -279,27 +279,26 @@ async def upload_audio(
                 upload_type=upload_type,
             )
             
-            # On-prem pipeline: transcribe each chunk as it lands (plan B3).
-            from scribe_core.settings import get_settings as _gs
-            if _gs().queue_backend == "postgres":
-                try:
-                    from voice2rx.background.dispatch import dispatch
-                    dispatch(
-                        "transcribe_chunk",
-                        {
-                            "txn_id": session_id,
-                            "b_id": b_id,
-                            "s3_url": session_data.get("s3_url", ""),
-                            "filename": result["filename"],
-                        },
-                    )
-                except Exception as qe:
-                    logger.error(
-                        "Failed to enqueue transcribe_chunk (worker will transcribe at commit)",
-                        session_id=session_id,
-                        error=str(qe),
-                        severity="medium",
-                    )
+            # Pipeline: transcribe each chunk as it lands.
+            try:
+                from voice2rx.background.dispatch import dispatch
+
+                dispatch(
+                    "transcribe_chunk",
+                    {
+                        "txn_id": session_id,
+                        "b_id": b_id,
+                        "s3_url": session_data.get("s3_url", ""),
+                        "filename": result["filename"],
+                    },
+                )
+            except Exception as qe:
+                logger.error(
+                    "Failed to enqueue transcribe_chunk (it will run at commit)",
+                    session_id=session_id,
+                    error=str(qe),
+                    severity="medium",
+                )
 
             # update transaction with simplified filename (e.g., "0.webm", "1.mp3")
             simple_filename = result["filename"]

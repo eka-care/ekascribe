@@ -29,9 +29,7 @@ from voice2rx.services.context import ContextResolutionService
 from voice2rx.services.documents import document_tiptap_service
 from voice2rx.services.documents.document_service import DocumentService
 from voice2rx.services.storage.s3_service import download_s3_file
-from voice2rx.services.templates.ag_ui.resume_store import (
-    redis_paused_run_store,
-)
+from voice2rx.services.templates.ag_ui.resume_store import paused_run_store
 from voice2rx.services.templates.ag_ui.run_service import (
     AgUiRunService,
     ResolvedRunInputs,
@@ -45,7 +43,7 @@ logger = get_logger(__name__)
 scribe_agent_router = APIRouter()
 
 _run_service: AgUiRunService = AgUiRunService(
-    paused_run_store=redis_paused_run_store
+    paused_run_store=paused_run_store
 )
 
 _DEFAULT_S3_BUCKET: str = os.getenv("S3_VADED_BUCKET_NAME", "voice-records")

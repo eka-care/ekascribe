@@ -39,7 +39,6 @@ class SQSService:
         goes to the named SQS queue exactly as before.
         """
         from scribe_core.settings import get_settings
-
         if get_settings().queue_backend == "postgres":
             try:
                 from voice2rx.background.dispatch import dispatch

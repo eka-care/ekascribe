@@ -16,10 +16,6 @@ def compute_upload_url(
     from scribe_core.settings import get_settings
 
     base_url = os.getenv("API_BASE_URL") or f"{get_settings().self_url.rstrip('/')}/voice"
-    if upload_type == "stream":
-        ws_base = base_url.replace("https://", "wss://").replace("http://", "ws://")
-        return f"{ws_base}/v1/sessions/{session_id}/audio/stream"
-
     backend_url = f"{base_url}/v1/sessions/{session_id}/audio"
 
     # single uploads always go through the backend, regardless of version

@@ -8,7 +8,6 @@ from fastapi import BackgroundTasks, HTTPException, Request
 
 from logs.custom_logger import get_logger
 from voice2rx.api.endpoints import scribe_agent_runs as agent_runs
-from voice2rx.api.endpoints.template_result import generate_template_in_background
 from voice2rx.api.endpoints.transactions.handlers import (
     RequestHandler,
     ResponseFormatter,
@@ -27,9 +26,7 @@ logger = get_logger(__name__)
 transaction_service = TransactionService()
 
 class ProcessProtocol(str, Enum):
-    AGENT = "agent" 
-    AG_UI = "ag-ui"  
-    STREAM = "stream"
+    AG_UI = "ag-ui"
 
 
 # x-format values are validated but unused for now;
@@ -74,55 +71,6 @@ async def _build_run_agent_input(
         )
 
 
-async def _handle_agent_process(
-    request: Request,
-    background_tasks: BackgroundTasks,
-    session_id: str,
-    template_id: str,
-    document_id: Optional[str],
-    b_id: str,
-    transaction_data: dict,
-):
-    check_result = template_result_common.check_and_initialize_documents(
-        txn_id=session_id,
-        template_id=template_id,
-        b_id=b_id,
-        transaction_data=transaction_data,
-        document_id=document_id
-    )
-
-    if not check_result.get("should_continue"):
-        return check_result.get("response")
-
-    document_id = check_result.get("document_id")
-
-    background_tasks.add_task(
-        generate_template_in_background,
-        txn_id=session_id,
-        template_id=template_id,
-        b_id=b_id,
-        document_id=document_id,
-        transaction_data=transaction_data,
-    )
-
-    logger.info(
-        "Protocol process-template scheduled",
-        session_id=session_id,
-        b_id=b_id,
-        template_id=template_id,
-        document_id=document_id,
-    )
-
-    return ProcessTemplateResponse(
-        session_id=session_id,
-        template_id=template_id,
-        document_id=document_id,
-        status="in-progress",
-        message="Template generation in progress",
-        poll_url=f"/voice/v1/sessions/{session_id}?document_id={document_id}",
-    )
-
-
 async def _handle_agui_process(
     request: Request,
     background_tasks: BackgroundTasks,
@@ -156,9 +104,7 @@ async def _handle_agui_process(
     return agent_runs.build_run_stream_response(run_input, inputs, encoder)
 
 
-# stream has no handler yet — requesting it returns a 400 until it ships.
 PROTOCOL_HANDLERS = {
-    ProcessProtocol.AGENT: _handle_agent_process,
     ProcessProtocol.AG_UI: _handle_agui_process,
 }
 
@@ -175,7 +121,7 @@ async def process_session_template(
         headers = RequestHandler.extract_headers(request, session_id)
         b_id = headers.get("token_data", {}).get("b-id", "")
 
-        raw_protocol = (request.headers.get("x-protocol") or ProcessProtocol.AGENT.value).lower()
+        raw_protocol = (request.headers.get("x-protocol") or ProcessProtocol.AG_UI.value).lower()
         try:
             protocol = ProcessProtocol(raw_protocol)
         except ValueError:
