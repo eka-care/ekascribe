@@ -54,12 +54,6 @@ from voice2rx.api.endpoints.transactions.handlers import (
     RequestHandler,
     ResponseFormatter,
 )
-from voice2rx.utils.eka_usage_client import record_safe as record_usage
-from voice2rx.services.webhooks import (
-    ScribeEvent,
-    build_session_data,
-    emit,
-)
 
 logger = get_logger(__name__)
 
@@ -162,15 +156,6 @@ async def create_session(
             headers=headers,
         )
 
-        record_usage(
-            workspace_id=b_id,
-            product="ekascribe",
-            metric_type="transcription_session",
-            metadata={"session_id": session_id},
-            c_id=headers["token_data"].get("c-id"),
-            idp=headers["token_data"].get("idp"),
-        )
-
         logger.info(
             "Backend transaction initialized",
             session_id=session_id,
@@ -187,29 +172,10 @@ async def create_session(
         )
 
         if session_request.upload_type == UploadType.STREAM:
-            from scribe_core.settings import get_settings as _get_settings
-
-            if not _get_settings().feature_streaming:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Streaming upload is disabled on this deployment (FEATURE_STREAMING=false)",
-                )
-            from voice2rx.streaming.api.stream_session_router import (
-                CreateStreamSessionRequest,
-                create_stream_session,
+            raise HTTPException(
+                status_code=400,
+                detail="Streaming upload is not supported; use chunked or single.",
             )
-
-            stream_response = await create_stream_session(
-                CreateStreamSessionRequest(
-                    session_id=session_id,
-                    b_id=b_id,
-                    uuid=headers["token_data"].get("uuid", ""),
-                    additional_data=session_request.additional_data,
-                    commit_on_close=False,
-                ),
-                request,
-            )
-            protocol_response.upload_url = stream_response.wss_url
 
         logger.info(
             "Protocol session created successfully",
@@ -470,7 +436,7 @@ async def end_session(
         )
 
         # send to SQS for processing
-        transaction_service.send_commit_to_sqs(
+        transaction_service.enqueue_processing(
             session_id,
             b_id,
             transaction_data,
@@ -665,14 +631,6 @@ async def patch_session(
 
         transaction_service.update_transaction(session_id, b_id, update_data)
 
-        emit(
-            ScribeEvent.SESSION_CONFIG_UPDATE,
-            b_id=b_id,
-            c_id=headers.get("token_data", {}).get("c-id", "")
-            or transaction_data.get("c_id", ""),
-            txn_id=session_id,
-            data=build_session_data(session_id),
-        )
 
         logger.info(
             "Protocol session patched",

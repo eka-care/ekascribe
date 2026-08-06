@@ -1,4 +1,4 @@
-# contains DynamoHelper class for DynamoDB operations and DynamoWrapper for async operations using aioboto3
+# DynamoHelper (sync, shim-backed) + get_dynamo_client (async Postgres wrapper).
  
 import itertools
 import logging
@@ -7,7 +7,6 @@ from functools import reduce
 from typing import Any, Dict, List, Optional
 
 import boto3
-import aioboto3
 from boto3.dynamodb.conditions import Key
 from boto3.dynamodb.types import TypeDeserializer
 from botocore.exceptions import ClientError
@@ -316,216 +315,18 @@ class DynamoHelper:
     
  
 
-class DynamoWrapper:
-    """Async DynamoDB wrapper using aioboto3"""
-
-    def __init__(self):
-        """
-        Initialize DynamoDB wrapper
-
-        Args:
-            table_name: DynamoDB table name
-            region_name: AWS region
-        """
-        self.region_name = "ap-south-1"
-        self.session = aioboto3.Session()
-
-    async def create_item(self, table_name: str, item: Dict[str, Any]) -> bool:
-        """
-        Create/put item in DynamoDB table
-
-        Args:
-            item: Item to create (must include primary key)
-            condition_expression: Optional condition expression
-
-        Returns:
-            bool: True if successful, False otherwise
-        """
-        try:
-            async with self.session.resource(
-                "dynamodb", region_name=self.region_name
-            ) as dynamo:
-                table = await dynamo.Table(table_name)
-
-                put_kwargs = {"Item": item}
-                await table.put_item(**put_kwargs)
-
-                log.info(f"Item created successfully in table {table_name}")
-                return True
-
-        except Exception as e:
-            log.error(f"Error creating item in DynamoDB: {e}")
-            return False
-
-    async def get_item(
-        self, table_name: str, key: Dict[str, Any]
-    ) -> Optional[Dict[str, Any]]:
-        """
-        Get item from DynamoDB table
-
-        Args:
-            key: Primary key (and sort key if composite)
-
-        Returns:
-            dict: Item if found, None otherwise
-        """
-        try:
-            async with self.session.resource(
-                "dynamodb",
-                region_name=self.region_name,
-            ) as dynamo:
-                table = await dynamo.Table(table_name)
-
-                response = await table.get_item(Key=key)
-
-                if "Item" in response:
-                    item = response["Item"]
-                    log.info(f"Item retrieved successfully from table {table_name}")
-                    return item
-                else:
-                    log.warning(f"Item not found in table {table_name}")
-                    return None
-
-        except Exception as e:
-            log.error(f"Error getting item from DynamoDB: {e}")
-            return None
-
-    async def update_item(
-        self,
-        table_name: str,
-        key: Dict[str, Any],
-        update_expression: str,
-        expression_attribute_values: Dict[str, Any],
-        expression_attribute_names: Optional[Dict[str, str]] = None,
-    ) -> bool:
-        """
-        Update item in DynamoDB table
-
-        Args:
-            key: Primary key
-            update_expression: Update expression (e.g., "SET #field = :value")
-            expression_attribute_values: Values for expression
-            expression_attribute_names: Names for expression (optional)
-
-        Returns:
-            bool: True if successful, False otherwise
-        """
-        try:
-            async with self.session.resource(
-                "dynamodb",
-                region_name=self.region_name,
-            ) as dynamo:
-                table = await dynamo.Table(table_name)
-
-                update_kwargs = {
-                    "Key": key,
-                    "UpdateExpression": update_expression,
-                    "ExpressionAttributeValues": expression_attribute_values,
-                }
-
-                if expression_attribute_names:
-                    update_kwargs["ExpressionAttributeNames"] = (
-                        expression_attribute_names
-                    )
-
-                await table.update_item(**update_kwargs)
-
-                log.info(f"Item updated successfully in table {table_name}")
-                return True
-
-        except Exception as e:
-            log.error(f"Error updating item in DynamoDB: {e}")
-            return False
-
-    async def query_items(
-        self,
-        table_name: str,
-        key_condition_expression: str,
-        expression_attribute_values: Dict[str, Any],
-        expression_attribute_names: Optional[Dict[str, str]] = None,
-        filter_expression: Optional[str] = None,
-        limit: Optional[int] = None,
-        index_name: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
-        """
-        Query items from DynamoDB table
-
-        Args:
-            key_condition_expression: Key condition expression
-            expression_attribute_values: Values for expression
-            expression_attribute_names: Names for expression (optional)
-            filter_expression: Filter expression (optional)
-            limit: Maximum number of items to return (optional)
-
-        Returns:
-            list: List of items matching query
-        """
-        try:
-            async with self.session.resource(
-                "dynamodb",
-                region_name=self.region_name,
-            ) as dynamo:
-                table = await dynamo.Table(table_name)
-
-                query_kwargs = {
-                    "KeyConditionExpression": key_condition_expression,
-                    "ExpressionAttributeValues": expression_attribute_values,
-                }
-
-                if expression_attribute_names:
-                    query_kwargs["ExpressionAttributeNames"] = (
-                        expression_attribute_names
-                    )
-
-                if filter_expression:
-                    query_kwargs["FilterExpression"] = filter_expression
-
-                if index_name:  # Add GSI support
-                    query_kwargs["IndexName"] = index_name
-
-                if limit:
-                    query_kwargs["Limit"] = limit
-
-                response = await table.query(**query_kwargs)
-
-                items = response.get("Items", [])
-                log.info(
-                    f"Query returned {len(items)} items from table {table_name}"
-                )
-
-                return items
-
-        except Exception as e:
-            log.error(f"Error querying items from DynamoDB: {e}")
-            return []
 
 
-# Global DynamoDB instance - initialize when needed
-_dynamo_instance: Optional[DynamoWrapper] = None
-
-
-def get_dynamo_client() -> DynamoWrapper:
+def get_dynamo_client() -> "PgAsyncWrapper":
     """
-    Get or create DynamoDB client instance
-
-    Args:
-        table_name: DynamoDB table name
-        region_name: AWS region
-
-    Returns:
-        DynamoWrapper: DynamoDB client instance
+    Get or create the async document-DB client (Postgres-backed).
     """
     
     global _dynamo_instance
     if _dynamo_instance is None:
-        from scribe_core.settings import get_settings
+        from scribe_core.db.async_wrapper import PgAsyncWrapper
 
-        if get_settings().db_backend == "postgres":
-            from scribe_core.db.async_wrapper import PgAsyncWrapper
-
-            _dynamo_instance = PgAsyncWrapper()
-        else:
-            _dynamo_instance = DynamoWrapper()
+        _dynamo_instance = PgAsyncWrapper()
     return _dynamo_instance
 
 

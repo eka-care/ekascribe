@@ -78,19 +78,11 @@ def step_db() -> bool:
 
     s = get_settings()
     try:
-        if s.db_backend == "postgres":
-            import psycopg
+        import psycopg
 
-            with psycopg.connect(s.database_url, connect_timeout=5) as conn:
-                conn.execute("SELECT 1")
-            print(f"{OK} postgres reachable ({s.database_url.split('@')[-1]})")
-        else:
-            import boto3
-
-            boto3.client(
-                "dynamodb", region_name=s.aws_region, endpoint_url=s.dynamodb_endpoint_url
-            ).list_tables(Limit=1)
-            print(f"{OK} dynamodb reachable")
+        with psycopg.connect(s.database_url, connect_timeout=5) as conn:
+            conn.execute("SELECT 1")
+        print(f"{OK} postgres reachable ({s.database_url.split('@')[-1]})")
         return True
     except Exception as e:
         print(f"{FAIL} database: {e}")
@@ -118,42 +110,35 @@ def step_migrations() -> bool:
 
     s = get_settings()
     ok = True
-    if s.db_backend == "postgres":
-        try:
-            from scribe_core.db import ensure_schema
+    try:
+        from scribe_core.db import ensure_schema
 
-            ensure_schema()
-            print(f"{OK} app schema (tables + indexes)")
-        except Exception as e:
-            print(f"{FAIL} app schema: {e}")
-            ok = False
-    else:
-        print(f"{WARN} dynamodb backend: create tables via infra tooling")
-    if s.queue_backend == "postgres":
-        try:
-            import procrastinate
+        ensure_schema()
+        print(f"{OK} app schema (tables + indexes)")
+    except Exception as e:
+        print(f"{FAIL} app schema: {e}")
+        ok = False
+    try:
+        import procrastinate
 
-            app = procrastinate.App(
-                connector=procrastinate.SyncPsycopgConnector(conninfo=s.procrastinate_dsn)
-            )
-            with app.open():
-                try:
-                    app.schema_manager.apply_schema()
-                    print(f"{OK} procrastinate schema applied")
-                except Exception:
-                    print(f"{OK} procrastinate schema already present")
-        except Exception as e:
-            print(f"{FAIL} procrastinate schema: {e}")
-            ok = False
+        app = procrastinate.App(
+            connector=procrastinate.SyncPsycopgConnector(conninfo=s.procrastinate_dsn)
+        )
+        with app.open():
+            try:
+                app.schema_manager.apply_schema()
+                print(f"{OK} procrastinate schema applied")
+            except Exception:
+                print(f"{OK} procrastinate schema already present")
+    except Exception as e:
+        print(f"{FAIL} procrastinate schema: {e}")
+        ok = False
     return ok
 
 
 def step_queue() -> bool:
     from scribe_core.settings import get_settings
 
-    if get_settings().queue_backend != "postgres":
-        print(f"{SKIP} queue probe (sqs backend)")
-        return True
     try:
         from scribe_core.queue import get_task_queue
 
@@ -214,25 +199,14 @@ def step_seed() -> bool:
 
 def step_models() -> bool:
     ok = True
-    # prompts resolve
+    # agent prompt files resolve
     try:
-        import asyncio
+        from voice2rx.services.prompts import AGENT_PROMPT_NAMES, get_prompt_service
 
-        from echo.prompts.file_provider import FilePromptProvider
-
-        provider = FilePromptProvider(prompt_dir=str(ROOT / "prompts"))
-        names = [
-            "voice2rx/summary/agent",
-            "voice2rx/transcript/agent",
-            "voice2rx/translation/agent",
-            "voice2rx/medication/agent",
-            "voice2rx/template/generation/agent",
-            "voice2rx/template/markdown/agent",
-            "voice2rx/template/integration/agent",
-        ]
-        for name in names:
-            asyncio.run(provider.get_prompt(name))
-        print(f"{OK} all {len(names)} agent prompts resolve from prompts/")
+        svc = get_prompt_service()
+        for key in AGENT_PROMPT_NAMES:
+            svc.get_parsed_agent_prompt(key)
+        print(f"{OK} all {len(AGENT_PROMPT_NAMES)} agent prompts resolve from agents/prompts/")
     except Exception as e:
         print(f"{FAIL} prompts: {e}")
         ok = False

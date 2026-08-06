@@ -1,5 +1,5 @@
 """
-Configuration Service for EkaScribe Config Management.
+Configuration Service for workspace config management.
 
 This service handles all configuration-related operations including:
 - Workspace-level configurations (user_uuid = "_")

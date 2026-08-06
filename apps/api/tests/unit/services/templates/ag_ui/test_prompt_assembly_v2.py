@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from voice2rx.services.prompts.prompt_fallback import load_parsed_prompt_from_file
+from voice2rx.services.prompts.prompt_files import load_parsed_prompt_from_file
 from voice2rx.services.prompts.prompt_parser import ParsedAgentPrompt
 from voice2rx.services.templates.ag_ui.prompt_assembly import (
     build_scribe_agent_config_v2,
@@ -144,7 +144,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from voice2rx.services.prompts.prompt_fallback import load_parsed_prompt_from_file
+from voice2rx.services.prompts.prompt_files import load_parsed_prompt_from_file
 from voice2rx.services.prompts.prompt_parser import ParsedAgentPrompt
 from voice2rx.services.templates.ag_ui.prompt_assembly import (
     build_scribe_agent_config_v2,

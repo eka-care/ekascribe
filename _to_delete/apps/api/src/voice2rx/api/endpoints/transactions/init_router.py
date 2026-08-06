@@ -15,7 +15,6 @@ from voice2rx.services import (
     AudioProcessingService,
     TransactionService,
 )
-from voice2rx.utils.eka_usage_client import record_safe as record_usage
 
 logger = get_logger(__name__)
 
@@ -70,15 +69,6 @@ async def initialize_transaction(
             txn_id,
             transaction_dict,
             headers,
-        )
-
-        record_usage(
-            workspace_id=b_id,
-            product="ekascribe",
-            metric_type="transcription_session",
-            metadata={"txn_id": txn_id},
-            c_id=headers["token_data"].get("c-id"),
-            idp=headers["token_data"].get("idp"),
         )
 
         # create audio metadata record in background, only if transaction initialized successfully.

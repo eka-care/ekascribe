@@ -36,12 +36,12 @@ class TestCommitAPI:
         }
         
         with patch('voice2rx.services.transactions.transaction_service.TransactionService.commit_transaction') as mock_commit, \
-             patch('voice2rx.services.transactions.transaction_service.TransactionService.send_commit_to_sqs') as mock_sqs, \
+             patch('voice2rx.services.transactions.transaction_service.TransactionService.enqueue_processing') as mock_enqueue, \
              patch('voice2rx.services.config_service.ConfigService.check_audio_full_enabled') as mock_audio_config:
             
             # Configure service layer responses
             mock_commit.return_value = mock_transaction_data
-            mock_sqs.return_value = True
+            mock_enqueue.return_value = True
             mock_audio_config.return_value = False
             
             # Act
@@ -60,7 +60,7 @@ class TestCommitAPI:
         
         # Verify service layer was called correctly
         mock_commit.assert_called_once()
-        mock_sqs.assert_called_once()
+        mock_enqueue.assert_called_once()
 
     def test_commit_transaction_missing_business_id(self, client):
         """Test commit fails when business ID is missing from JWT header."""
@@ -131,7 +131,7 @@ class TestCommitAPI:
         response_json = response.json()
         assert_error_response(response_json, "transaction_not_found")
 
-    def test_commit_transaction_sqs_failure(self, client):
+    def test_commit_transaction_enqueue_failure(self, client):
         """Test commit continues even if SQS fails at service layer."""
         # Arrange
         txn_id = "test-txn-123"
@@ -153,12 +153,12 @@ class TestCommitAPI:
         }
         
         with patch('voice2rx.services.transactions.transaction_service.TransactionService.commit_transaction') as mock_commit, \
-             patch('voice2rx.services.transactions.transaction_service.TransactionService.send_commit_to_sqs') as mock_sqs, \
+             patch('voice2rx.services.transactions.transaction_service.TransactionService.enqueue_processing') as mock_enqueue, \
              patch('voice2rx.services.config_service.ConfigService.check_audio_full_enabled') as mock_audio_config:
             
             # Configure service responses - SQS fails but commit succeeds
             mock_commit.return_value = mock_transaction_data
-            mock_sqs.return_value = False  # SQS failed
+            mock_enqueue.return_value = False  # enqueue failed
             mock_audio_config.return_value = False
             
             # Act
@@ -223,12 +223,12 @@ class TestCommitAPI:
         }
         
         with patch('voice2rx.services.transactions.transaction_service.TransactionService.commit_transaction') as mock_commit, \
-             patch('voice2rx.services.transactions.transaction_service.TransactionService.send_commit_to_sqs') as mock_sqs, \
+             patch('voice2rx.services.transactions.transaction_service.TransactionService.enqueue_processing') as mock_enqueue, \
              patch('voice2rx.services.config_service.ConfigService.check_audio_full_enabled') as mock_audio_config:
             
             # Configure service responses
             mock_commit.return_value = mock_transaction_data
-            mock_sqs.return_value = True
+            mock_enqueue.return_value = True
             mock_audio_config.return_value = False
             
             # Act
@@ -270,12 +270,12 @@ class TestCommitAPI:
         }
         
         with patch('voice2rx.services.transactions.transaction_service.TransactionService.commit_transaction') as mock_commit, \
-             patch('voice2rx.services.transactions.transaction_service.TransactionService.send_commit_to_sqs') as mock_sqs, \
+             patch('voice2rx.services.transactions.transaction_service.TransactionService.enqueue_processing') as mock_enqueue, \
              patch('voice2rx.services.config_service.ConfigService.check_audio_full_enabled') as mock_audio_config:
             
             # Configure service responses
             mock_commit.return_value = mock_transaction_data
-            mock_sqs.return_value = True
+            mock_enqueue.return_value = True
             mock_audio_config.return_value = False
             
             # Act
@@ -292,11 +292,11 @@ class TestCommitAPI:
         
         # Verify service layer was called and handled client generated files internally
         mock_commit.assert_called_once()
-        mock_sqs.assert_called_once()
+        mock_enqueue.assert_called_once()
         
         # Verify the transaction data was passed to SQS service
-        sqs_call_args = mock_sqs.call_args
-        assert sqs_call_args[0][2] == mock_transaction_data  # transaction_data parameter
+        enqueue_call_args = mock_enqueue.call_args
+        assert enqueue_call_args[0][2] == mock_transaction_data  # transaction_data parameter
     
     def test_commit_transaction_with_audio_combine_enabled(self, client):
         """Commit route hands background_tasks to the service, which owns the
@@ -321,10 +321,10 @@ class TestCommitAPI:
         }
 
         with patch('voice2rx.services.transactions.transaction_service.TransactionService.commit_transaction') as mock_commit, \
-             patch('voice2rx.services.transactions.transaction_service.TransactionService.send_commit_to_sqs') as mock_sqs:
+             patch('voice2rx.services.transactions.transaction_service.TransactionService.enqueue_processing') as mock_enqueue:
 
             mock_commit.return_value = mock_transaction_data
-            mock_sqs.return_value = True
+            mock_enqueue.return_value = True
 
             # Act
             response = client.post(

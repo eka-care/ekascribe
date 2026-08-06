@@ -37,10 +37,6 @@ from voice2rx.protocol.models import (
     EndSessionResponse,
     UploadType,
 )
-from voice2rx.services.transactions.result_service import (
-    INTEGRATION_TEMPLATE_IDS,
-    OUTPUT_TEMPLATES,
-)
 from voice2rx.services.transactions.result_service_v2 import ResultServiceV2
 from voice2rx.services.transactions.transaction_service import TransactionService
 from voice2rx.services.config_service import ConfigService
@@ -252,10 +248,7 @@ class SessionAdaptor:
     ) -> List[Dict[str, Any]]:
         backend_templates = []
         for template_id in protocol_templates:
-            if template_id in OUTPUT_TEMPLATES:
-               template_type = "default"
-            else:
-                template_type = "custom"
+            template_type = "custom"
 
             backend_templates.append(
                 {

@@ -5,7 +5,6 @@ POST   /documents                                                  - Create docu
 GET    /documents/{document_id}                                    - Get document metadata + presigned download URL
 GET    /sessions/{session_id}/documents                            - List all documents for a session
 PUT    /documents/{document_id}                                    - Get presigned upload URL for client PUT
-POST   /sessions/{session_id}/documents/{document_id}/publish      - Publish a document to the Eka Care vault
 DELETE /documents/{document_id}                                    - Soft delete (archive) a document
 """
 
@@ -19,7 +18,6 @@ from voice2rx.api.endpoints.transactions.handlers import (
 from voice2rx.api.schemas.document_schema import CreateDocumentRequest
 from voice2rx.api.schemas.transaction import ContextPatchRequest
 from voice2rx.services.documents.document_service import DocumentService
-from voice2rx.services.publish import PublishService
 from voice2rx.services.transactions.context_patch_service import (
     append_document_to_context,
     merge_context_append,
@@ -41,11 +39,6 @@ logger = get_logger(__name__)
 document_router = APIRouter()
 document_service = DocumentService()
 transaction_repo = TransactionORM()
-publish_service = PublishService(
-    document_service=document_service, transaction_repo=transaction_repo
-)
-
-
 def _extract_uuid_from_request(request: Request) -> str:
     """Extract user UUID from JWT token in request headers."""
     token_data = RequestHandler.extract_token_data_from_request(request)
@@ -173,7 +166,6 @@ async def create_document(body: CreateDocumentRequest, request: Request):
             "presigned_url": presigned_url,
             "created_at": doc.get("created_at", ""),
             "updated_at": doc.get("updated_at", ""),
-            "publish" : doc.get("publish_status", {})
         }
         
         tiptap_json=request.query_params.get("tiptap_json", "")
@@ -234,8 +226,6 @@ async def get_document(document_id: str, request: Request):
             "presigned_url": presigned_url,
             "created_at": doc.get("created_at", ""),
             "updated_at": doc.get("updated_at", ""),
-            "published_at" : doc.get("published_at", ""),
-            "publish" : doc.get("publish_status", {}),
         }
         
         if doc.get("vault_doc_id"):
@@ -274,41 +264,6 @@ async def get_document(document_id: str, request: Request):
             severity="critical",
         )
         return ResponseFormatter.from_exception(e, document_id, "")
-
-@document_router.post("/sessions/{session_id}/documents/{document_id}/publish")
-def publish_document(
-    session_id: str,
-    document_id: str,
-    request: Request,
-    background_tasks: BackgroundTasks,
-):
-    try:
-        token_data = RequestHandler.extract_token_data_from_request(request)
-        b_id = RequestHandler.extract_business_id_from_request(request)
-        # add business level check ,the publish event should only work for the medanta
-        ack = publish_service.schedule_publish(
-            session_id=session_id,
-            document_id=document_id,
-            token_data=token_data,
-            b_id=b_id,
-            background_tasks=background_tasks,
-        )
-
-        return ResponseFormatter.json_response(
-            {"status": "accepted", "data": convert_decimals(ack)},
-            status_code=202,
-        )
-
-    except Exception as e:
-        logger.error(
-            "PUBLISH DOCUMENT: Error publishing document",
-            session_id=session_id,
-            document_id=document_id,
-            error=str(e),
-            exc_info=True,
-            severity="critical",
-        )
-        return ResponseFormatter.from_exception(e, session_id, "")   
 
 @document_router.delete("/documents/{document_id}")
 def delete_document(document_id: str, request: Request):

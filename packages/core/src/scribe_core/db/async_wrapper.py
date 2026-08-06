@@ -1,4 +1,4 @@
-"""Async document-DB wrapper — Postgres twin of voice2rx's aioboto3 DynamoWrapper.
+"""Async document-DB wrapper over the shared Postgres engine.
 
 template_service (and friends) call `get_dynamo_client()` from
 voice2rx.utils.dynamo_helper and use this exact surface:

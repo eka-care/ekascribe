@@ -14,7 +14,7 @@ def default_output_format_template():
     return [OutputFormatTemplate()]
 
 class OutputFormatTemplate(BaseModel):
-    template_id: str = "eka_emr_template"
+    template_id: str = "clinical_note_template"
     language_output: LanguageOutput = LanguageOutput.EN_IN.value
     codification_needed: bool = False
     post_proc_method_slug: Optional[List[str]] = None

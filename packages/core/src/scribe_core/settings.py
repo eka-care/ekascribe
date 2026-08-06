@@ -25,15 +25,12 @@ class Settings(BaseSettings):
     self_url: str = "http://localhost:8000"  # public base URL of the API (discovery doc, upload URLs)
     web_url: str = "http://localhost:3000"
 
-    # --- Pluggable backends (B2) -------------------------------------------
+    # --- Pluggable backends --------------------------------------------------
     storage_backend: Literal["local", "s3"] = "local"
-    db_backend: Literal["postgres", "dynamodb"] = "postgres"
-    queue_backend: Literal["postgres", "sqs"] = "postgres"
-    # Where the on-prem pipeline runs (when queue_backend=postgres):
+    # Where the pipeline runs:
     #   inprocess = FastAPI in-process background jobs (single container, no worker)
     #   worker    = defer to Postgres/procrastinate; apps/worker consumes
     execution_mode: Literal["worker", "inprocess"] = "inprocess"
-    state_backend: Literal["postgres", "redis"] = "postgres"
 
     # --- Storage ------------------------------------------------------------
     storage_root: str = "./storage"          # STORAGE_BACKEND=local
@@ -43,10 +40,6 @@ class Settings(BaseSettings):
 
     # --- Database -----------------------------------------------------------
     database_url: str = "postgresql://scribe:scribe@localhost:5432/scribe"
-    dynamodb_endpoint_url: str | None = None  # DB_BACKEND=dynamodb (LocalStack)
-
-    # --- Redis (optional, STATE_BACKEND=redis only) -------------------------
-    redis_url: str | None = None
 
     # --- Auth (decision #17: dev-token only for v1) -------------------------
     auth_mode: Literal["dev", "jwt"] = "dev"
@@ -54,7 +47,7 @@ class Settings(BaseSettings):
     dev_b_id: str = "onprem-workspace"
     dev_uuid: str = "00000000-0000-0000-0000-000000000001"
     dev_oid: str = "onprem-doctor-oid"
-    dev_client_id: str | None = None         # presence triggers webhook dispatch paths
+    dev_client_id: str | None = None         # machine-client id (optional)
     auth_issuer: str = "scribe.local"
     upload_url_signing_secret: str = "change-me"  # signs tokenized upload URLs (attachAuth: false path)
 
@@ -72,27 +65,11 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("ECHO_LLM_MODEL", "ECHO_DEFAULT_LLM_MODEL"),
     )
 
-    # --- Prompts (file provider is the on-prem default) ---------------------
-    echo_prompt_provider: Literal["file", "langfuse"] = "file"
-    echo_prompt_dir: str = "./prompts"
-
     # --- Logging (file-based, keeps get_logger kwargs signature) ------------
     log_dir: str = "./logs"
     log_level: str = "INFO"
     log_max_bytes: int = 50 * 1024 * 1024
     log_backup_count: int = 5
-
-    # --- Feature flags (decisions #5, #8, #21) ------------------------------
-    feature_streaming: bool = False          # phase 2
-    feature_fhir: bool = False               # flagged off for v1
-    feature_publish_integrations: bool = False
-    feature_patient_directory: bool = False
-    feature_records_vault: bool = False
-    feature_payments: bool = False
-    feature_drug_search: bool = True         # optional; works only after formulary migration script
-
-    # --- Webhooks (decision #22: direct HTTP + HMAC) ------------------------
-    webhook_hmac_secret: str | None = None
 
     # --- Discovery doc ------------------------------------------------------
     discovery_support_email: str = "admin@example.com"

@@ -21,7 +21,6 @@ from voice2rx.api.schemas.ekascribe_config import (
     ALLOWED_HEADER_FOOTER_TYPES,
     MAX_IMAGE_SIZE_BYTES,
 )
-from voice2rx.services.hub_client import fetch_doctors as fetch_hub_doctors
 from voice2rx.services.storage.s3_service import download_s3_file, upload_file_to_s3
 from voice2rx.services.storage.s3_storage_client import S3StorageClient
 from voice2rx.services.templates.template_service import TemplateService
@@ -51,12 +50,12 @@ SUPPORTED_CONFIG_DATA = {
             {
                 "id": "consultation",
                 "name": "Consultation",
-                "desc": "Eka Scribe will listen to your conversation and create clinical notes",
+                "desc": "Scribe will listen to your conversation and create structured notes",
             },
             {
                 "id": "dictation",
                 "name": "Dictation",
-                "desc": "Dictate your notes to Eka Scribe and create clinical notes",
+                "desc": "Dictate your notes to Scribe and create structured notes",
             },
         ],
         "max_selection": {
@@ -400,11 +399,6 @@ async def get_language_config(
             "is_paid_doc": paid_doc,
             "is_eka_doc": is_eka_doc,
         }
-
-        if jwt_payload.get("oid"):
-            doctors = fetch_hub_doctors(jwt_payload)
-            if doctors is not None:
-                response_data["data"]["doctors"] = doctors
 
         return ResponseFormatter.json_response(
             response_data, status_code=status.HTTP_200_OK

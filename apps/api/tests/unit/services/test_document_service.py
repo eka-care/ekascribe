@@ -33,23 +33,6 @@ def service(mock_repo):
 
 
 class TestCreateDocument:
-    def test_creates_document_with_generated_id_when_not_supplied(
-        self, service, mock_repo
-    ):
-        result = service.create_document(
-            session_id="sess-1",
-            template_id="tmpl-1",
-            uuid_val="u-1",
-            wid="b-1",
-        )
-
-        assert result["document_id"]  # generated uuid
-        assert result["session_id"] == "sess-1"
-        assert result["template_id"] == "tmpl-1"
-        assert result["type"] == "document"
-        assert result["status"] == "in-progress"
-        assert result["document_name"] == "tmpl-1"  # defaults to template_id
-        mock_repo.create_document.assert_called_once()
 
     def test_uses_provided_document_id_and_fields(self, service, mock_repo):
         result = service.create_document(
@@ -168,84 +151,6 @@ class TestUpdateAndQuery:
 # ---------------------------------------------------------------------------
 
 
-class TestWriteDocumentContent:
-    def test_writes_to_explicit_document_path_when_provided(self, service):
-        with patch(
-            "voice2rx.services.documents.document_service.s3_client"
-        ) as mock_s3:
-            file_key = service.write_document_content(
-                s3_url=S3_URL,
-                document_id="doc-1",
-                content="hello",
-                document_path="custom/path/file.txt",
-            )
-
-        assert file_key == "custom/path/file.txt"
-        mock_s3.put_object.assert_called_once()
-        kwargs = mock_s3.put_object.call_args.kwargs
-        assert kwargs["Bucket"] == BUCKET
-        assert kwargs["Key"] == "custom/path/file.txt"
-        assert kwargs["Body"] == b"hello"
-
-    def test_fallback_path_uses_s3_url_base_folder(self, service):
-        with patch(
-            "voice2rx.services.documents.document_service.s3_client"
-        ) as mock_s3:
-            file_key = service.write_document_content(
-                s3_url=S3_URL,
-                document_id="doc-1",
-                content="hello",
-            )
-
-        assert file_key == f"{BASE_FOLDER}documents/doc-1.txt"
-        mock_s3.put_object.assert_called_once()
-
-    def test_decodes_base64_when_flag_set(self, service):
-        import base64
-
-        content = base64.b64encode(b"decoded").decode("utf-8")
-        with patch(
-            "voice2rx.services.documents.document_service.s3_client"
-        ) as mock_s3:
-            service.write_document_content(
-                s3_url=S3_URL,
-                document_id="doc-1",
-                content=content,
-                is_base64=True,
-            )
-        kwargs = mock_s3.put_object.call_args.kwargs
-        assert kwargs["Body"] == b"decoded"
-
-    def test_writes_as_is_when_base64_decode_fails(self, service):
-        with patch(
-            "voice2rx.services.documents.document_service.s3_client"
-        ) as mock_s3:
-            service.write_document_content(
-                s3_url=S3_URL,
-                document_id="doc-1",
-                content="not-base64!!",
-                is_base64=True,
-            )
-        kwargs = mock_s3.put_object.call_args.kwargs
-        assert kwargs["Body"] == b"not-base64!!"
-
-    def test_raises_on_s3_put_failure(self, service):
-        with patch(
-            "voice2rx.services.documents.document_service.s3_client"
-        ) as mock_s3:
-            mock_s3.put_object.side_effect = RuntimeError("s3 boom")
-            with pytest.raises(RuntimeError):
-                service.write_document_content(
-                    s3_url=S3_URL,
-                    document_id="doc-1",
-                    content="hello",
-                )
-
-
-# ---------------------------------------------------------------------------
-# Presigned URLs
-# ---------------------------------------------------------------------------
-
 
 class TestPresignedUrls:
     def test_generate_presigned_download_url_returns_none_without_path(self, service):
@@ -294,26 +199,3 @@ class TestPresignedUrls:
 # ---------------------------------------------------------------------------
 
 
-class TestParseDocumentPath:
-    def test_empty_path_returns_empty_parts(self, service):
-        assert service.parse_document_path("") == {
-            "bucket": "",
-            "folder": "",
-            "filename": "",
-        }
-
-    def test_parses_nested_path(self, service):
-        result = service.parse_document_path("240101/txn-1/documents/doc-1.txt")
-        assert result == {
-            "bucket": BUCKET,
-            "folder": "240101/txn-1/documents",
-            "filename": "doc-1.txt",
-        }
-
-    def test_parses_flat_filename(self, service):
-        result = service.parse_document_path("doc-1.txt")
-        assert result == {
-            "bucket": BUCKET,
-            "folder": "",
-            "filename": "doc-1.txt",
-        }

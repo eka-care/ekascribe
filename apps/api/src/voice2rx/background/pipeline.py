@@ -111,8 +111,6 @@ def _transcribe_chunk_sync(bucket: str, chunk_key: str, language: Optional[str])
 
 
 # --- pipeline jobs (queue-agnostic) ------------------------------------------
-
-
 def transcribe_chunk(txn_id: str, b_id: str, s3_url: str, filename: str) -> None:
     """Early STT for one uploaded chunk. Idempotent (skips if transcript exists)."""
     bucket, prefix = parse_blob_url(s3_url)
@@ -173,7 +171,6 @@ def process_session(message: Dict[str, Any]) -> None:
     lang = language or detected_lang or ""
 
     import orjson
-
     transcript_key = f"{prefix.rstrip('/')}/template_results/transcripts/{txn_id}_transcript.json"
     get_blob_store().put(
         bucket,

@@ -1,5 +1,5 @@
 """Tests for GET /voice/v1/sessions/{session_id}/audio and the related
-audio_api_enabled webhook gating + protocol end-session audio combining."""
+protocol end-session audio combining."""
 
 import json
 from unittest.mock import MagicMock, patch
@@ -85,7 +85,7 @@ class TestGetSessionAudioAPI:
         _, _, storage_cls = self._call(client)
         assert (
             storage_cls.call_args.kwargs["bucket_name"]
-            == "m-prod-voice-record-audio"
+            == "voice-records-audio"
         )
 
     def test_unknown_session_returns_404(self, client):
@@ -115,51 +115,6 @@ class TestGetSessionAudioAPI:
         assert response.json()["error"]["code"] == "audio_url_generation_failed"
 
 
-class TestWebhookAudioUrlGating:
-    """audio_api_enabled=True must strip the presigned URL from v2rx.completed."""
-
-    def _patch_transaction_update(self, client, audio_api_enabled):
-        with patch(
-            "voice2rx.services.transactions.transaction_service.TransactionService.get_transaction",
-            return_value=_transaction(),
-        ), patch(
-            "voice2rx.services.transactions.transaction_service.TransactionService.update_transaction",
-            return_value={},
-        ), patch(
-            "voice2rx.api.endpoints.transactions.transaction_actions.config_service"
-        ) as cfg, patch(
-            "voice2rx.api.endpoints.transactions.transaction_actions.send_webhook_notification"
-        ) as send_webhook, patch(
-            "voice2rx.api.endpoints.transactions.transaction_actions.process_fhir_data"
-        ):
-            cfg.check_audio_full_enabled.return_value = True
-            cfg.check_audio_api_enabled.return_value = audio_api_enabled
-            response = client.patch(
-                f"/voice/api/v2/transaction/{SESSION_ID}",
-                json={"processing_status": "success"},
-                headers=_jwt_header(c_id=C_ID),
-            )
-        return response, send_webhook
-
-    def test_audio_api_enabled_omits_presigned_url(self, client):
-        response, send_webhook = self._patch_transaction_update(
-            client, audio_api_enabled=True
-        )
-
-        assert response.status_code == 200
-        send_webhook.assert_called_once()
-        assert send_webhook.call_args.args[3] is False  # send_audio_url
-
-    def test_audio_api_disabled_keeps_presigned_url(self, client):
-        response, send_webhook = self._patch_transaction_update(
-            client, audio_api_enabled=False
-        )
-
-        assert response.status_code == 200
-        send_webhook.assert_called_once()
-        assert send_webhook.call_args.args[3] is True  # send_audio_url
-
-
 class TestCommitSchedulesAudioCombine:
     """commit_transaction (service layer) schedules combining for both surfaces."""
 
@@ -185,12 +140,9 @@ class TestCommitSchedulesAudioCombine:
         service.transaction_repo.update_transaction.return_value = {}
 
         bg = MagicMock() if background_tasks is ... else background_tasks
-        with patch(
-            "voice2rx.services.transactions.transaction_service.emit"
-        ):
-            service.commit_transaction(
-                SESSION_ID, B_ID, ["0.mp3"], background_tasks=bg
-            )
+        service.commit_transaction(
+            SESSION_ID, B_ID, ["0.mp3"], background_tasks=bg
+        )
         return bg
 
     def test_schedules_combine_when_audio_full_and_vaded(self):
@@ -228,9 +180,7 @@ class TestCommitSchedulesAudioCombine:
             return_value=["0.mp3"],
         ), patch(
             "voice2rx.protocol.routes.sessions.session_adaptor"
-        ) as adaptor, patch(
-            "voice2rx.protocol.routes.sessions.emit"
-        ):
+        ) as adaptor:
             svc.get_transaction.return_value = _transaction()
             svc.commit_transaction.return_value = _transaction()
             adaptor.create_end_session_response.return_value = {
@@ -245,19 +195,4 @@ class TestCommitSchedulesAudioCombine:
             )
 
         assert response.status_code == 202
-        assert svc.commit_transaction.call_args.kwargs["background_tasks"] is not None
-
-    def test_legacy_commit_route_passes_background_tasks(self, client):
-        with patch(
-            "voice2rx.api.endpoints.transactions.commit_router.transaction_service"
-        ) as svc:
-            svc.commit_transaction.return_value = _transaction()
-            svc.send_commit_to_sqs.return_value = True
-            response = client.post(
-                f"/voice/api/v2/transaction/commit/{SESSION_ID}",
-                json={"audio_files": ["0.mp3"]},
-                headers=_jwt_header(),
-            )
-
-        assert response.status_code == 200
         assert svc.commit_transaction.call_args.kwargs["background_tasks"] is not None

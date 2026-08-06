@@ -83,7 +83,6 @@ class BackgroundJobRunner:
     # -- execution -----------------------------------------------------------
     def _run_blocking(self, task_name: str, payload: Dict[str, Any]) -> None:
         from voice2rx.background.pipeline import TASKS
-
         entry = TASKS.get(task_name)
         if entry is None:
             logger.error("unknown background task", task=task_name)

@@ -8,7 +8,7 @@ services:
       POSTGRES_PASSWORD: scribe
       POSTGRES_DB: scribe
     ports:
-      - "5432:5432"   # published so native `make api/worker/setup` can connect
+      - "127.0.0.1:5432:5432"   # loopback only; native `make api/worker/setup` still works
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -30,7 +30,7 @@ services:
       - storage:/data/storage
       - logs:/data/logs
     ports:
-      - "8000:8000"
+      - "8000:8000"   # fronted by infra SSL (https://bharat-backend.dev.eka.care)
     depends_on:
       postgres:
         condition: service_healthy
@@ -65,9 +65,9 @@ services:
         NEXT_PUBLIC_API_HOST: ${SELF_URL:-http://localhost:8000}
         NEXT_PUBLIC_WEB_HOST: ${WEB_URL:-http://localhost:3000}
     environment:
-      NEXT_PUBLIC_API_HOST: http://localhost:8000
+      NEXT_PUBLIC_API_HOST: ${SELF_URL:-http://localhost:8000}
     ports:
-      - "3000:3000"
+      - "3000:3000"   # fronted by infra SSL (https://bharat-net.dev.eka.care)
     depends_on:
       - api
 

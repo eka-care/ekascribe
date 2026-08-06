@@ -67,11 +67,11 @@ def test_subset_registers_named_tools_plus_narrative():
     patcher, _ = _patched_prompt_service()
     with patcher:
         agent, _, _ = build_scribe_run_components(
-            _inputs(available_tools="add_list,add_medication_table")
+            _inputs(available_tools="add_list,add_table")
         )
     assert set(t.name for t in agent.tools) == {
         "add_list",
-        "add_medication_table",
+        "add_table",
         "add_narrative",
     }
 

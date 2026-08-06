@@ -13,22 +13,14 @@ from echo.tools import BaseTool
 from logs.custom_logger import get_logger
 from pydantic import BaseModel, ValidationError
 
-from ..lab.tool import LabInvestigationsTool
-from ..medication.tool import MedicationTableTool
 from ...payloads import (
-    DiagnosisPayload,
-    ExaminationFindingsPayload,
     KeyValuePayload,
-    LabResultsPayload,
     ListPayload,
     NarrativePayload,
-    PatientMedicalHistoryPayload,
-    ProceduresPayload,
     Section,
     SectionKind,
     SectionStatus,
     TablePayload,
-    VitalTablePayload,
 )
 from ...state import ScribeState
 from ...state_ops import apply_section_to_state
@@ -155,36 +147,6 @@ class TableTool(_GenericEmitTool):
     KIND = SectionKind.TABLE
     PAYLOAD_MODEL = TablePayload
 
-class VitalTableTool(_GenericEmitTool):
-    name = "add_vital_table"
-    KIND = SectionKind.VITAL_TABLE
-    PAYLOAD_MODEL = VitalTablePayload
-
-class ProceduresTool(_GenericEmitTool):
-    name = "add_procedures"
-    KIND = SectionKind.PROCEDURES
-    PAYLOAD_MODEL = ProceduresPayload
-
-class LabResultsTool(_GenericEmitTool):
-    name = "add_lab_results"
-    KIND = SectionKind.LAB_RESULTS
-    PAYLOAD_MODEL = LabResultsPayload
-
-class PatientMedicalHistoryTool(_GenericEmitTool):
-    name = "add_patient_medical_history"
-    KIND = SectionKind.PATIENT_MEDICAL_HISTORY
-    PAYLOAD_MODEL = PatientMedicalHistoryPayload
-
-class DiagnosisTool(_GenericEmitTool):
-    name = "add_diagnosis"
-    KIND = SectionKind.DIAGNOSIS
-    PAYLOAD_MODEL = DiagnosisPayload
-
-class ExaminationFindingsTool(_GenericEmitTool):
-    name = "add_examination_findings"
-    KIND = SectionKind.EXAMINATION_FINDINGS
-    PAYLOAD_MODEL = ExaminationFindingsPayload
-
 class KeyValueTool(_GenericEmitTool):
     name = "add_key_value"
     KIND = SectionKind.KEY_VALUE
@@ -215,25 +177,10 @@ ALL_GENERIC_TOOLS: Dict[SectionKind, Type[_GenericEmitTool]] = {
     SectionKind.TABLE: TableTool,
     SectionKind.KEY_VALUE: KeyValueTool,
     SectionKind.NARRATIVE: NarrativeTool,
-    SectionKind.MEDICATION_TABLE: MedicationTableTool,
-    SectionKind.PROCEDURES: ProceduresTool,
-    SectionKind.LAB_RESULTS: LabResultsTool,
-    SectionKind.VITAL_TABLE: VitalTableTool,
-    SectionKind.PATIENT_MEDICAL_HISTORY: PatientMedicalHistoryTool,
-    SectionKind.DIAGNOSIS: DiagnosisTool,
-    SectionKind.EXAMINATION_FINDINGS: ExaminationFindingsTool,
-    SectionKind.LAB_INVESTIGATIONS: LabInvestigationsTool,
 }
 
-# switch for turning off tools
-DISABLED_TOOLS: frozenset = frozenset(
-    {
-        "add_patient_medical_history",
-        "add_diagnosis",
-        "add_examination_findings",
-        "add_lab_investigations"
-    }
-)
+# switch for turning off tools (empty by default; names from NAME_TO_TOOL)
+DISABLED_TOOLS: frozenset = frozenset()
 
 # name-keyed registry for template-driven tool selection (available_tools).
 NAME_TO_TOOL: Dict[str, Type[_GenericEmitTool]] = {
@@ -243,14 +190,6 @@ NAME_TO_TOOL: Dict[str, Type[_GenericEmitTool]] = {
         TableTool,
         KeyValueTool,
         NarrativeTool,
-        MedicationTableTool,
-        ProceduresTool,
-        LabResultsTool,
-        VitalTableTool,
-        PatientMedicalHistoryTool,
-        DiagnosisTool,
-        ExaminationFindingsTool,
-        LabInvestigationsTool,
     )
     if cls.name not in DISABLED_TOOLS
 }

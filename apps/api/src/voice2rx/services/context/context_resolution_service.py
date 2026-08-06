@@ -177,7 +177,11 @@ class ContextResolutionService:
         try:
             url = f"{VAULT_BASE_URL}/internal/api/v1/docs/{attachment_id}"
             params = {"oid": patient_id} if patient_id else {}
-            jwt_payload = json.dumps({"b-id": b_id, "uuid": uuid_val, "w-id": b_id, "iss" : "emr.eka.care"})
+            from scribe_core.settings import get_settings
+
+            jwt_payload = json.dumps(
+                {"b-id": b_id, "uuid": uuid_val, "w-id": b_id, "iss": get_settings().auth_issuer}
+            )
             headers = {
                 "jwt-payload": jwt_payload,
                 "service-id": "docon",

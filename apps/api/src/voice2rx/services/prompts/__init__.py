@@ -1,17 +1,15 @@
-"""
-Prompt services for fetching and compiling prompts (e.g. from Langfuse).
-"""
+"""File-backed prompt services (agent system prompts from the prompts folder)."""
 
-from .langfuse_prompt_service import (
+from .prompt_service import (
     AGENT_PROMPT_NAMES,
-    LangfusePromptService,
+    FilePromptService,
     get_prompt_service,
 )
 from .prompt_parser import ParsedAgentPrompt, parse_agent_prompt
 
 __all__ = [
     "AGENT_PROMPT_NAMES",
-    "LangfusePromptService",
+    "FilePromptService",
     "ParsedAgentPrompt",
     "get_prompt_service",
     "parse_agent_prompt",

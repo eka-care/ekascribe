@@ -6,7 +6,7 @@ import pytest
 from voice2rx.utils.session_utils import compute_upload_url
 
 SESSION_ID = "test-session-123"
-BACKEND_URL = f"https://api.eka.care/voice/v1/sessions/{SESSION_ID}/audio"
+BACKEND_URL = f"http://localhost:8000/voice/v1/sessions/{SESSION_ID}/audio"
 PRESIGNED_RESPONSE = {
     "uploadData": {"url": "https://bucket.s3.amazonaws.com/", "fields": {}},
     "folderPath": "some/prefix/",
@@ -25,15 +25,6 @@ def mock_audio_adaptor():
         )
         adaptor_cls.return_value = instance
         yield instance
-
-
-class TestComputeUploadUrlStream:
-    def test_stream_returns_wss_url(self, mock_audio_adaptor):
-        url = compute_upload_url(SESSION_ID, "stream", version="v2")
-        assert url == (
-            f"wss://api.eka.care/voice/v1/sessions/{SESSION_ID}/audio/stream"
-        )
-        mock_audio_adaptor.generate_presigned_post_for_upload.assert_not_called()
 
 
 class TestComputeUploadUrlSingle:

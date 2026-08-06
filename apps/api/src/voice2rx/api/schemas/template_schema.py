@@ -48,7 +48,7 @@ _AVAILABLE_TOOLS_FIELD = Field(
     description=(
         "AG-UI emit tools enabled for this template: 'all' or absent = every "
         "tool, '' = narrative only, else comma-separated tool names "
-        "(e.g. 'add_list,add_medication_table'). Ignored by *_meeting_notes "
+        "(e.g. 'add_list,add_table'). Ignored by *_meeting_notes "
         "templates."
     ),
 )

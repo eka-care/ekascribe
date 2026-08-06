@@ -5,10 +5,6 @@ from fastapi import APIRouter, BackgroundTasks
 from decimal import Decimal
 from fastapi.encoders import jsonable_encoder
 from fastapi import Request
-from voice2rx.api.endpoints.template_result import (
-    generate_template_in_background,
-    generate_integration_template_in_background,
-)
 from voice2rx.api.endpoints.transactions.handlers import (
     RequestHandler,
     ResponseFormatter,
@@ -18,25 +14,15 @@ from boto3.dynamodb.conditions import Key
 from voice2rx.choices import NON_TEMPLATE_DOCUMENT_ID, VOICE2RX_PROCESSING_STATUS, AudioStatus, DocumentType, Transfer
 from voice2rx.model_orms import TxnTemplateResultsORM
 from voice2rx.services.documents.document_service import DocumentService
-from voice2rx.services.messaging.process_fhir_data import process_fhir_data
 from voice2rx.services.storage.dynamodb_service import DynamoDBOperations
 from voice2rx.services.templates.format_adapter import TemplateFormatConverter
-from voice2rx.services.transactions.result_service import ResultService
 from voice2rx.services.transactions.transaction_background_service import TransactionBackgroundService
 from voice2rx.services.transactions.transaction_service import TransactionService
-from voice2rx.services.messaging.webhook import send_webhook_notification
 from voice2rx.services.documents.populate_documents_service import PopulateDocumentsService
 from logs.custom_logger import get_logger
 from voice2rx.api.schemas.transaction import AudioDataModel
 from voice2rx.utils.time_utils import get_current_utc_timestamp
 from voice2rx.services.config_service import ConfigService
-from voice2rx.services.transactions.result_service import OUTPUT_TEMPLATES
-from voice2rx.services.webhooks import (
-    ScribeEvent,
-    build_session_data,
-    build_transcript_data,
-    emit,
-)
 
 
 # todo : this needs to be refactored also.....
@@ -65,7 +51,6 @@ logger = get_logger(__name__)
 # Initialize services
 config_service = ConfigService()
 transaction_service = TransactionService()
-result_service = ResultService()
 txn_template_results_repo = TxnTemplateResultsORM()
 transaction_background_service = TransactionBackgroundService()
 populate_documents_service = PopulateDocumentsService()
@@ -145,59 +130,8 @@ def update_transaction_api(
                 s3_url=s3_url,
             )
 
-            # the ds-service JWT has no c-id, so fall back to the c_id stored
-            # on the transaction at init
-            emit(
-                ScribeEvent.TRANSCRIPT_GENERATE,
-                b_id=b_id,
-                c_id=c_id or transaction_data.get("c_id", ""),
-                txn_id=txn_id,
-                data=build_transcript_data(txn_id),
-            )
-
-            # once the transcripts exists, we can start the structring the template outputs in the background.
-            # case 1 : (custom -> visual) templates : structured here the backend by spawining one background agent per template document.
-            # case 2: integration templates that the backend generates iteself (rather then receiving from the ds-service): 
-                    # a seperate background agent generates and stores there results.
-            # case 3: clients that drive structuring by tehemselves via the streaming au-ui flow. 
-                #  hack here ; clients might pass the template id in both init call and in on demand generate calls.
-                # so the clients such as web, desktop will be excluded from this background generate ...  remove from init itself.
-            templates_documents = transaction_data.get("request_templates", {}).get("visual", [])
-            document_ids = [t.get("document_id") for t in templates_documents if t.get("document_id")]
-            documents = document_service.get_documents_by_ids(document_ids=document_ids)
-            for document in documents:
-                if (
-                    document.get("type")
-                    not in [DocumentType.TRANSCRIPT, DocumentType.CONTEXT]
-                    and document.get("template_id") != NON_TEMPLATE_DOCUMENT_ID
-                ):
-                    background_tasks.add_task(
-                        generate_template_in_background,
-                        txn_id,
-                        document.get("template_id"),
-                        b_id,
-                        document.get("document_id"),
-                        transaction_data,
-                    )
-                
-
-            integration_templates = transaction_data.get("request_templates", {}).get("integration", [])
-            integration_documents_ids = [
-                t.get("document_id") for t in integration_templates
-                if t.get("document_id") and t.get("template_id") not in OUTPUT_TEMPLATES
-            ]
-            if integration_documents_ids:
-                integration_docs = document_service.get_documents_by_ids(document_ids=integration_documents_ids)
-                for document in integration_docs:
-                    background_tasks.add_task(
-                        generate_integration_template_in_background,
-                        txn_id,
-                        document.get("template_id"),
-                        b_id,
-                        document.get("document_id"),
-                        transaction_data,
-                        document.get("document_name", ""),
-                    )
+            # Structuring happens on demand via the AG-UI flow (scribe agent
+            # runs) — no server-side per-template generation here.
 
         processing_status = update_data.get("processing_status", "")
         if processing_status == VOICE2RX_PROCESSING_STATUS.SUCCESS.value:
@@ -208,25 +142,10 @@ def update_transaction_api(
 
             txn_processing_status = transaction_data["processing_status"]
             if txn_processing_status == VOICE2RX_PROCESSING_STATUS.IN_PROGRESS.value:
-                if is_connect_client:
-                    audio_full_enabled = config_service.check_audio_full_enabled(b_id)
-                    send_audio_url = (
-                        audio_full_enabled
-                        and transaction_data.get("transfer") == Transfer.VADED.value
-                        and not config_service.check_audio_api_enabled(b_id)
-                    )
-                    background_tasks.add_task(
-                        send_webhook_notification, txn_id, b_id, c_id, send_audio_url
-                    )
-                else:
-                    logger.info(
-                        "UPDATE TXN API: Skipping webhook - no client id",
-                        txn_id=txn_id,
-                        b_id=b_id,
-                    )
-
-                background_tasks.add_task(
-                    process_fhir_data, transaction_data, txn_id, b_id, c_id
+                logger.info(
+                    "UPDATE TXN API: transaction in progress",
+                    txn_id=txn_id,
+                    b_id=b_id,
                 )
 
         # --- if block end here ---
@@ -295,13 +214,6 @@ def delete_transaction_item(request: Request, txn_id: str):
             "arc_at": int(datetime.now(timezone.utc).timestamp()),
         }
         _ = transaction_service.update_transaction(txn_id, b_id, archive_data)
-        emit(
-            ScribeEvent.SESSION_DELETE,
-            b_id=b_id,
-            c_id=transaction_data.get("c_id", ""),
-            txn_id=txn_id,
-            data=build_session_data(txn_id),
-        )
         return ResponseFormatter.json_response(
             {
                 "status": "success",

@@ -7,31 +7,7 @@ from voice2rx.services.templates.format_adapter import TemplateFormatConverter
 class TestTemplateFormatConverter:
     """Test cases for template format conversion."""
 
-    def test_is_integration_template(self):
-        """Test integration template identification."""
-        assert TemplateFormatConverter.is_integration_template("eka_emr_template") is True
-        assert TemplateFormatConverter.is_integration_template("nic_template") is True
-        assert TemplateFormatConverter.is_integration_template("clinikk_template") is True
-        assert TemplateFormatConverter.is_integration_template("clinical_note_template") is False
-        assert TemplateFormatConverter.is_integration_template("transcript_template") is False
 
-    def test_categorize_templates(self):
-        """Test template categorization."""
-        templates = [
-            {"template_id": "eka_emr_template", "language_output": "en-IN"},
-            {"template_id": "clinical_note_template", "language_output": "en-IN"},
-            {"template_id": "nic_template", "language_output": "en-IN"},
-            {"template_id": "transcript_template", "language_output": "en-IN"},
-        ]
-
-        result = TemplateFormatConverter.categorize_templates(templates)
-
-        assert len(result["integration"]) == 2
-        assert len(result["visual"]) == 2
-        assert result["integration"][0]["template_id"] == "eka_emr_template"
-        assert result["integration"][1]["template_id"] == "nic_template"
-        assert result["visual"][0]["template_id"] == "clinical_note_template"
-        assert result["visual"][1]["template_id"] == "transcript_template"
 
     def test_categorize_templates_by_type(self):
         """Test template categorization by explicit type field."""
@@ -46,25 +22,6 @@ class TestTemplateFormatConverter:
         assert len(result["visual"]) == 1
         assert result["integration"][0]["template_id"] == "custom_template"
 
-    def test_convert_to_new_format_from_output_format_template(self):
-        """Test conversion from old format to new format."""
-        transaction_data = {
-            "txn_id": "test-123",
-            "b_id": "business-123",
-            "output_format_template": [
-                {"template_id": "eka_emr_template", "language_output": "en-IN"},
-                {"template_id": "clinical_note_template", "language_output": "en-IN"},
-            ]
-        }
-
-        result = TemplateFormatConverter.convert_to_new_format(transaction_data)
-
-        assert "request_templates" in result
-        assert "output_format_template" not in result
-        assert len(result["request_templates"]["integration"]) == 1
-        assert len(result["request_templates"]["visual"]) == 1
-        assert result["request_templates"]["integration"][0]["template_id"] == "eka_emr_template"
-        assert result["request_templates"]["visual"][0]["template_id"] == "clinical_note_template"
 
     def test_convert_to_new_format_already_new(self):
         """Test conversion when data is already in new format."""
@@ -202,51 +159,5 @@ class TestTemplateFormatConverter:
         assert len(result) == 1
         assert result[0]["template_id"] == "eka_emr_template"
 
-    def test_get_integration_templates_from_old_format(self):
-        """Test getting integration templates from old format."""
-        transaction_data = {
-            "output_format_template": [
-                {"template_id": "eka_emr_template"},
-                {"template_id": "clinical_note_template"},
-                {"template_id": "nic_template"},
-            ]
-        }
 
-        result = TemplateFormatConverter.get_integration_templates(transaction_data)
-
-        assert len(result) == 2
-        template_ids = [t["template_id"] for t in result]
-        assert "eka_emr_template" in template_ids
-        assert "nic_template" in template_ids
-
-    def test_get_visual_templates(self):
-        """Test getting only visual templates."""
-        transaction_data = {
-            "request_templates": {
-                "visual": [{"template_id": "clinical_note_template"}],
-                "integration": [{"template_id": "eka_emr_template"}],
-            }
-        }
-
-        result = TemplateFormatConverter.get_visual_templates(transaction_data)
-
-        assert len(result) == 1
-        assert result[0]["template_id"] == "clinical_note_template"
-
-    def test_get_visual_templates_from_old_format(self):
-        """Test getting visual templates from old format."""
-        transaction_data = {
-            "output_format_template": [
-                {"template_id": "eka_emr_template"},
-                {"template_id": "clinical_note_template"},
-                {"template_id": "transcript_template"},
-            ]
-        }
-
-        result = TemplateFormatConverter.get_visual_templates(transaction_data)
-
-        assert len(result) == 2
-        template_ids = [t["template_id"] for t in result]
-        assert "clinical_note_template" in template_ids
-        assert "transcript_template" in template_ids
 

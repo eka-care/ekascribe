@@ -40,15 +40,11 @@ def test_yaml_routes_away_targets_are_known_tools():
             assert route.tool != name
 
 
-def test_dedicated_table_tools_declare_mandatory_content():
+def test_no_tool_declares_mandatory_content():
+    # The generic tool set has no content-mandated tools; the mandatory
+    # section must therefore never render.
     config = load_tool_prompts()
-    for name in (
-        "add_medication_table",
-        "add_vital_table",
-        "add_lab_results",
-        "add_procedures",
-    ):
-        assert config.tools[name].mandatory_content
+    assert not any(entry.mandatory_content for entry in config.tools.values())
 
 
 # ------------------------------------------------------------------- resolve
@@ -67,16 +63,16 @@ def test_resolve_empty_string_returns_narrative_only(catalog):
 
 
 def test_resolve_subset_returns_named_plus_narrative(catalog):
-    specs = catalog.resolve("add_list,add_medication_table")
+    specs = catalog.resolve("add_list,add_table")
     assert set(s.name for s in specs) == {
         "add_list",
-        "add_medication_table",
+        "add_table",
         NARRATIVE_TOOL_NAME,
     }
 
 
 def test_resolve_orders_by_canonical_registry_order(catalog):
-    specs = catalog.resolve("add_vital_table, add_list, add_table")
+    specs = catalog.resolve("add_key_value, add_list, add_table")
     names = [s.name for s in specs]
     assert names == [n for n in ALL_NAMES if n in set(names)]
 
@@ -126,38 +122,32 @@ def test_render_includes_preamble_fallback_and_enabled_tools(catalog):
     assert config.fallback_rule.strip() in text
     assert "### add_list" in text
     assert "### add_narrative" in text
-    assert "### add_medication_table" not in text
+    assert "### add_table" not in text
 
 
-def test_render_mandatory_rules_only_for_enabled_tools(catalog):
+def test_render_never_includes_mandatory_section(catalog):
+    # No generic tool declares mandatory_content, so the mandatory section
+    # must not render for any tool set.
     all_text = catalog.render_tools_available(catalog.resolve(None))
-    assert "prescribed or advised medications → add_medication_table" in all_text
+    assert "Mandatory tool selection" not in all_text
 
     subset_text = catalog.render_tools_available(catalog.resolve("add_list"))
-    assert "add_medication_table" not in subset_text
     assert "Mandatory tool selection" not in subset_text
 
 
 def test_render_filters_routes_away_to_enabled_targets(catalog):
     specs = catalog.resolve("add_list,add_table")
     text = catalog.render_tools_available(specs)
-    # add_list routes generic-records content to add_table (enabled)...
+    # add_list routes records-shaped content to add_table (enabled)...
     assert "use add_table" in text
-    # ...but never mentions disabled dedicated tools.
-    assert "add_vital_table" not in text
-    assert "add_lab_results" not in text
-    assert "add_procedures" not in text
+    # ...but never mentions tools disabled for the run.
+    assert "add_key_value" not in text
 
 
-def test_render_full_set_includes_all_mandatory_mappings(catalog):
+def test_render_full_set_lists_every_tool(catalog):
     text = catalog.render_tools_available(catalog.resolve("all"))
-    for name in (
-        "add_medication_table",
-        "add_vital_table",
-        "add_lab_results",
-        "add_procedures",
-    ):
-        assert f"→ {name}" in text
+    for name in ("add_list", "add_table", "add_key_value", "add_narrative"):
+        assert f"### {name}" in text
 
 
 def test_render_is_deterministic_for_same_set(catalog):
@@ -169,7 +159,7 @@ def test_render_is_deterministic_for_same_set(catalog):
 # -------------------------------------------------------------- instantiate
 
 def test_instantiate_returns_tool_instances_in_order(catalog):
-    specs = catalog.resolve("add_list,add_medication_table")
+    specs = catalog.resolve("add_list,add_table")
     tools = catalog.instantiate(specs)
     assert [t.name for t in tools] == [s.name for s in specs]
 
@@ -183,8 +173,8 @@ def test_instantiate_descriptions_never_mention_disabled_tools(catalog):
 
 def test_instantiate_full_set_keeps_cross_references(catalog):
     tools = catalog.instantiate(catalog.resolve(None))
-    med = next(t for t in tools if t.name == "add_medication_table")
-    assert "add_vital_table" in med.description
+    lst = next(t for t in tools if t.name == "add_list")
+    assert "add_table" in lst.description
 
 
 def test_get_tool_catalog_is_singleton():
