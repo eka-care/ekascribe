@@ -10,8 +10,8 @@ pipeline worker, and any ingress. Access is via `kubectl port-forward`.
 |---|---|
 | `00-namespace.yaml` | Namespace `eka-care` |
 | `01-configmap.yaml` | Non-secret config (mirrors `.env.example`) |
-| `02-secret.yaml` | `DATABASE_URL`, API keys — placeholders |
-| `03-regcred.yaml` | Docker Hub pull credential — placeholders |
+| `02-secret.yaml.example` | `DATABASE_URL`, API keys — template, not applied |
+| `03-regcred.yaml.example` | Docker Hub pull credential — template, not applied |
 | `04-migrate-job.yaml` | Schema + seed data, run once before the workloads |
 | `10-` / `11-` | api Deployment + ClusterIP Service |
 | `20-` / `21-` | web Deployment + ClusterIP Service |
@@ -44,10 +44,11 @@ everything else:
 kubectl apply -f deploy/k8s/
 ```
 
-`kubectl apply` will not overwrite the secrets you just created with the
-placeholder files — it patches them, and the placeholder keys would clobber
-real values. If you created both secrets with `kubectl create secret`, delete
-the two placeholder files locally or apply the manifests individually.
+The two secret templates end in `.yaml.example`, not `.yaml`, specifically so
+this directory apply skips them — otherwise it would overwrite the credentials
+you just created with `REPLACE_ME` placeholders. If you would rather fill in
+the files than use `kubectl create secret`, copy one to a `.yaml` name, edit it,
+apply it explicitly, and keep it out of commits.
 
 Wait for the migration to finish before trusting the api:
 
@@ -78,6 +79,40 @@ about, pin the immutable sha tag — `deploy/push.sh` prints these commands:
 ```bash
 kubectl -n eka-care set image deploy/ekascribe-api api=ekacare/ekascribe:api-1a2b3c4
 ```
+
+## S3 permissions the migrate Job needs
+
+Verified against the real bucket, not assumed. `setup.py`'s storage probe does
+a put → get → exists → **delete** round trip, and it exits 1 if any step fails.
+`s3:DeleteObject` is therefore required, not optional — a role with only
+read/write passes three steps and then fails the Job:
+
+```
+[ok]   postgres reachable
+[FAIL] storage: An error occurred (AccessDenied) when calling the DeleteObject operation
+[ok]   app schema (tables + indexes)
+[ok]   procrastinate schema applied
+[ok]   seeded 0 sections, 5 templates
+Completed with issues: storage
+```
+
+Note what that output means: the schema and seeds **succeeded**. The app would
+run fine. But the Job still exits 1, retries to `backoffLimit`, ends up
+`Failed`, and `kubectl wait --for=condition=complete` times out — so a working
+deployment looks broken.
+
+The pod identity (IRSA, instance role, or static keys) needs at least:
+
+```
+s3:PutObject, s3:GetObject, s3:DeleteObject   on   arn:aws:s3:::voice-records/*
+s3:ListBucket                                 on   arn:aws:s3:::voice-records
+```
+
+The probe writes to `_setup/probe.txt` in a **hardcoded** bucket named
+`voice-records` — it ignores `S3_BUCKET`. If your bucket is named something
+else, grant the probe permissions on `voice-records` too, or run the Job once
+with `STORAGE_BACKEND=local` (schema and seeds do not touch S3) and rely on the
+api pod to surface real storage problems.
 
 ## Two things that will bite you
 
