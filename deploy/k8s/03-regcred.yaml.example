@@ -3,7 +3,11 @@
 # Without it every pod fails with:
 #   ImagePullBackOff -- pull access denied, repository does not exist
 #
-# PLACEHOLDERS ONLY -- DO NOT COMMIT REAL VALUES.
+# TEMPLATE -- PLACEHOLDERS ONLY. DO NOT COMMIT REAL VALUES.
+#
+# The .example extension is deliberate: `kubectl apply -f deploy/k8s/` only
+# reads .yaml/.yml/.json, so this file is skipped and cannot overwrite a real
+# pull secret with the REPLACE_ME values below.
 #
 # Preferred: create it straight against the cluster, using a Docker Hub
 # ACCESS TOKEN (hub.docker.com -> Account Settings -> Personal access tokens),
@@ -17,10 +21,11 @@
 # Secrets are namespaced -- this must exist in eka-care specifically. A
 # regcred sitting in `default` will not be found.
 #
-# If you fill this file in instead, `auth` is base64("username:token"):
+# If you fill in a copy instead, `auth` is base64("username:token"):
 #   printf 'YOUR_USER:YOUR_ACCESS_TOKEN' | base64 -w0
-# then keep it out of commits with:
-#   git update-index --skip-worktree deploy/k8s/03-regcred.yaml
+# then apply that copy explicitly and leave it untracked:
+#   cp 03-regcred.yaml.example 03-regcred.yaml && $EDITOR 03-regcred.yaml
+#   kubectl apply -f deploy/k8s/03-regcred.yaml
 # ############################################################################
 apiVersion: v1
 kind: Secret
