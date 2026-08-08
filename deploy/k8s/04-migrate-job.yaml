@@ -1,0 +1,63 @@
+# Applies the app schema + procrastinate schema and seeds the default sections
+# and templates (templates/seed_data.yaml). Same invocation the Makefile's
+# `make start` target uses against the compose stack.
+#
+# Job specs are largely immutable, so re-applying after an image tag change
+# fails. Delete first:
+#   kubectl -n eka-care delete job ekascribe-migrate --ignore-not-found
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ekascribe-migrate
+  namespace: eka-care
+  labels:
+    app.kubernetes.io/name: ekascribe-migrate
+    app.kubernetes.io/part-of: ekascribe
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ekascribe-migrate
+        app.kubernetes.io/part-of: ekascribe
+    spec:
+      restartPolicy: Never
+      imagePullSecrets:
+        - name: ekascribe-regcred
+      containers:
+        - name: migrate
+          image: ekacare/ekascribe:api-latest
+          imagePullPolicy: Always
+          workingDir: /app
+          # --no-env: don't write a .env, config comes from the ConfigMap/Secret
+          # --skip-model-check / --no-serve-check: no live API to probe yet
+          command:
+            - /app/.venv/bin/python
+            - scripts/setup.py
+            - --non-interactive
+            - --no-env
+            - --skip-model-check
+            - --no-serve-check
+          envFrom:
+            - configMapRef:
+                name: ekascribe-config
+            - secretRef:
+                name: ekascribe-secrets
+          volumeMounts:
+            - name: storage
+              mountPath: /data/storage
+            - name: logs
+              mountPath: /data/logs
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 2Gi
+      volumes:
+        - name: storage
+          emptyDir: {}
+        - name: logs
+          emptyDir: {}

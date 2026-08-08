@@ -1,0 +1,36 @@
+# Build context for deploy/Dockerfile.{api,web,worker} -- all three use the repo
+# root as context (docker-compose `context: ..`). Without this, a developer's
+# local node_modules/ and .next/ are copied in by `COPY apps/web apps/web` and
+# shadow the clean `npm install` the web build stage does for itself.
+#
+# NOTE ON ANCHORING -- .dockerignore is NOT .gitignore. Patterns here are
+# anchored to the context root, so `logs` matches only /logs, never
+# apps/api/src/logs. That distinction is load-bearing: this repo has SOURCE
+# packages named logs/ and storage/ (see .gitignore's negations). Use `**/` only
+# where recursive matching is actually wanted, and never add `**/logs`,
+# `**/storage` or `**/dist` -- each would delete real source from the image.
+
+.git
+.dockerignore
+
+# Python caches -- recursive is safe, these are never source
+**/__pycache__
+**/*.pyc
+**/*.egg-info
+**/.pytest_cache
+**/.ruff_cache
+.venv
+
+# Node -- recursive on purpose: apps/web/ and packages/*/ each grow their own.
+# The web image installs its own deps in the build stage.
+**/node_modules
+**/.next
+
+# Runtime data + local config. Root-anchored, so the source packages
+# apps/api/src/logs/ and apps/api/src/voice2rx/services/storage/ are untouched.
+.env
+/logs
+/storage
+
+# Deployment assets -- not referenced by any COPY in the Dockerfiles
+/deploy/k8s
