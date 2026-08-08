@@ -1,20 +1,38 @@
-# keep the docker build context lean — compose builds use context: .. (repo root)
+# Keep the Docker build context lean.
+# Compose builds use the repo root as the context.
+
 .git
-.venv
+.dockerignore
+
+# Python caches
 **/__pycache__
 **/*.pyc
-.pytest_cache
+**/*.pyc.*
+**/*.egg-info
 **/.pytest_cache
-.ruff_cache
-node_modules
+**/.ruff_cache
+.venv
+
+# Node dependencies and build output
+# The web image installs its own dependencies in the build stage.
 **/node_modules
-apps/web/.next
+**/.next
 apps/web/out
-/storage
-/logs
-/_to_delete
+
+# Runtime data and local config
+# Root-anchored: source directories such as apps/api/src/logs/
+# and apps/api/src/voice2rx/services/storage/ remain included.
 .env
-.DS_Store
+/logs
+/storage
+
+# Deployment assets not referenced by Dockerfiles
+/deploy/k8s
+/deploy/certs
+
+# Other local/build artifacts
 **/.DS_Store
-deploy/certs
 *.log
+
+# Temporary files
+/_to_delete

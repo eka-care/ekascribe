@@ -67,6 +67,8 @@ prompts/                    Agent prompts (file provider)
 templates/                  Seed data: 5 default markdown templates
 scripts/setup.py            Init: .env, checks, migrations, seeds, smoke
 deploy/                     Dockerfiles + docker-compose (+ AWS/LocalStack overlay)
+  ├ push.sh                 Build + push api/web images to Docker Hub
+  └ k8s/                    Kubernetes manifests (api + web, namespace eka-care)
 ```
 
 echo (STT + LLM providers, prompts, agents) is an external git dependency,
@@ -86,6 +88,8 @@ default.
 ## Docs
 
 - `docs/architecture.md` — how the pieces fit (pipeline, pluggable layers)
+- `deploy/k8s/README.md` — publishing images (`deploy/push.sh`) and deploying
+  api + web to Kubernetes
 - `CONTRIBUTING.md` — dev workflow
 - `claude/onprem-scribe-plan.md` (project docs) — full migration plan & decisions
 

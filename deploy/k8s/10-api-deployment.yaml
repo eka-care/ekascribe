@@ -1,0 +1,80 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ekascribe-api
+  namespace: eka-care
+  labels:
+    app.kubernetes.io/name: ekascribe-api
+    app.kubernetes.io/part-of: ekascribe
+spec:
+  # DELIBERATELY 1. With EXECUTION_MODE=inprocess the scribe pipeline runs as
+  # background jobs inside this process (background/runner.py), which keeps
+  # them in process memory only. Scaling this out does not distribute work --
+  # it just creates several independent job runners. Use EXECUTION_MODE=worker
+  # plus a worker Deployment if you need to scale or want durable retries.
+  replicas: 1
+  # Recreate, not RollingUpdate: keeps exactly one job-running process alive at
+  # a time. Costs a few seconds of downtime per deploy. Switch to RollingUpdate
+  # if zero-downtime matters more than the single-process guarantee.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ekascribe-api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ekascribe-api
+        app.kubernetes.io/part-of: ekascribe
+    spec:
+      imagePullSecrets:
+        - name: ekascribe-regcred
+      containers:
+        # Container name is `api` -- deploy/push.sh prints
+        # `kubectl set image deploy/ekascribe-api api=...` to pin a tag.
+        - name: api
+          image: ekacare/ekascribe:api-latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: ekascribe-config
+            - secretRef:
+                name: ekascribe-secrets
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          # Blobs live in S3; these are scratch space only and intentionally
+          # ephemeral -- nothing here survives a restart.
+          volumeMounts:
+            - name: storage
+              mountPath: /data/storage
+            - name: logs
+              mountPath: /data/logs
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: "2"
+              memory: 4Gi
+      volumes:
+        - name: storage
+          emptyDir: {}
+        - name: logs
+          emptyDir: {}

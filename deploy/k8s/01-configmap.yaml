@@ -1,0 +1,104 @@
+# Non-secret configuration for the api pod and the migrate Job.
+# Secrets live in 02-secret.yaml. Mirrors .env.example -- keep them in sync.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ekascribe-config
+  namespace: eka-care
+  labels:
+    app.kubernetes.io/part-of: ekascribe
+data:
+  # --- Deployment ---------------------------------------------------------
+  ENV: "prod"
+
+  # In-cluster address of the API Service. EVERYTHING that calls the API from
+  # inside the cluster goes through this, including the pipeline's own PATCH
+  # callback (apps/api/src/voice2rx/background/pipeline.py).
+  #
+  # Do NOT "fix" this to a public hostname. It would send in-cluster traffic
+  # out and back in, and breaks outright while access is port-forward only.
+  # The browser-facing address is API_BASE_URL below -- that is the knob you
+  # want when the API gets a real hostname.
+  SELF_URL: "http://ekascribe-api.eka-care.svc.cluster.local:8000"
+
+  # Browser-facing base URL. Checked before SELF_URL by the discovery doc and
+  # session helpers (voice2rx/protocol/routes/discovery.py,
+  # voice2rx/utils/session_utils.py). The /voice suffix is required -- those
+  # call sites append paths straight onto it.
+  # Correct as-is for `kubectl port-forward svc/ekascribe-api 8000:8000`;
+  # change to https://api.<your-domain>/voice once an ingress exists.
+  API_BASE_URL: "http://localhost:8000/voice"
+  WEB_URL: "http://localhost:3000"
+
+  # --- Pluggable backends -------------------------------------------------
+  STORAGE_BACKEND: "s3"
+  DB_BACKEND: "postgres"
+  QUEUE_BACKEND: "postgres"
+  STATE_BACKEND: "postgres"
+
+  # --- Pipeline execution -------------------------------------------------
+  # inprocess = the STT/stitch/structure/finalize pipeline runs as background
+  # jobs inside the API process; there is no worker Deployment.
+  #
+  # This is why the api Deployment is 1 replica with UVICORN_WORKERS=1:
+  # background/runner.py keeps jobs in the scheduling process only, so a job
+  # must stay visible to the process that scheduled it. Jobs are also
+  # non-durable -- a pod restart drops anything in flight.
+  # Switching to EXECUTION_MODE=worker means adding a worker Deployment.
+  EXECUTION_MODE: "inprocess"
+  UVICORN_WORKERS: "1"
+  BACKGROUND_JOB_CONCURRENCY: "4"
+
+  # --- Storage ------------------------------------------------------------
+  # Blobs go to S3; these paths are only scratch space on an emptyDir.
+  STORAGE_ROOT: "/data/storage"
+  S3_BUCKET: "voice-records"
+  # Read directly via os.getenv() by voice2rx (scribe_agent_runs.py,
+  # conversion_pipeline.py) -- setting S3_BUCKET alone is not enough.
+  S3_VADED_BUCKET_NAME: "voice-records"
+  AWS_REGION: "ap-south-1"
+
+  # --- Auth (v1: dev-token mode) ------------------------------------------
+  AUTH_MODE: "dev"
+  DEV_B_ID: "onprem-workspace"
+  DEV_UUID: "00000000-0000-0000-0000-000000000001"
+  DEV_OID: "onprem-doctor-oid"
+  AUTH_ISSUER: "scribe.local"
+  # OIDC_ISSUER / OIDC_AUTHORIZE_URL / OIDC_TOKEN_URL also fall back to
+  # SELF_URL (discovery.py). They are inert under AUTH_MODE=dev; set them
+  # explicitly if you ever switch to AUTH_MODE=jwt.
+
+  # --- Models: STT --------------------------------------------------------
+  ECHO_DEFAULT_TRANSCRIBER_PROVIDER: "sarvam"
+
+  # --- Models: LLM --------------------------------------------------------
+  ECHO_DEFAULT_LLM_PROVIDER: "anthropic"
+  ECHO_DEFAULT_LLM_MODEL: "claude-sonnet-4-20250514"
+
+  # --- Prompts ------------------------------------------------------------
+  ECHO_PROMPT_PROVIDER: "file"
+  ECHO_PROMPT_DIR: "/app/prompts"
+
+  # --- Logging ------------------------------------------------------------
+  LOG_DIR: "/data/logs"
+  LOG_LEVEL: "INFO"
+
+  # --- Feature flags ------------------------------------------------------
+  FEATURE_STREAMING: "false"
+  FEATURE_FHIR: "false"
+  FEATURE_PUBLISH_INTEGRATIONS: "false"
+  FEATURE_PATIENT_DIRECTORY: "false"
+  FEATURE_RECORDS_VAULT: "false"
+  FEATURE_PAYMENTS: "false"
+  FEATURE_DRUG_SEARCH: "true"
+
+  # --- Formulary (drug catalog search) ------------------------------------
+  # echo's PostgresClient reads these; point them at the same DB as
+  # DATABASE_URL in 02-secret.yaml. Password is in the Secret.
+  ECHO_PG_HOST: "REPLACE_ME_DB_HOST"
+  ECHO_PG_PORT: "5432"
+  ECHO_PG_DATABASE: "scribe"
+  ECHO_PG_USER: "scribe"
+
+  # --- Discovery doc ------------------------------------------------------
+  DISCOVERY_SUPPORT_EMAIL: "admin@example.com"
