@@ -16,7 +16,7 @@ worker:
 	uv run procrastinate --app scribe_worker.main.queue_app worker
 
 dev: ## api + worker natively against dockerized postgres
-	docker compose -f deploy/docker-compose.yml up -d postgres
+	docker compose -f deploy/docker-compose-local.yml up -d postgres
 	$(MAKE) -j2 api worker
 
 test:
@@ -26,13 +26,13 @@ lint:
 	uv run ruff check .
 
 up:
-	docker compose -f deploy/docker-compose.yml up --build
+	docker compose -f deploy/docker-compose-local.yml up --build
 
 down:
-	docker compose -f deploy/docker-compose.yml down
+	docker compose -f deploy/docker-compose-local.yml down
 
 
-COMPOSE = docker compose -f deploy/docker-compose.yml
+COMPOSE = docker compose -f deploy/docker-compose-local.yml
 
 start: ## one command: build images (install deps) + init DB + start postgres/api/web (in-process default)
 	@[ -f .env ] || { cp .env.example .env; echo ">> created .env from .env.example — add SARVAM_API_KEY + your LLM key before real use"; }

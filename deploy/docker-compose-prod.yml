@@ -1,0 +1,107 @@
+# Scribe — PROD stack for the Bharat Grid VM.
+#   Infra-managed SSL fronts the published ports:
+#     https://bharat-net.dev.eka.care      -> web  :3000
+#     https://bharat-backend.dev.eka.care  -> api  :8000
+#   SELF_URL / WEB_URL default to those domains; the VM .env can override.
+#   NEXT_PUBLIC_* are inlined into the web bundle at BUILD time — rebuild web
+#   whenever SELF_URL/WEB_URL change.
+#
+#   First deploy on the VM:
+#     docker compose -f deploy/docker-compose-prod.yml down -v --remove-orphans  # clears any old stack (incl. retired caddy)
+#     docker compose -f deploy/docker-compose-prod.yml build
+#     docker compose -f deploy/docker-compose-prod.yml up -d postgres
+#     uv run python scripts/setup.py            # schema + 3 seed templates
+#     docker compose -f deploy/docker-compose-prod.yml up -d
+#   Required in the VM .env: DEV_AUTH_TOKEN (dev-token auth), STT + LLM keys,
+#   DATABASE_URL host 127.0.0.1 for native setup runs.
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: scribe
+      POSTGRES_PASSWORD: scribe
+      POSTGRES_DB: scribe
+    # loopback-only: the DB must never be reachable from outside the VM.
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U scribe"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.api
+    restart: unless-stopped
+    env_file: ../.env
+    environment:
+      ENV: ${ENV:-prod}
+      DATABASE_URL: postgresql://scribe:scribe@postgres:5432/scribe
+      ECHO_PG_HOST: postgres
+      SELF_URL: ${SELF_URL:-https://bharat-backend.dev.eka.care}
+      WEB_URL: ${WEB_URL:-https://bharat-net.dev.eka.care}
+      STORAGE_ROOT: /data/storage
+    volumes:
+      - storage:/data/storage
+      - logs:/data/logs
+    ports:
+      - "8000:8000"   # fronted by infra SSL (https://bharat-backend.dev.eka.care)
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+
+  worker:
+    # Only for EXECUTION_MODE=worker: docker compose --profile worker up
+    # (and set EXECUTION_MODE=worker + UVICORN_WORKERS>1 on api). Default mode
+    # (inprocess) runs the pipeline inside the api container, so this stays off.
+    profiles: ["worker"]
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.worker
+    restart: unless-stopped
+    env_file: ../.env
+    environment:
+      ENV: ${ENV:-prod}
+      DATABASE_URL: postgresql://scribe:scribe@postgres:5432/scribe
+      ECHO_PG_HOST: postgres
+      STORAGE_ROOT: /data/storage
+      # PATCH callbacks go to the api service, not the worker's own localhost
+      SELF_URL: http://api:8000
+    volumes:
+      - storage:/data/storage
+      - logs:/data/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.web
+      args:
+        NEXT_PUBLIC_API_HOST: ${SELF_URL:-https://bharat-backend.dev.eka.care}
+        NEXT_PUBLIC_WEB_HOST: ${WEB_URL:-https://bharat-net.dev.eka.care}
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_HOST: ${SELF_URL:-https://bharat-backend.dev.eka.care}
+    ports:
+      - "3000:3000"   # fronted by infra SSL (https://bharat-net.dev.eka.care)
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  storage:
+  logs:
