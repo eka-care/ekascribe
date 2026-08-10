@@ -17,8 +17,10 @@ Chunk coordination lives in the ``audio_chunks`` Postgres table (see
 chunk_state.py): workers claim chunks via conditional updates, so any number
 of uvicorn workers / worker containers can process one session together.
 
-The PATCH goes over HTTP to the API (SELF_URL), preserving the ds-service
-callback contract (documents, webhooks, AG-UI, polling semantics unchanged).
+Status updates are applied IN-PROCESS through the service layer (same
+semantics as PATCH /voice/api/v2/transaction/{txn_id}, no HTTP hop): the
+pipeline always runs inside an app that imports the services and shares the
+DB/storage, so SELF_URL/DNS/ingress never enter the picture.
 """
 
 from __future__ import annotations
@@ -27,10 +29,7 @@ import asyncio
 import re
 from typing import Any, Dict, List, Optional, Tuple
 
-import httpx
-
 from scribe_core.logging import get_logger
-from scribe_core.settings import get_settings
 from scribe_core.storage import get_blob_store, parse_blob_url
 
 from scribe.pipeline import chunk_state
@@ -58,20 +57,36 @@ _MIME = {
 }
 
 
-def _api_headers() -> Dict[str, str]:
-    s = get_settings()
-    headers = {"Content-Type": "application/json"}
-    if s.dev_auth_token:
-        headers["Authorization"] = f"Bearer {s.dev_auth_token}"
-    return headers
+def _patch_transaction(txn_id: str, payload: Dict[str, Any], b_id: str = "") -> None:
+    """Apply a pipeline status update directly through the service layer —
+    the same semantics as PATCH /voice/api/v2/transaction/{txn_id} (transcript
+    document creation on transcript_status=success, processed_at stamping),
+    minus the HTTP hop. Works identically in inprocess and worker modes: both
+    import this app package and share the DB + blob storage."""
+    from scribe.core.time_utils import get_current_utc_timestamp
+    from scribe.services.document_service import DocumentService
+    from scribe.services.transaction_service import TransactionService
 
+    transaction_service = TransactionService()
+    transaction_data = transaction_service.get_transaction(txn_id, b_id) or {}
+    update_data = dict(payload)
 
-def _patch_transaction(txn_id: str, payload: Dict[str, Any]) -> None:
-    s = get_settings()
-    url = f"{s.self_url.rstrip('/')}/voice/api/v2/transaction/{txn_id}"
-    resp = httpx.patch(url, json=payload, headers=_api_headers(), timeout=60.0)
-    resp.raise_for_status()
-    logger.info("PATCH transaction ok", txn_id=txn_id, payload=payload)
+    if update_data.get("transcript_status") == "success":
+        DocumentService().create_transcript_document(
+            session_id=txn_id,
+            b_id=b_id,
+            uuid_val=transaction_data.get("uuid", ""),
+            s3_url=transaction_data.get("s3_url", ""),
+        )
+
+    if update_data.get("processing_status") == "success":
+        if transaction_data.get("processed_at") is None:
+            update_data["processed_at"] = update_data.get(
+                "processed_at", get_current_utc_timestamp()
+            )
+
+    transaction_service.update_transaction(txn_id, b_id, update_data)
+    logger.info("transaction updated in-process", txn_id=txn_id, payload=payload)
 
 
 def _chunk_files(bucket: str, prefix: str) -> List[Tuple[int, str]]:
@@ -317,7 +332,7 @@ def process_session(message: Dict[str, Any]) -> None:
 
     # Same callback contract the ds-service used — the API fans out template
     # structuring in background from this PATCH.
-    _patch_transaction(txn_id, {"transcript_status": "success"})
+    _patch_transaction(txn_id, {"transcript_status": "success"}, b_id=b_id)
     chunk_state.mark_done(txn_id, chunk_state.STITCH_SENTINEL)
 
     dispatch("finalize_session", {"txn_id": txn_id, "b_id": b_id, "attempt": 0})
@@ -351,7 +366,7 @@ def finalize_session(txn_id: str, b_id: str, attempt: int = 0) -> None:
         )
         return
 
-    _patch_transaction(txn_id, {"processing_status": "success"})
+    _patch_transaction(txn_id, {"processing_status": "success"}, b_id=b_id)
     logger.info("session finalized", txn_id=txn_id, documents=len(docs))
 
 
