@@ -1,0 +1,41 @@
+# ############################################################################
+# TEMPLATE -- PLACEHOLDERS ONLY. DO NOT COMMIT REAL VALUES.
+#
+# The .example extension is deliberate: `kubectl apply -f deploy/k8s/` only
+# reads .yaml/.yml/.json, so this file is skipped and cannot overwrite a real
+# credential with the placeholder below.
+#
+# Preferred: create it straight against the cluster so no token ever touches
+# the repo. This also builds the dockerconfigjson correctly for you:
+#
+#   kubectl create secret docker-registry ekascribe-regcred -n eka-care \
+#     --docker-server=https://index.docker.io/v1/ \
+#     --docker-username=YOUR_USER \
+#     --docker-password=YOUR_ACCESS_TOKEN
+#
+# Use a Docker Hub ACCESS TOKEN, not your account password.
+#
+# If you would rather use a file: copy it to a .yaml name and edit that copy.
+# The root .gitignore matches `deploy/k8s/*regcred*.yaml`, so it stays
+# untracked -- this .yaml.example does NOT match and IS tracked, which is why
+# real values must never be typed into this file.
+#   cp 03-regcred.yaml.example 03-regcred.yaml && $EDITOR 03-regcred.yaml
+#   kubectl apply -f deploy/k8s/03-regcred.yaml
+#
+# NOTE: there is no "auth" key here, and you should not add one. auth is just
+# base64(username:password) -- the same credential in a second form. containerd
+# PREFERS it when present, so a stale or half-filled auth silently overrides
+# the username/password and gives you a 401 while the correct password sits
+# right there unused. username + password alone is all that is needed.
+# ############################################################################
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ekascribe-regcred
+  namespace: eka-care
+  labels:
+    app.kubernetes.io/part-of: ekascribe
+type: kubernetes.io/dockerconfigjson
+stringData:
+  .dockerconfigjson: |
+    {"auths":{"https://index.docker.io/v1/":{"username":"REPLACE_ME_DOCKERHUB_USER","password":"REPLACE_ME_DOCKERHUB_ACCESS_TOKEN"}}}

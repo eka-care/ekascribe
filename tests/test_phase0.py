@@ -1,6 +1,6 @@
 import json
 from fastapi.testclient import TestClient
-from scribe_api.main import create_app
+from scribe.main import create_app
 from scribe_core.auth import JWT_PAYLOAD_HEADER, Principal, get_principal
 from scribe_core.logging import get_logger
 

@@ -1,4 +1,4 @@
-"""Phase 3: queue routing — SQS-shaped call sites land as procrastinate jobs."""
+"""Phase 3: queue routing — pipeline enqueues land as procrastinate jobs."""
 
 import os
 
@@ -22,8 +22,6 @@ pytestmark = pytest.mark.skipif(not _pg_available(), reason="postgres not reacha
 
 @pytest.fixture()
 def env(monkeypatch, tmp_path):
-    monkeypatch.setenv("QUEUE_BACKEND", "postgres")
-    monkeypatch.setenv("DB_BACKEND", "postgres")
     monkeypatch.setenv("DATABASE_URL", DSN)
     monkeypatch.setenv("LOG_DIR", str(tmp_path / "logs"))
     from scribe_core.settings import get_settings
@@ -66,14 +64,18 @@ def test_task_queue_enqueues_procrastinate_job(env):
     assert _job_count("process_session") == before + 1
 
 
-def test_sqs_service_routes_to_postgres_queue(env):
-    from voice2rx.services.messaging.sqs_service import SQSService
+def test_enqueue_pipeline_routes_to_queue(env, monkeypatch):
+    monkeypatch.setenv("EXECUTION_MODE", "worker")
+    from scribe_core.settings import get_settings
+
+    get_settings.cache_clear()
+    from scribe.pipeline.enqueue import enqueue_pipeline
 
     before = _job_count("process_session")
-    resp = SQSService().send_message("voice2rx", {"txn_id": "t2", "action": "structuring"})
+    resp = enqueue_pipeline({"txn_id": "t2", "action": "structuring"})
     assert resp["success"], resp
-    assert resp["message_id"] == "pg:process_session"
     assert _job_count("process_session") == before + 1
+    get_settings.cache_clear()
 
 
 def test_worker_tasks_registered():

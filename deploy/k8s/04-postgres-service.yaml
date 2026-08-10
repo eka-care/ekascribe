@@ -1,0 +1,26 @@
+# Headless Service for the Postgres StatefulSet. It is both the governing
+# service (spec.serviceName in 05-postgres-statefulset.yaml) and the name every
+# client connects to. With a single replica, headless DNS resolves straight to
+# the pod IP -- no proxying.
+#
+# The name is load-bearing, same as 11-api-service.yaml. Both
+# ECHO_PG_HOST (01-configmap.yaml) and the host inside DATABASE_URL resolve to
+# ekascribe-postgres.eka-care.svc.cluster.local -- rename this and you must
+# update both.
+apiVersion: v1
+kind: Service
+metadata:
+  name: ekascribe-postgres
+  namespace: eka-care
+  labels:
+    app.kubernetes.io/name: ekascribe-postgres
+    app.kubernetes.io/part-of: ekascribe
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: ekascribe-postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
+      protocol: TCP

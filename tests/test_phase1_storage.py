@@ -18,7 +18,7 @@ def client(tmp_path, monkeypatch):
     get_settings.cache_clear()
     storage.reset_blob_store()
 
-    from scribe_api.main import create_app
+    from scribe.main import create_app
 
     yield TestClient(create_app())
     get_settings.cache_clear()
@@ -115,7 +115,7 @@ def test_discovery_public_even_with_dev_token(tmp_path, monkeypatch):
     storage.reset_blob_store()
     from fastapi.testclient import TestClient
 
-    from scribe_api.main import create_app
+    from scribe.main import create_app
 
     c = TestClient(create_app())
     # public endpoints work without the token

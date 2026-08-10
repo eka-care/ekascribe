@@ -1,10 +1,6 @@
-"""Pluggable job queue (plan B2, Phase 3): QUEUE_BACKEND=postgres|sqs.
-
-- postgres: procrastinate jobs in the same Postgres as everything else — zero
-  extra infrastructure, durable, retries, inspectable with SQL. The API defers
-  jobs by task name; apps/worker consumes them.
-- sqs: preserves the original cloud shape (messages to named queues, consumed
-  by an external service such as ekascribe-ds).
+"""Durable job queue: procrastinate jobs in the same Postgres as everything
+else — zero extra infrastructure, durable, retries, inspectable with SQL. The
+API defers jobs by task name; apps/worker consumes them (EXECUTION_MODE=worker).
 
 Task names are the contract between API and worker:
   process_session   — commit-time pipeline: transcribe chunks, stitch, structure
@@ -52,26 +48,6 @@ class ProcrastinateQueue(TaskQueue):
         return True
 
 
-class SQSTaskQueue(TaskQueue):
-    """Cloud parity: task name == SQS queue name, payload == message body."""
-
-    def __init__(self):
-        import boto3
-
-        s = get_settings()
-        self._client = boto3.client("sqs", region_name=s.aws_region)
-
-    def enqueue(self, task: str, payload: Dict[str, Any], delay_seconds: int = 0) -> bool:
-        import orjson
-
-        url = self._client.get_queue_url(QueueName=task)["QueueUrl"]
-        kwargs = {"QueueUrl": url, "MessageBody": orjson.dumps(payload).decode()}
-        if delay_seconds and delay_seconds > 0:
-            kwargs["DelaySeconds"] = min(int(delay_seconds), 900)  # SQS max 15 min
-        self._client.send_message(**kwargs)
-        return True
-
-
 _queue: Optional[TaskQueue] = None
 _lock = threading.Lock()
 def get_task_queue() -> TaskQueue:
@@ -79,8 +55,7 @@ def get_task_queue() -> TaskQueue:
     if _queue is None:
         with _lock:
             if _queue is None:
-                backend = get_settings().queue_backend
-                _queue = ProcrastinateQueue() if backend == "postgres" else SQSTaskQueue()
+                _queue = ProcrastinateQueue()
     return _queue
 
 

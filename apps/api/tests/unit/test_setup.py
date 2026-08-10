@@ -18,9 +18,9 @@ def test_imports_work():
 
 def test_mock_helpers():
     """Test that our test helper functions work."""
-    from tests.unit.utils.test_helpers import (
+    from tests.unit.core.test_helpers import (
         create_mock_response,
-        create_mock_dynamodb_response,
+        create_mock_db_response,
         create_valid_jwt_header
     )
     
@@ -29,8 +29,8 @@ def test_mock_helpers():
     assert response.status_code == 200
     assert response.json() == {"test": "data"}
     
-    # Test mock DynamoDB response
-    db_response = create_mock_dynamodb_response("success", {"item": "value"})
+    # Test mock DB response
+    db_response = create_mock_db_response("success", {"item": "value"})
     assert db_response["status"] == "success"
     assert db_response["data"]["item"] == "value"
     

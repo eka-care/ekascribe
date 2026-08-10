@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ekascribe-web
+  namespace: eka-care
+  labels:
+    app.kubernetes.io/name: ekascribe-web
+    app.kubernetes.io/part-of: ekascribe
+spec:
+  # Stateless -- unlike the api, this scales freely.
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ekascribe-web
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ekascribe-web
+        app.kubernetes.io/part-of: ekascribe
+    spec:
+      imagePullSecrets:
+        - name: ekascribe-regcred
+      # Same reasoning as the api: spread the two replicas across nodes when
+      # possible, but do not block scheduling to do it.
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: ekascribe-web
+      containers:
+        # Container name is `web` -- deploy/push.sh prints
+        # `kubectl set image deploy/ekascribe-web web=...` to pin a tag.
+        - name: web
+          image: ekacare/ekascribe:web-latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 3000
+          # No envFrom on purpose. NEXT_PUBLIC_* are inlined into the JS bundle
+          # when the image is built (deploy/Dockerfile.web), so runtime env
+          # would have no effect. To change the API host the web app talks to,
+          # rebuild:
+          #   NEXT_PUBLIC_API_HOST=https://api.example.com ./deploy/push.sh web
+          env:
+            - name: NODE_ENV
+              value: production
+          # Next.js standalone has no health route, so probe the app root.
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 20
+            failureThreshold: 3
+          # PER POD. The web tier's budget is 1 vCPU / 3Gi in total, and
+          # replicas is 2 above, so each pod gets half. Change both together --
+          # bumping replicas without cutting these raises the total spend.
+          #
+          # requests == limits for Guaranteed QoS, same as the api.
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1536Mi
+            limits:
+              cpu: 500m
+              memory: 1536Mi
