@@ -46,6 +46,7 @@ def mount_web_static(app: FastAPI, dist_dir: str) -> None:
     app.mount("/_next", _ImmutableStaticFiles(directory=root / "_next"), name="web-next")
 
     session_shell = root / "session" / "_.html"
+    session_flight = root / "session" / "_.txt"
     not_found_page = root / "404.html"
 
     def _file(fp: Path, status_code: int = 200) -> FileResponse:
@@ -58,7 +59,12 @@ def mount_web_static(app: FastAPI, dist_dir: str) -> None:
         if path in ("", "index.html"):
             return _file(root / "index.html")
         # Any session id maps to the one exported shell (ids are runtime UUIDs).
+        # The client router fetches <path>.txt for the RSC flight payload on
+        # client-side navigations — serving HTML there makes Next fall back to
+        # a full-document reload.
         if path == "session" or path.startswith("session/"):
+            if path.endswith(".txt"):
+                return _file(session_flight)
             return _file(session_shell)
 
         candidate = (root / path).resolve()
