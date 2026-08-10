@@ -57,7 +57,7 @@ const nextConfig: NextConfig = {
     const platformFamily =
       (process.env.NEXT_PUBLIC_APP_SOURCE ?? 'web') === 'web' ? 'web' : 'electron';
 
-    console.log('[next.config] NEXT_PUBLIC_APP_SOURCE:', process.env.NEXT_PUBLIC_APP_SOURCE, '| platformFamily:', platformFamily, '| NEXT_PUBLIC_API_HOST:', process.env.NEXT_PUBLIC_API_HOST);
+    console.log('[next.config] NEXT_PUBLIC_APP_SOURCE:', process.env.NEXT_PUBLIC_APP_SOURCE, '| platformFamily:', platformFamily);
 
     config.resolve.alias = {
       ...config.resolve.alias,
