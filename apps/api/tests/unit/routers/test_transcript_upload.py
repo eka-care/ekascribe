@@ -48,8 +48,11 @@ class TestTranscriptUpload:
 
         assert response.status_code == 202
         body = response.json()
-        assert body["status"] == "success"
-        assert body["data"]["status"] == "in-progress"
+        # ResponseFormatter.success merges additional_data at the top level,
+        # so {"status": "in-progress"} intentionally overrides "success" —
+        # this matches the legacy endpoint's wire shape.
+        assert body["status"] == "in-progress"
+        assert body["txn_id"] == "sc-1"
 
         # TestClient runs background tasks before returning — assert effects
         blob.upload_json.assert_called_once()
