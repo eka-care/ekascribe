@@ -111,7 +111,7 @@ class TestGetDocumentDataFlags:
 
     def test_record_fetch_failure_degrades_gracefully(self, client):
         with patch(f"{ROUTER}.document_service") as mock_doc_service, patch(
-            f"{ROUTER}.get_document_record", side_effect=RuntimeError("dynamo down")
+            f"{ROUTER}.get_document_record", side_effect=RuntimeError("db down")
         ):
             mock_doc_service.get_document.return_value = _doc()
             mock_doc_service.generate_presigned_download_url.return_value = PRESIGNED_URL

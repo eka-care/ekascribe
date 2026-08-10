@@ -46,9 +46,7 @@ IMAGE_MEDIA_TYPES = {
 }
 
 IMAGE_CONTENT_TYPES = set(IMAGE_MEDIA_TYPES.values())
-
 VAULT_BASE_URL = os.getenv("VAULT_BASE_URL", "http://vault.orbi.orbi")
-
 
 class ContextResolutionService:
     def __init__(self):

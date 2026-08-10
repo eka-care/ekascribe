@@ -14,12 +14,12 @@ def create_mock_response(status_code: int = 200, json_data: Dict[str, Any] = Non
     return mock_response
 
 
-def create_mock_dynamodb_response(status: str = "success", data: Dict[str, Any] = None):
-    """Create a mock DynamoDB response."""
+def create_mock_db_response(status: str = "success", data: Dict[str, Any] = None):
+    """Create a mock DB response."""
     return {
         "status": status,
         "data": data or {},
-        "error": {} if status == "success" else {"message": "DynamoDB error"}
+        "error": {} if status == "success" else {"message": "DB error"}
     }
 
 

@@ -2,7 +2,7 @@
 Unit tests for DocumentService (voice2rx/services/documents/document_service.py).
 
 External collaborators (EkascribeDocumentORM and the S3 client) are mocked,
-so these tests run without DynamoDB or AWS access.
+so these tests run without database or AWS access.
 """
 
 from unittest.mock import MagicMock, patch

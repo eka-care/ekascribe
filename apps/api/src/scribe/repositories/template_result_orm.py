@@ -2,14 +2,14 @@
 Template Result ORM - Data Access Layer
 
 This ORM handles all database and storage operations for template results:
-- DynamoDB operations for templates and sections
+- Database operations for templates and sections
 - S3 operations for transcript and output files
 - Transaction data access
 """
 
 from typing import Dict, List, Optional, Any, Tuple
 from scribe.core.custom_logger import get_logger
-from scribe.repositories.dynamo_helper import DynamoHelper
+from scribe.repositories.doc_store import DocStore
 from scribe.repositories.s3_service import download_s3_file, upload_file_to_s3
 import os
 
@@ -19,8 +19,8 @@ class TemplateResultORM:
     def __init__(self):
         """Initialize ORM with database helpers."""
         try:
-            self.template_db = DynamoHelper("ekascribe_template")
-            self.section_db = DynamoHelper("ekascribe_template_section")
+            self.template_db = DocStore("ekascribe_template")
+            self.section_db = DocStore("ekascribe_template_section")
             self.s3_vaded_bucket_name = os.getenv("S3_VADED_BUCKET_NAME", "voice-records")
 
             logger.info("TemplateResultORM initialized successfully")
@@ -36,7 +36,7 @@ class TemplateResultORM:
         self, section_ids: List[str]
     ) -> Optional[List[Dict[str, Any]]]:
         """
-        Get multiple sections by IDs from DynamoDB.
+        Get multiple sections by IDs.
         Args:
             section_ids: List of section IDs
         Returns:

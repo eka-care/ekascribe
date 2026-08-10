@@ -36,14 +36,14 @@ def test_file_prompt_provider_yaml_and_versions(tmp_path):
     provider = FilePromptProvider(prompt_dir=str(tmp_path))
     # slash names flatten to the folder name
     fetched = asyncio.run(
-        provider.get_prompt("voice2rx/summary/agent", prompt_variables={"transcript": "hi"})
+        provider.get_prompt("scribe/summary/agent", prompt_variables={"transcript": "hi"})
     )
     assert fetched.version == "2"
     assert fetched.agent_prompt.task.description == "Summarize: hi"
     assert fetched.agent_prompt.persona.role == "summarizer"
     assert fetched.agent_prompt.task.expected_output == "a summary"
 
-    old = asyncio.run(provider.get_prompt("voice2rx/summary/agent", version="1"))
+    old = asyncio.run(provider.get_prompt("scribe/summary/agent", version="1"))
     assert old.agent_prompt.task.description == "v1 body"
 
 
@@ -65,13 +65,13 @@ def test_seeded_prompts_resolve(monkeypatch):
     prompts_dir = Path(__file__).resolve().parent.parent / "prompts"
     provider = FilePromptProvider(prompt_dir=str(prompts_dir))
     for name in [
-        "voice2rx/summary/agent",
-        "voice2rx/transcript/agent",
-        "voice2rx/translation/agent",
-        "voice2rx/medication/agent",
-        "voice2rx/template/generation/agent",
-        "voice2rx/template/markdown/agent",
-        "voice2rx/template/integration/agent",
+        "scribe/summary/agent",
+        "scribe/transcript/agent",
+        "scribe/translation/agent",
+        "scribe/medication/agent",
+        "scribe/template/generation/agent",
+        "scribe/template/markdown/agent",
+        "scribe/template/integration/agent",
     ]:
         fetched = asyncio.run(provider.get_prompt(name))
         assert fetched.agent_prompt.task.description.strip(), name

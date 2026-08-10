@@ -22,7 +22,7 @@ Table Structure:
 - created_at: ISO timestamp
 - updated_at: ISO timestamp
 
-GSI: session_id-template_id-index (PK: session_id, SK: template_id)
+Indexed on session_id + template_id for per-session lookups.
 """
 
 import os
@@ -35,7 +35,6 @@ from scribe.core.time_utils import get_current_epoch_timestamp, get_current_utc_
 
 logger = get_logger(__name__)
 
-GSI_SESSION_TEMPLATE_INDEX = "session_id-template_id-index"
 
 
 class EkascribeDocumentORM(BaseORM):
@@ -129,7 +128,7 @@ class EkascribeDocumentORM(BaseORM):
 
     def get_template_documents(self, session_id: str) -> List[Dict[str, Any]]:
         """
-        Get all non-archived template documents for a session using GSI.
+        Get all non-archived template documents for a session.
 
         Args:
             session_id: Session/Transaction ID.
@@ -152,7 +151,7 @@ class EkascribeDocumentORM(BaseORM):
 
     def get_documents_by_session(self, session_id: str) -> List[Dict[str, Any]]:
         """
-        Get all non-archived documents for a session using GSI.
+        Get all non-archived documents for a session.
 
         Args:
             session_id: Session/Transaction ID.
@@ -161,18 +160,13 @@ class EkascribeDocumentORM(BaseORM):
             List of document dicts.
         """
         try:
-            response = self.table.query(
-                IndexName=GSI_SESSION_TEMPLATE_INDEX,
-                KeyConditionExpression="session_id = :sid",
-                FilterExpression="attribute_not_exists(archived) OR archived = :false_val",
-                ExpressionAttributeValues={
-                    ":sid": session_id,
-                    ":false_val": False,
-                },
+            items = self.table.find(
+                [
+                    ("session_id", "eq", session_id),
+                    ("or", [("archived", "not_exists", None), ("archived", "eq", False)]),
+                ]
             )
-            items = response.get("Items", [])
-            # GSI sorts by template_id; re-sort by created_at desc so callers
-            # see most-recent documents first.
+            # Sort by created_at desc so callers see most-recent documents first.
             items.sort(key=lambda d: int(d.get("created_at") or 0), reverse=True)
             logger.info(
                 "Documents retrieved by session",
@@ -195,10 +189,7 @@ class EkascribeDocumentORM(BaseORM):
         self, session_id: str, template_id: str
     ) -> List[Dict[str, Any]]:
         """
-        Get all non-archived documents for a session and template using GSI.
-
-        Uses the session_id-template_id-index GSI with both keys in the
-        KeyConditionExpression (efficient query, no filter scan).
+        Get all non-archived documents for a session and template.
 
         Args:
             session_id: Session/Transaction ID.
@@ -208,17 +199,13 @@ class EkascribeDocumentORM(BaseORM):
             List of document dicts matching the session_id and template_id.
         """
         try:
-            response = self.table.query(
-                IndexName=GSI_SESSION_TEMPLATE_INDEX,
-                KeyConditionExpression="session_id = :sid AND template_id = :tid",
-                FilterExpression="attribute_not_exists(archived) OR archived = :false_val",
-                ExpressionAttributeValues={
-                    ":sid": session_id,
-                    ":tid": template_id,
-                    ":false_val": False,
-                },
+            items = self.table.find(
+                [
+                    ("session_id", "eq", session_id),
+                    ("template_id", "eq", template_id),
+                    ("or", [("archived", "not_exists", None), ("archived", "eq", False)]),
+                ]
             )
-            items = response.get("Items", [])
             logger.info(
                 "Documents retrieved by session and template",
                 session_id=session_id,
@@ -273,14 +260,7 @@ class EkascribeDocumentORM(BaseORM):
 
         try:
             keys = [{"document_id": doc_id} for doc_id in document_ids]
-            response = self.dynamodb_resource.batch_get_item(
-                RequestItems={
-                    self.table_name: {
-                        "Keys": keys,
-                    }
-                }
-            )
-            items = response.get("Responses", {}).get(self.table_name, [])
+            items = self.table.batch_get(keys)
             logger.info(
                 "Documents batch retrieved",
                 requested=len(document_ids),

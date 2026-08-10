@@ -1,7 +1,5 @@
 """Business-logic layer."""
 
-from scribe.repositories.dynamodb_service import DynamoDBOperations
-
 from .agent_config import LLMAgentConfig
 from .audio_matrix import compute_audio_matrix
 from .audio_service import AudioProcessingService
@@ -15,7 +13,6 @@ __all__ = [
     "AudioProcessingService",
     "ConfigService",
     "DocumentService",
-    "DynamoDBOperations",
     "LLMAgentConfig",
     "PopulateDocumentsService",
     "TemplateService",

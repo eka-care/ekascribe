@@ -1,5 +1,5 @@
-"""Phase 2: Postgres document-DB engine + Dynamo-shim parity, exercised through
-the forked ORMs themselves (TransactionORM, DocumentORM, config path).
+"""Phase 2: Postgres document engine, exercised through the repositories
+(TransactionORM, DocumentORM, config path) and the async store.
 
 Requires a running Postgres at DATABASE_URL (see Makefile / docker-compose).
 """
@@ -29,7 +29,6 @@ pytestmark = pytest.mark.skipif(not _pg_available(), reason="postgres not reacha
 
 @pytest.fixture()
 def pg(monkeypatch, tmp_path):
-    monkeypatch.setenv("DB_BACKEND", "postgres")
     monkeypatch.setenv("DATABASE_URL", DSN)
     monkeypatch.setenv("STORAGE_BACKEND", "local")
     monkeypatch.setenv("STORAGE_ROOT", str(tmp_path / "storage"))
@@ -47,7 +46,7 @@ def pg(monkeypatch, tmp_path):
 
 
 def test_transaction_orm_crud_and_queries(pg):
-    from voice2rx.model_orms.transaction_orm import TransactionORM
+    from scribe.repositories.transaction_orm import TransactionORM
 
     orm = TransactionORM()
     b_id = f"b-{uuidlib.uuid4().hex[:8]}"
@@ -82,7 +81,7 @@ def test_transaction_orm_crud_and_queries(pg):
     assert got["processing_status"] == "success"
     assert "updated_at" in got
 
-    # GSI-equivalent query (client wire-format path with projection + filter)
+    # indexed-field query (descending, archived filtered out)
     items = orm.query_transactions_by_business_id(b_id)
     assert len(items) == 3
     assert items[0]["created_at"] > items[-1]["created_at"]  # descending
@@ -99,7 +98,7 @@ def test_transaction_orm_crud_and_queries(pg):
 
 
 def test_document_orm_session_queries(pg):
-    from voice2rx.model_orms.document_orm import EkascribeDocumentORM
+    from scribe.repositories.document_orm import EkascribeDocumentORM
 
     orm = EkascribeDocumentORM()
     session_id = f"s-{uuidlib.uuid4().hex[:8]}"
@@ -131,7 +130,7 @@ def test_document_orm_session_queries(pg):
 
 
 def test_audio_details_begins_with(pg):
-    from voice2rx.model_orms.audio_details_orm import AudioDetailsORM
+    from scribe.repositories.audio_details_orm import AudioDetailsORM
 
     orm = AudioDetailsORM()
     b_id, txn = "b-audio", f"txn-{uuidlib.uuid4().hex[:6]}"
@@ -150,13 +149,12 @@ def test_audio_details_begins_with(pg):
     assert len(details) == 2
 
 
-def test_config_service_dynamo_helper_path(pg):
-    from voice2rx.services.config_service import ConfigService
+def test_config_service_store_path(pg):
+    from scribe.services.config_service import ConfigService
 
     svc = ConfigService()
     b_id = f"b-{uuidlib.uuid4().hex[:6]}"
-    # DynamoHelper.update_item upserts via the shim
-    svc.db_helper.update_item(
+    svc.db_helper.upsert_item(
         key_dict={"b_id": b_id, "user_uuid": "_"},
         update_dict={"my_templates": ["t-1"], "model_type": "pro"},
     )
@@ -164,33 +162,30 @@ def test_config_service_dynamo_helper_path(pg):
     assert item["my_templates"] == ["t-1"]
 
 
-def test_async_wrapper_template_service_surface(pg):
-    """The async path template_service uses: create/query by wid GSI/get."""
+def test_async_store_template_service_surface(pg):
+    """The async path template_service uses: create / query by wid / get."""
     import asyncio
 
-    from voice2rx.utils.dynamo_helper import get_dynamo_client
-    import voice2rx.utils.dynamo_helper as dh
+    from scribe_core.db import get_async_store
 
-    dh._dynamo_instance = None  # force re-resolve under this backend
-    dynamo = get_dynamo_client()
+    store = get_async_store()
 
     async def flow():
         sid = f"sec-{uuidlib.uuid4().hex[:6]}"
-        ok = await dynamo.create_item(
+        ok = await store.create_item(
             "ekascribe_template_section",
-            {"id": sid, "wid": "DEFAULT", "title": "Chief Complaint"},
+            {"id": sid, "wid": "DEFAULT", "title": "Agenda"},
         )
         assert ok
-        sections = await dynamo.query_items(
-            table_name="ekascribe_template_section",
-            key_condition_expression="wid = :wid",
-            expression_attribute_values={":wid": "DEFAULT", ":archived": True},
-            filter_expression="attribute_not_exists(archived) OR archived <> :archived",
-            index_name="wid-id-index",
+        sections = await store.find(
+            "ekascribe_template_section",
+            [
+                ("wid", "eq", "DEFAULT"),
+                ("or", [("archived", "not_exists", None), ("archived", "ne", True)]),
+            ],
         )
         assert any(s["id"] == sid for s in sections)
-        item = await dynamo.get_item("ekascribe_template_section", {"id": sid})
-        assert item["title"] == "Chief Complaint"
+        item = await store.get_item("ekascribe_template_section", {"id": sid})
+        assert item["title"] == "Agenda"
 
     asyncio.run(flow())
-    dh._dynamo_instance = None

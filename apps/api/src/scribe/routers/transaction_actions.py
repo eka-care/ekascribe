@@ -9,12 +9,10 @@ from scribe.core.http import (
     RequestHandler,
     ResponseFormatter,
 )
-from boto3.dynamodb.conditions import Key
 
 from scribe.core.choices import NON_TEMPLATE_DOCUMENT_ID, VOICE2RX_PROCESSING_STATUS, AudioStatus, DocumentType, Transfer
 from scribe.repositories import TxnTemplateResultsORM
 from scribe.services.document_service import DocumentService
-from scribe.repositories.dynamodb_service import DynamoDBOperations
 from scribe.services.format_adapter import TemplateFormatConverter
 from scribe.services.transaction_background_service import TransactionBackgroundService
 from scribe.services.transaction_service import TransactionService
@@ -38,13 +36,10 @@ def convert_decimals(obj):
 
 
 transaction_actions_router = APIRouter()
-from scribe_core.db import get_dynamo_resource
 
-dynamodb = get_dynamo_resource()
-table = dynamodb.Table("voice2rx_transactions")
-db_ops = DynamoDBOperations("voice2rx_transactions")
-audio_table = dynamodb.Table("ekascribe-audio-details")
-audio_db_ops = DynamoDBOperations("ekascribe-audio-details")
+from scribe.repositories.audio_details_orm import AudioDetailsORM
+
+audio_repo = AudioDetailsORM()
 
 logger = get_logger(__name__)
 
@@ -249,19 +244,17 @@ def _is_archive_authorized(token_data: dict, transaction_data: dict) -> bool:
 @transaction_actions_router.patch("/audio-details/{txn_id}")
 def update_audio_details(request: Request, txn_id: str, audio_data: AudioDataModel):
     """
-    Update audio details in DynamoDB.
+    Update audio details.
     """
     try:
         b_id = RequestHandler.extract_business_id_from_request(request)
         logger.info(
             "UPDATE AUDIO DETAILS API: Updating audio details", txn_id=txn_id, b_id=b_id
         )
-        key = {"txn_id": txn_id, "b_id": b_id}
-        # Check if the item exists in audio table
-        existing_audio_record = audio_table.get_item(
-            Key={"txn_id": txn_id, "b_id": b_id}
-        )
-        if "Item" not in existing_audio_record:
+        # Audio metadata rows are keyed by (composite_key, record_type)
+        key = {"composite_key": f"{b_id}#{txn_id}", "record_type": "METADATA"}
+        existing_audio_record = audio_repo.get(key)
+        if not existing_audio_record:
             logger.error(
                 "UPDATE AUDIO DETAILS API: Audio record not found",
                 txn_id=txn_id,
@@ -279,11 +272,11 @@ def update_audio_details(request: Request, txn_id: str, audio_data: AudioDataMod
         )
         update_data["status"] = AudioStatus.UPDATED.value
 
-        # Call the update_item function of DynamoDBOperations for audio table
-        response = audio_db_ops.update_item(
-            key=key,
-            update_data=update_data,
-        )
+        try:
+            audio_repo.update(key, update_data)
+            response = {"success": True}
+        except Exception as e:  # noqa: BLE001
+            response = {"error": str(e)}
 
         if "error" in response:
             logger.error(
@@ -341,15 +334,13 @@ def get_audio_quality_details(txn_id: str, b_id: str) -> dict:
         # Create composite key for querying
         composite_key = f"{b_id}#{txn_id}"
 
-        # Query for records with sort key starting with "chunk"
-        response = audio_table.query(
-            KeyConditionExpression=Key("composite_key").eq(composite_key)
-            & Key("record_type").begins_with("chunk"),
-            ProjectionExpression="composite_key, record_type, quality",  # Only fetch required fields
-            Select="SPECIFIC_ATTRIBUTES",
+        # Records with sort key starting with "chunk"
+        items = audio_repo.table.find(
+            [
+                ("composite_key", "eq", composite_key),
+                ("record_type", "begins_with", "chunk"),
+            ]
         )
-
-        items = response.get("Items", [])
 
         if not items:
             logger.warning(

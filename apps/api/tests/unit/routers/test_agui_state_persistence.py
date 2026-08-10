@@ -426,7 +426,7 @@ def test_stream_persists_agui_state_on_run_finished(monkeypatch):
 
 def test_stream_survives_persistence_failure(monkeypatch):
     def boom(document_id, agui_state):
-        raise RuntimeError("dynamo down")
+        raise RuntimeError("db down")
 
     monkeypatch.setattr(
         run_service_module.document_tiptap_service, "save_agui_state", boom

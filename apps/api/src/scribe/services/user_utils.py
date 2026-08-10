@@ -1,4 +1,4 @@
-# Contains the ekascribe_config CRUD operations for DynamoDB. And util func to check for paid user.
+# Contains the ekascribe_config CRUD operations. And util func to check for paid user.
 import logging
 from typing import Dict, Any
 from scribe.repositories.config_utils import get_ekascribe_config
