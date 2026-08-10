@@ -9,6 +9,7 @@ Covers:
 """
 
 import json
+from types import SimpleNamespace
 from typing import AsyncGenerator, List
 
 import pytest
@@ -319,8 +320,8 @@ def test_resolver_with_document_id_skips_document_creation(monkeypatch):
     monkeypatch.setattr(scribe_agent_runs_module, "_context_service", _NoContext())
     monkeypatch.setattr(
         scribe_agent_runs_module,
-        "download_s3_file",
-        lambda **kw: "transcript text",
+        "blob_repo",
+        SimpleNamespace(download_file=lambda **kw: "transcript text"),
     )
     monkeypatch.setattr(
         scribe_agent_runs_module._template_service,

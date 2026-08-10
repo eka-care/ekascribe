@@ -43,7 +43,6 @@ def setup_test_environment():
     # Set required environment variables
     test_env = {
         "TABLE_NAME": "test-voice2rx-transactions",
-        "AUDIO_TABLE_NAME": "test-ekascribe-audio-details", 
         "S3_VADED_BUCKET_NAME": "test-bucket",
         "AWS_ACCESS_KEY_ID": "test-key",
         "AWS_SECRET_ACCESS_KEY": "test-secret",
@@ -128,16 +127,6 @@ def sample_s3_file_data():
             }
         }
     }
-
-
-@pytest.fixture
-def mock_s3_client():
-    """Mock S3 client."""
-    with patch('scribe.repositories.s3_utils.get_s3_client') as mock:
-        mock_client = MagicMock()
-        mock.return_value = mock_client
-        yield mock_client
-
 
 
 @pytest.fixture

@@ -2,12 +2,12 @@
 Unit tests for SessionDetailsService
 (voice2rx/services/sessions/session_details_service.py).
 
-All collaborators (TransactionORM, EkascribeDocumentORM, StorageClient,
-compute_audio_matrix) are mocked. No database or S3 access.
+All collaborators (TransactionORM, EkascribeDocumentORM, StorageClient)
+are mocked. No database or S3 access.
 """
 
 from http import HTTPStatus
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -41,28 +41,11 @@ def mock_storage():
 
 @pytest.fixture
 def service(mock_txn_repo, mock_doc_repo, mock_storage):
-    # ensure_documents_exist passes the transaction through untouched in these
-    # unit tests (lazy migration is ResultServiceV2's concern, tested there).
-    rsv2 = MagicMock()
-    rsv2.ensure_documents_exist = AsyncMock(
-        side_effect=lambda sid, bid: mock_txn_repo.get_transaction(sid, bid)
-    )
     return SessionDetailsService(
         transaction_repo=mock_txn_repo,
         document_repo=mock_doc_repo,
         storage_client=mock_storage,
-        result_service_v2=rsv2,
     )
-
-
-@pytest.fixture(autouse=True)
-def stub_audio_matrix():
-    """Default: empty audio_matrix. Tests can override per-case."""
-    with patch(
-        "scribe.services.session_details_service.compute_audio_matrix",
-        return_value={},
-    ) as p:
-        yield p
 
 
 def _txn(**overrides):
@@ -397,17 +380,17 @@ class TestPresignedUrls:
 
 class TestAudioMatrix:
     @pytest.mark.asyncio
-    async def test_audio_matrix_passed_through(
-        self, service, mock_txn_repo, mock_doc_repo, stub_audio_matrix
+    async def test_audio_matrix_is_static_empty(
+        self, service, mock_txn_repo, mock_doc_repo
     ):
-        stub_audio_matrix.return_value = {"quality": 0.9}
+        # The audio quality stack was removed; the field stays as {} for
+        # wire compatibility until the frontend drops it.
         mock_txn_repo.get_transaction.return_value = _txn()
         mock_doc_repo.get_documents_by_session.return_value = []
 
         body, _ = await service.get_session_details(SESSION_ID, UUID, B_ID)
 
-        assert body["data"]["audio_matrix"] == {"quality": 0.9}
-        stub_audio_matrix.assert_called_once_with(SESSION_ID, B_ID)
+        assert body["data"]["audio_matrix"] == {}
 
 
 # ---------------------------------------------------------------------------

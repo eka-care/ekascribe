@@ -162,21 +162,6 @@ class TestUpdateDocumentContent:
 
 
 # ---------------------------------------------------------------------------
-# has_documents
-# ---------------------------------------------------------------------------
-
-
-class TestHasDocuments:
-    def test_returns_true_when_documents_exist(self, service, mock_document_repo):
-        mock_document_repo.get_documents_by_session.return_value = [{"document_id": "d1"}]
-        assert service.has_documents("sess-1") is True
-
-    def test_returns_false_when_none(self, service, mock_document_repo):
-        mock_document_repo.get_documents_by_session.return_value = []
-        assert service.has_documents("sess-1") is False
-
-
-# ---------------------------------------------------------------------------
 # _is_transaction_too_old
 # ---------------------------------------------------------------------------
 
@@ -231,8 +216,6 @@ class TestPollForDocument:
             service, "_read_document_content", return_value="content"
         ), patch.object(
             service, "_get_document_meta_info", return_value={}
-        ), patch.object(
-            service, "_compute_audio_matrix", return_value={}
         ):
             response, code = await service.poll_for_document("doc-1", "sess-1")
 
@@ -251,8 +234,7 @@ class TestPollForDocument:
             "type": "document",
         }
         with patch.object(service, "_read_document_content", return_value=""), \
-             patch.object(service, "_get_document_meta_info", return_value={}), \
-             patch.object(service, "_compute_audio_matrix", return_value={}):
+             patch.object(service, "_get_document_meta_info", return_value={}):
             response, code = await service.poll_for_document("doc-1", "sess-1", timeout=0)
         assert code == HTTPStatus.ACCEPTED
 
@@ -309,8 +291,7 @@ class TestPollForSessionDocuments:
         }
         mock_document_repo.get_documents_by_session.return_value = [doc]
 
-        with patch.object(service, "_build_session_response") as mock_build, \
-             patch.object(service, "calculate_audio_quality"):
+        with patch.object(service, "_build_session_response") as mock_build:
             mock_build.return_value = ({"data": {}}, HTTPStatus.OK)
             response, code = await service.poll_for_session_documents(
                 transaction, "b-1", timeout=1

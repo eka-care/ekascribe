@@ -32,7 +32,7 @@ from scribe.core.exceptions import ResourceNotFoundException, Voice2RxException
 from scribe.schemas import ErrorResponse, SessionAudioResponse, UploadType
 from scribe.services.adaptors import AudioAdaptor
 from scribe.services.config_service import ConfigService
-from scribe.repositories.blob import S3StorageClient
+from scribe.repositories.blob import storage_client_for_bucket
 from scribe.services.transaction_service import TransactionService
 
 logger = get_logger(__name__)
@@ -97,7 +97,7 @@ def get_session_audio(
 
         bucket_name = os.getenv("S3_COMBINED_AUDIO_BUCKET", "voice-records-audio")
         audio_key = f"{b_id}/{session_id}_combined.mp3"
-        storage_client = S3StorageClient(bucket_name=bucket_name)
+        storage_client = storage_client_for_bucket(bucket_name=bucket_name)
 
         if not storage_client.object_exists(audio_key):
             raise Voice2RxException(

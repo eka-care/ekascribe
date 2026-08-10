@@ -21,7 +21,6 @@ from urllib.parse import urlparse
 import httpx
 
 from scribe.core.custom_logger import get_logger
-from scribe.core.choices import DocumentType
 from scribe.repositories.document_orm import EkascribeDocumentORM
 from scribe.repositories.transaction_orm import TransactionORM
 from scribe.services.context.models import (
@@ -31,8 +30,7 @@ from scribe.services.context.models import (
     PastSessionItem,
     ResolvedContext,
 )
-from scribe.services.template_result_file_service import TemplateResultFileService
-from scribe.repositories.s3_utils import get_s3_client
+from scribe.services.transcript_file_service import TranscriptFileService
 
 logger = get_logger(__name__)
 
@@ -50,7 +48,7 @@ VAULT_BASE_URL = os.getenv("VAULT_BASE_URL", "http://vault.orbi.orbi")
 
 class ContextResolutionService:
     def __init__(self):
-        self.template_result_file_service = TemplateResultFileService()
+        self.transcript_file_service = TranscriptFileService()
         self.document_orm = EkascribeDocumentORM()
         self.transaction_orm = TransactionORM()
         self.bucket_name = os.getenv("S3_VADED_BUCKET_NAME", "voice-records")
@@ -93,7 +91,7 @@ class ContextResolutionService:
             #FIXME: this is temparory fix, figure out some solution . just to get the s3_url no need to fetch the entire transaction_data
             past_transaction = self.transaction_orm.get_transaction(txn_id=session_id, b_id=b_id)
             s3_url = past_transaction.get("s3_url")
-            transcript = self.template_result_file_service.read_transcript_file(
+            transcript = self.transcript_file_service.read_transcript_file(
                 s3_url=s3_url, txn_id=session_id
             )
 

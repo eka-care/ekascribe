@@ -129,26 +129,6 @@ def test_document_orm_session_queries(pg):
     assert len(fetched) == 2
 
 
-def test_audio_details_begins_with(pg):
-    from scribe.repositories.audio_details_orm import AudioDetailsORM
-
-    orm = AudioDetailsORM()
-    b_id, txn = "b-audio", f"txn-{uuidlib.uuid4().hex[:6]}"
-    composite = f"{b_id}#{txn}"
-    for i in (1, 2):
-        orm.create(
-            {
-                "composite_key": composite,
-                "record_type": f"chunk#{i}.m4a",
-                "txn_id": txn,
-                "b_id": b_id,
-                "snr": 20 + i,
-            }
-        )
-    details = orm.get_audio_quality_details(b_id=b_id, txn_id=txn)
-    assert len(details) == 2
-
-
 def test_config_service_store_path(pg):
     from scribe.services.config_service import ConfigService
 

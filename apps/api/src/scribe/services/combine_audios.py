@@ -1,4 +1,3 @@
-import boto3
 from botocore.exceptions import NoCredentialsError, ClientError
 import os
 import tempfile
@@ -11,7 +10,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = get_logger(__name__)
 
-# combine s3 audio files into a single file and upload back to S3 using boto3 and pydub
+# combine session audio files into a single file and upload back to blob storage using pydub
 class S3AudioCombiner:
     def __init__(self):
         from scribe_core.storage import get_blob_store

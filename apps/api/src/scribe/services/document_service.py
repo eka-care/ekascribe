@@ -13,8 +13,8 @@ from typing import Dict, List, Optional, Any
 from scribe.core.custom_logger import get_logger
 from scribe.core.choices import DocumentType
 from scribe.repositories.document_orm import EkascribeDocumentORM
-from scribe.repositories.blob import S3StorageClient, StorageClient
-from scribe.repositories.s3_service import s3_client
+from scribe.repositories.blob import StorageClient, storage_client_for_bucket
+from scribe.services.transcript_file_service import TranscriptFileService
 from scribe.core.time_utils import get_current_epoch_timestamp
 from scribe.schemas.document_schema import CreateDocumentRequest
 
@@ -34,8 +34,8 @@ class DocumentService:
         self.bucket_name = bucket_name or os.getenv(
             "S3_VADED_BUCKET_NAME", "voice-records"
         )
-        self.storage_client = storage_client or S3StorageClient(
-            bucket_name=self.bucket_name
+        self.storage_client = storage_client or storage_client_for_bucket(
+            self.bucket_name
         )
 
     def create_document(
@@ -278,6 +278,93 @@ class DocumentService:
                 document_id = document.get("document_id")
 
         return document_id
+
+    def create_transcript_document(
+        self,
+        session_id: str,
+        b_id: str,
+        uuid_val: str,
+        s3_url: str,
+    ) -> Optional[str]:
+        """Create (or update) the transcript document for a session once the
+        pipeline reports the transcript ready. Reads the transcript file from
+        blob storage, writes its text as document content, and marks the
+        document success.
+
+        Called from the transaction PATCH callback when transcript_status
+        flips to success. Returns the document_id, or None when no transcript
+        file exists.
+        """
+        try:
+            transcript = TranscriptFileService().read_transcript_file(
+                s3_url=s3_url,
+                txn_id=session_id,
+                fallback_to_legacy=True,
+            )
+            if not transcript:
+                logger.info("No transcript file found", session_id=session_id)
+                return None
+
+            text = transcript.get("text", "")
+            lang = transcript.get("lang", "")
+            template_id = f"transcript_{lang}" if lang else "transcript"
+
+            document_id = self.get_document_id_by_session_and_template(
+                session_id, template_id
+            )
+            if not document_id and lang:
+                document_id = self.get_document_id_by_session_and_template(
+                    session_id, "transcript"
+                )
+            if not document_id:
+                created = self.create_document(
+                    session_id=session_id,
+                    template_id=template_id,
+                    uuid_val=uuid_val,
+                    wid=b_id,
+                    doc_type="transcript",
+                )
+                document_id = (created or {}).get("document_id")
+                if not document_id:
+                    raise Exception(
+                        f"failed to create transcript document for session-id:{session_id}"
+                    )
+                logger.info(
+                    "Created transcript document",
+                    session_id=session_id,
+                    document_id=document_id,
+                )
+            else:
+                logger.info(
+                    "Existing transcript document found, updating content",
+                    session_id=session_id,
+                    document_id=document_id,
+                )
+
+            file_key = self.write_document_content(
+                s3_url=s3_url,
+                document_id=document_id,
+                content=text,
+                is_base64=False,
+            )
+            self.update_document(
+                document_id=document_id,
+                update_data={
+                    "status": "success",
+                    "document_path": file_key,
+                    "processed_at": get_current_epoch_timestamp(),
+                },
+            )
+            return document_id
+        except Exception as e:
+            logger.error(
+                "Error creating transcript document",
+                session_id=session_id,
+                error=str(e),
+                exc_info=True,
+                severity="critical",
+            )
+            raise
 
     def get_documents_by_ids(self, document_ids: List[str]) -> List[Dict[str, Any]]:
         """Fetch multiple documents by their document_ids."""

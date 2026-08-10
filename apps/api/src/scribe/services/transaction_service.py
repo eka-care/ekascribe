@@ -6,12 +6,9 @@ import os
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any
 import orjson
-import json
 from fastapi import BackgroundTasks
 from scribe.core.custom_logger import get_logger
 from scribe.repositories.transaction_orm import TransactionORM
-from scribe.repositories.audio_details_orm import AudioDetailsORM
-from scribe.repositories.transaction_template_orm import TxnTemplateResultsORM
 from scribe.services.document_service import DocumentService
 from scribe.services.config_service import ConfigService
 from scribe.core.exceptions import (
@@ -34,7 +31,7 @@ from scribe.services.combine_audios import (
 )
 from scribe.services.format_adapter import TemplateFormatConverter
 from scribe.services.template_service import TemplateService
-from scribe.repositories.s3_utils import get_s3_client, list_files_in_s3_folder
+from scribe.repositories.blob import blob_repo
 from scribe.core.time_utils import (
     get_current_epoch_timestamp,
     get_current_utc_timestamp,
@@ -52,12 +49,8 @@ class TransactionService:
     def __init__(
         self,
         transaction_repo: Optional[TransactionORM] = None,
-        audio_repo: Optional[AudioDetailsORM] = None,
-        template_results_repo: Optional[TxnTemplateResultsORM] = None,
     ):
         self.transaction_repo = transaction_repo or TransactionORM()
-        self.audio_repo = audio_repo or AudioDetailsORM()
-        self.template_results_repo = template_results_repo or TxnTemplateResultsORM()
         self.document_service = DocumentService()
         self.config_service = ConfigService()
         self.tempalte_service = TemplateService()
@@ -154,23 +147,6 @@ class TransactionService:
 
         return result.get("data", {})
 
-    def ensure_session_documents(
-        self,
-        txn_id: str,
-        b_id: str,
-        transaction: Optional[Dict[str, Any]] = None,
-    ) -> List[Dict[str, Any]]:
-        documents = self.document_service.get_documents_for_session(txn_id)
-        template_docs = [
-            d
-            for d in documents
-            if d.get("type") not in (DocumentType.CONTEXT, DocumentType.NOTES, DocumentType.TRANSCRIPT)
-        ]
-        if template_docs:
-            return documents
-        self._store_document_results(txn_id, transaction)
-        return self.document_service.get_documents_for_session(txn_id)
-
     def commit_transaction(
         self,
         txn_id: str,
@@ -208,21 +184,9 @@ class TransactionService:
         if result.get("error"):
             raise Exception(result["error"])
 
-        # update all template results commit_at time, this will be used for processing status/time comparison.
-
-        # template_documents = TemplateFormatConverter.get_all_templates(transaction_data=transaction)
-        # document_ids = [t.get("document_id") for t in template_documents if t.get("document_id")]
-        # document_results = self.document_service.get_documents_by_ids(document_ids=document_ids)
-
-        # transaction was fetched before user_status flipped to COMMIT, so it
-        # still reflects the pre-commit state; on a re-commit skip creation.
-        already_committed = transaction.get("user_status") == UserStatus.COMMIT.value
-        if not already_committed and transaction.get("flavour") in exculuded_apps:
-            document_results = self.ensure_session_documents(
-                txn_id, b_id, transaction
-            )
-        else:
-            document_results = self.document_service.get_documents_for_session(txn_id)
+        # stamp commit_at on the session's existing documents; this is used
+        # for processing status/time comparison.
+        document_results = self.document_service.get_documents_for_session(txn_id)
 
         if not document_results:
             logger.critical(
@@ -456,12 +420,7 @@ class TransactionService:
             s3_url=s3_url,
         )
 
-        s3_client = get_s3_client()
-        s3_files = list_files_in_s3_folder(
-            s3_client,
-            None,
-            None,
-            extension=None,
+        s3_files = blob_repo.list_files(
             s3_url=s3_url,
             exclude_extensions=[".json", ".m4a_"],
         )

@@ -1,5 +1,5 @@
 """
-Unit tests for S3StorageClient (voice2rx/services/storage/s3_storage_client.py).
+Unit tests for S3StorageClient and the storage-client factory (scribe/repositories/blob.py).
 
 The boto3 S3 client is fully mocked; tests run without AWS credentials.
 """

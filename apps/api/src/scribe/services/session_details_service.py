@@ -3,9 +3,8 @@ Session Details Service.
 
 Pure resource-reader for sessions. No polling, no lazy migration, no S3
 content reads, no side-effects. Assembles the session view from the
-transaction header, document rows (ekascribe_document), and the aggregate
-audio_matrix. Presigned download URLs are attached only when the caller
-opts in.
+transaction header and document rows (ekascribe_document). Presigned
+download URLs are attached only when the caller opts in.
 
 Contract: see GET /voice/api/v1/sessions/{session_id} in the session
 details router.
@@ -19,9 +18,8 @@ from scribe.core.choices import DocumentType, UserStatus, VOICE2RX_PROCESSING_ST
 from scribe.core.exceptions import ResourceNotFoundException
 from scribe.repositories.document_orm import EkascribeDocumentORM
 from scribe.repositories.transaction_orm import TransactionORM, convert_decimals
-from scribe.services import compute_audio_matrix
 from scribe.repositories.blob import StorageClient, get_storage_client
-from scribe.services.session_utils import SESSION_DURATION_SECONDS, compute_upload_url
+from scribe.services.session_utils import compute_upload_url
 from scribe.core.time_utils import get_current_epoch_timestamp, iso_to_epoch
 
 logger = get_logger(__name__)
@@ -56,15 +54,9 @@ class SessionDetailsService:
         transaction_repo: Optional[TransactionORM] = None,
         document_repo: Optional[EkascribeDocumentORM] = None,
         storage_client: Optional[StorageClient] = None,
-        result_service_v2=None,
     ):
         self.max_session_duration = 3600
         self.transaction_repo = transaction_repo or TransactionORM()
-        if result_service_v2 is None:
-            from scribe.services.result_service_v2 import ResultServiceV2
-
-            result_service_v2 = ResultServiceV2()
-        self.result_service_v2 = result_service_v2
         self.document_repo = document_repo or EkascribeDocumentORM()
         self.storage_client = storage_client or get_storage_client()
 
@@ -84,7 +76,7 @@ class SessionDetailsService:
         Any mismatch raises ResourceNotFoundException so existence is not
         leaked across tenants.
         """
-        txn = await self.result_service_v2.ensure_documents_exist(session_id, jwt_b_id)
+        txn = self.transaction_repo.get_transaction(session_id, jwt_b_id)
         if not txn:
             raise ResourceNotFoundException("Session Not found")
 
@@ -111,8 +103,6 @@ class SessionDetailsService:
             )
 
         self._apply_transcript_error_overlay(txn, document_entries)
-
-        audio_matrix = compute_audio_matrix(session_id, jwt_b_id)
 
         additional_data = self._get_additional_data(txn=txn)
         protocol_meta = additional_data.get("_protocol", {})
@@ -141,7 +131,7 @@ class SessionDetailsService:
             "transfer": txn.get("transfer"),
             "flavour": txn.get("flavour"),
             "patient_details": txn.get("patient_details") or {},
-            "audio_matrix": audio_matrix,
+            "audio_matrix": {},
             "additional_data": additional_data,
             "client_generated_files": txn.get("client_generated_files") or [],
             "encounter_id": txn.get("encounter_id", ""),

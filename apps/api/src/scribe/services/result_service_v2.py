@@ -1,9 +1,8 @@
 """
-Result Service V2 - Polls ekascribe_document table instead of ekascribe_template_result.
+Result Service V2 - Polls the ekascribe_document table.
 
-Provides the same response structure as ResultService (including output section,
-audio_matrix, FHIR template, proper template type categorization) but reads from
-the new ekascribe_document table.
+Provides the v2 result response structure (output section + template_results)
+read from the ekascribe_document table.
 """
 
 import asyncio
@@ -24,9 +23,7 @@ from scribe.core.custom_logger import get_logger
 from scribe.repositories.document_orm import EkascribeDocumentORM
 from scribe.repositories.transaction_orm import TransactionORM
 from scribe.services.document_service import DocumentService
-from scribe.services import compute_audio_matrix
 from scribe.services.template_service import TemplateService
-from scribe.repositories.s3_service import s3_client as boto_s3_client
 from scribe.services.transaction_service import TransactionService
 from scribe.core.choices import VOICE2RX_PROCESSING_STATUS, DocumentType, Transfer
 from scribe.core.exceptions import (
@@ -37,7 +34,6 @@ from scribe.core.exceptions import (
     TransactionNotFoundException,
 )
 from scribe.core.time_utils import epoch_to_iso, get_current_epoch_timestamp, iso_to_epoch
-from scribe.repositories.audio_details_orm import AudioDetailsORM
 
 logger = get_logger(__name__)
 
@@ -72,9 +68,6 @@ class ResultContext:
     documents: List[Dict[str, Any]] = field(default_factory=list)
     documents_meta_info: Dict[str, Dict[str, Any]] = field(default_factory=dict)
 
-    # true when documents are migrated at run time for older sessions
-    doc_lazy_migrated: bool = False
-
     # response being assembled
     response: Dict[str, Any] = field(default_factory=dict)
 
@@ -100,7 +93,6 @@ class ResultServiceV2:
         self.transaction_service = TransactionService()
         self.document_service = document_service or DocumentService()
         self.template_service = TemplateService
-        self.audio_details_repo = AudioDetailsORM()
         self.bucket_name = os.getenv("S3_VADED_BUCKET_NAME", "voice-records")
 
 
@@ -252,7 +244,6 @@ class ResultServiceV2:
             session_id=session_id,
             b_id=b_id,
             transaction=transaction or {},
-            doc_lazy_migrated=transaction.pop("__doc_migration", False)
         )
 
         # Uncommitted sessions older than the active window are stale — the
@@ -302,53 +293,6 @@ class ResultServiceV2:
 
         # timeout or stuck-document break - return what we have
         return self._build_session_response(ctx)
-
-    async def ensure_documents_exist(
-        self, session_id: str, b_id: str
-    ):
-        """Return the transaction, lazily migrating legacy results into the
-        document table when a session has no documents yet."""
-        from scribe.services.populate_documents_service import (
-            PopulateDocumentsService,
-        )
-
-        populate_documents_service = PopulateDocumentsService()
-
-        transaction_data = self.transaction_repo.get_transaction(session_id, b_id)
-        if not transaction_data:
-            logger.warning(
-                "Transaction not found for lazy migration",
-                txn_id=session_id,
-                b_id=b_id,
-                severity="medium",
-            )
-            return None
-
-        if self.has_documents(session_id):
-            return transaction_data
-
-        logger.info(
-            "No documents found, triggering lazy migration",
-            txn_id=session_id,
-            b_id=b_id,
-        )
-        await populate_documents_service.populate_documents(
-            session_id=session_id,
-            b_id=b_id,
-            uuid_val=transaction_data.get("uuid", ""),
-            s3_url=transaction_data.get("s3_url", ""),
-            patch_api_call=False,
-            prompt_s3_url=transaction_data.get("prompt_s3_url", None),
-            transaction_data=transaction_data,
-        )
-        # mark that the document migration has been done for this poll cycle
-        transaction_data["__doc_migration"] = True
-        return transaction_data
-
-    def has_documents(self, session_id: str) -> bool:
-        """Check if any documents exist for a session."""
-        docs = self.document_repo.get_documents_by_session(session_id)
-        return len(docs) > 0
 
     def _document_processing_status(
         self,
@@ -553,17 +497,13 @@ class ResultServiceV2:
         if not ctx.documents:
             return ctx.response, 200
 
-        # calculate audio quality
-        self.calculate_audio_quality(ctx)
-
         # get template type map for proper categorization
         non_transcript_documents = [
             doc for doc in ctx.documents if doc.get("type") != DocumentType.TRANSCRIPT
         ]
 
         ctx.documents_meta_info = self._get_document_meta_info(
-            non_transcript_documents,
-            ctx.doc_lazy_migrated
+            non_transcript_documents
         )
 
         for doc in ctx.documents:
@@ -636,13 +576,6 @@ class ResultServiceV2:
         entry, category = self._build_document_entry(doc, document_meta_info, flavour=flavour)
         self._append_entry_to_response(response, entry, category)
 
-        # populate audio quality (same helper used by session polling)
-        session_id = doc.get("session_id", "")
-        if session_id and b_id:
-            response["data"]["audio_matrix"] = self._compute_audio_matrix(
-                session_id, b_id
-            )
-
         return response
 
     def _build_error_response(self, message: str) -> Dict[str, Any]:
@@ -663,9 +596,8 @@ class ResultServiceV2:
         }
 
     def _get_document_meta_info(
-            self, 
-            documents: List[Dict[str, Any]], 
-            lazy_migrated_documents: bool = False,
+            self,
+            documents: List[Dict[str, Any]],
         ) -> dict:
         """Query TemplateService to get template types, response types, and names."""
 
@@ -701,12 +633,6 @@ class ResultServiceV2:
 
             template_info = next((t for t in template_details if t.get("id") == template_id), {})
             response_type = "markdown"
-            if lazy_migrated_documents:
-                response_type = "json"
-                if not template_info.get("section_ids"):
-                    response_type = "markdown"
-                if template_id.startswith("transcript"):
-                    response_type = "transcript"
 
             document_meta_info[document_id] = {
                 "template_type": template_info.get("type", "") or "custom",
@@ -740,16 +666,6 @@ class ResultServiceV2:
             return content_type
 
         return output_type or template_map_info.get("response_type", "json") or "json"
-
-    def _compute_audio_matrix(self, session_id: str, b_id: str) -> Dict[str, Any]:
-        """Compute the audio_matrix dict (currently just average quality)."""
-        return compute_audio_matrix(session_id, b_id)
-
-    def calculate_audio_quality(self, ctx: "ResultContext") -> None:
-        """Calculate and add audio quality to ctx.response."""
-        audio_matrix = ctx.response.get("data", {}).get("audio_matrix", {})
-        audio_matrix.update(self._compute_audio_matrix(ctx.session_id, ctx.b_id))
-        ctx.response["data"]["audio_matrix"] = audio_matrix
 
     def _read_document_content(self, doc: Dict[str, Any]) -> str:
         """Read document content from S3."""

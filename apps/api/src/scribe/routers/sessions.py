@@ -49,7 +49,7 @@ from scribe.services.adaptors import SessionAdaptor, TemplateAdaptor
 from scribe.schemas.sessions import EndSessionRequest
 from scribe.services.transaction_service import TransactionService
 from scribe.services import process_template_service
-from scribe.repositories.s3_utils import get_s3_client, list_files_in_s3_folder
+from scribe.repositories.blob import blob_repo
 from scribe.core.http import (
     RequestHandler,
     ResponseFormatter,
@@ -398,9 +398,7 @@ async def end_session(
         bucket_name = parsed_url.netloc
         prefix = parsed_url.path.lstrip("/")
 
-        s3_client = get_s3_client()
-        s3_files = list_files_in_s3_folder(
-            s3_client,
+        s3_files = blob_repo.list_files(
             bucket_name,
             prefix,
             exclude_extensions=[".json", ".txt"],
