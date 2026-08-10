@@ -20,7 +20,6 @@ import {
 import useVoice2RxStore from '@/store/store';
 import { SESSION_PHASE } from '@/constants/enums';
 import { getSessionErrorContent } from './output/error-component';
-import { resolveOutputTemplates } from '../utils/resolve-output-templates';
 import { formatRecordedAt } from '../utils/format-recorded-at';
 import { AudioWaveformTimer } from './recording/audio-waveform-timer';
 import AudioQualitySummary from './recording/audio-quality-summary';
@@ -62,11 +61,7 @@ const SessionHeader = ({
 
   const sessionConfig = useVoice2RxStore((s) => s.sessionV2ContentById[sessionId]?.session_config);
   const templateNameById = useVoice2RxStore((s) => s.templateNameById);
-  const userStatus = useVoice2RxStore((s) => s.sessionV2ContentById[sessionId]?.user_status || '');
   const createdAt = useVoice2RxStore((s) => s.sessionV2ContentById[sessionId]?.created_at || '');
-  const userDefaultTemplates = useVoice2RxStore(
-    (s) => s.userLevelPreferences.output_format_template
-  );
 
   // Lifecycle handlers from hook
   const {
@@ -128,15 +123,6 @@ const SessionHeader = ({
     () => [inputLanguagesText, outputFormatText, modelTypeText].filter(Boolean),
     [inputLanguagesText, outputFormatText, modelTypeText]
   );
-
-  // Init session with no output format: hint the fallback template.
-  const pendingOutputTemplateName = useMemo(() => {
-    if (sessionConfig?.output_format_template?.length || userStatus !== 'init') return '';
-
-    const [template] = resolveOutputTemplates(undefined, userDefaultTemplates);
-
-    return template ? templateNameById[template.id] || template.name : '';
-  }, [sessionConfig?.output_format_template, userStatus, userDefaultTemplates, templateNameById]);
 
   const recordedAtText = useMemo(() => formatRecordedAt(createdAt), [createdAt]);
 
@@ -367,12 +353,6 @@ const SessionHeader = ({
             </button>
           )}
         </div>
-
-        {pendingOutputTemplateName && (
-          <span className="text-xs text-secondary-foreground">
-            Output will be generated in {pendingOutputTemplateName}
-          </span>
-        )}
 
         {sessionId && <span className="text-[8px] text-[#767676]">{sessionId}</span>}
       </div>
