@@ -7,7 +7,7 @@ setup:
 	uv run python scripts/setup.py
 
 api:
-	uv run uvicorn scribe_api.main:app --reload --port 8000
+	uv run uvicorn scribe.main:app --reload --port 8000
 
 web:
 	npm run dev --workspace apps/web

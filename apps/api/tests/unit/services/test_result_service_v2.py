@@ -14,8 +14,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from voice2rx.services.transactions.result_service_v2 import ResultServiceV2
-from voice2rx.core.exceptions import (
+from scribe.services.result_service_v2 import ResultServiceV2
+from scribe.core.exceptions import (
     ActiveSessionException,
     RequestFailureException,
     ResourceNotFoundException,

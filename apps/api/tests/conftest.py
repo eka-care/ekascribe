@@ -80,7 +80,7 @@ def setup_test_environment():
 @pytest.fixture
 def client():
     """FastAPI test client fixture."""
-    from scribe_api.main import app
+    from scribe.main import app
     return TestClient(app)
 
 
@@ -143,7 +143,7 @@ def sample_s3_file_data():
 @pytest.fixture
 def mock_dynamo_helper():
     """Mock DynamoHelper class."""
-    with patch('voice2rx.utils.dynamo_helper.DynamoHelper') as mock:
+    with patch('scribe.repositories.dynamo_helper.DynamoHelper') as mock:
         # Setup default return values for common operations
         mock_instance = MagicMock()
         mock.return_value = mock_instance
@@ -156,7 +156,7 @@ def mock_dynamo_helper():
 @pytest.fixture
 def mock_s3_client():
     """Mock S3 client."""
-    with patch('voice2rx.utils.s3_utils.get_s3_client') as mock:
+    with patch('scribe.repositories.s3_utils.get_s3_client') as mock:
         mock_client = MagicMock()
         mock.return_value = mock_client
         yield mock_client
@@ -166,5 +166,5 @@ def mock_s3_client():
 @pytest.fixture
 def mock_logger():
     """Mock logger."""
-    with patch('logs.custom_logger.get_logger') as mock:
+    with patch('scribe.core.custom_logger.get_logger') as mock:
         yield mock.return_value

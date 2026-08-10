@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import MagicMock, patch
-from voice2rx.services.templates.template_result_file_service import (
+from scribe.services.template_result_file_service import (
     TemplateResultFileService,
 )
 
@@ -11,9 +11,9 @@ def service():
 
 
 @patch(
-    "voice2rx.services.templates.template_result_file_service.list_files_in_s3_folder"
+    "scribe.services.template_result_file_service.list_files_in_s3_folder"
 )
-@patch("voice2rx.services.templates.template_result_file_service.download_s3_file")
+@patch("scribe.services.template_result_file_service.download_s3_file")
 def test_read_all_transcripts_base_exists(mock_download, mock_list, service):
     # Setup
     s3_url = "s3://test-bucket/txn_1"
@@ -35,9 +35,9 @@ def test_read_all_transcripts_base_exists(mock_download, mock_list, service):
 
 
 @patch(
-    "voice2rx.services.templates.template_result_file_service.list_files_in_s3_folder"
+    "scribe.services.template_result_file_service.list_files_in_s3_folder"
 )
-@patch("voice2rx.services.templates.template_result_file_service.download_s3_file")
+@patch("scribe.services.template_result_file_service.download_s3_file")
 def test_read_all_transcripts_base_missing_with_translations(
     mock_download, mock_list, service
 ):
@@ -70,9 +70,9 @@ def test_read_all_transcripts_base_missing_with_translations(
 
 
 @patch(
-    "voice2rx.services.templates.template_result_file_service.list_files_in_s3_folder"
+    "scribe.services.template_result_file_service.list_files_in_s3_folder"
 )
-@patch("voice2rx.services.templates.template_result_file_service.download_s3_file")
+@patch("scribe.services.template_result_file_service.download_s3_file")
 def test_read_all_transcripts_empty_location(mock_download, mock_list, service):
     # Setup
     s3_url = "s3://test-bucket/txn_1"

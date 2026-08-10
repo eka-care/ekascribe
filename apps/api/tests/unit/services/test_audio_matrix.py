@@ -10,7 +10,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from voice2rx.services.sessions import compute_audio_matrix
+from scribe.services import compute_audio_matrix
 
 
 @pytest.fixture
@@ -113,7 +113,7 @@ class TestEdgeCases:
 
 class TestDefaultRepo:
     def test_constructs_audio_details_orm_when_no_repo_provided(self, monkeypatch):
-        from voice2rx.services.sessions import audio_matrix as audio_matrix_mod
+        from scribe.services import audio_matrix as audio_matrix_mod
 
         instances = []
 
