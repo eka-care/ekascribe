@@ -10,6 +10,7 @@ from .sessions import sessions_router
 from .template_api import template_router
 from .templates import templates_router
 from .transaction_actions import transaction_actions_router
+from .transcript_upload import transcript_upload_router
 
 # v2 surface kept: the PATCH callback the pipeline drives.
 transaction_router = APIRouter()
@@ -24,4 +25,5 @@ __all__ = [
     "template_router",
     "templates_router",
     "transaction_router",
+    "transcript_upload_router",
 ]

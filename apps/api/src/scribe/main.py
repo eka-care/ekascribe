@@ -75,11 +75,13 @@ def create_app() -> FastAPI:
         language_config_router,
         template_router,
         transaction_router,
+        transcript_upload_router,
     )
     from scribe.routers.document_router import document_router
     from scribe.routers import session_details_router
 
     app.include_router(transaction_router, prefix="/voice/api/v2/transaction")
+    app.include_router(transcript_upload_router, prefix="/voice/api/v1/transaction")
     app.include_router(language_config_router, prefix="/voice/api/v2/config")
     app.include_router(template_router, prefix="/voice/api/v1/template")
     app.include_router(document_router, prefix="/voice/api/v1")
