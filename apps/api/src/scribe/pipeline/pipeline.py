@@ -238,10 +238,33 @@ def process_session(message: Dict[str, Any]) -> None:
     s3_url = message.get("s3_url", "")
     language = _session_language(message)
     bucket, prefix = parse_blob_url(s3_url)
+    logger.info(
+        "process_session started",
+        txn_id=txn_id,
+        b_id=b_id,
+        s3_url=s3_url,
+        language=language,
+        attempt=int(message.get("attempt", 0)),
+        stitch_attempt=int(message.get("stitch_attempt", 0)),
+    )
 
     chunks = _chunk_files(bucket, prefix)
     if not chunks:
-        logger.warning("process_session: no audio chunks found", txn_id=txn_id, s3_url=s3_url)
+        logger.warning(
+            "process_session: NO audio chunks found under prefix — nothing to "
+            "transcribe (upload missing or wrong s3_url/prefix?)",
+            txn_id=txn_id,
+            s3_url=s3_url,
+            bucket=bucket,
+            prefix=prefix,
+        )
+    else:
+        logger.info(
+            "process_session chunks discovered",
+            txn_id=txn_id,
+            count=len(chunks),
+            files=[k.split("/")[-1] for _, k in chunks],
+        )
 
     filenames = [chunk_key.split("/")[-1] for _, chunk_key in chunks]
     for (_, chunk_key), filename in zip(chunks, filenames):
@@ -251,6 +274,7 @@ def process_session(message: Dict[str, Any]) -> None:
     # claimable — claims make duplicate dispatches free.
     attempt = int(message.get("attempt", 0))
     remaining = chunk_state.not_done_chunks(txn_id, filenames)
+    stats = chunk_state.session_chunk_stats(txn_id)
     if remaining and attempt < MAX_CHUNK_WAIT_ATTEMPTS:
         for filename in remaining:
             dispatch(
@@ -267,12 +291,23 @@ def process_session(message: Dict[str, Any]) -> None:
         follow_up["attempt"] = attempt + 1
         dispatch("process_session", {"message": follow_up}, delay_seconds=5)
         logger.info(
-            "process_session waiting on chunks",
+            "process_session waiting on chunk jobs (re-dispatched claimable ones)",
             txn_id=txn_id,
-            remaining=len(remaining),
+            remaining=remaining,
+            chunk_states=stats,
             attempt=attempt,
+            max_attempts=MAX_CHUNK_WAIT_ATTEMPTS,
         )
         return
+    if remaining:
+        logger.warning(
+            "process_session chunk wait EXHAUSTED — transcribing stragglers "
+            "inline in this process (check earlier transcribe_chunk failures "
+            "for the root cause)",
+            txn_id=txn_id,
+            remaining=remaining,
+            chunk_states=stats,
+        )
 
     # Single-winner stitch: exactly one process assembles + PATCHes.
     chunk_state.register_chunk(txn_id, chunk_state.STITCH_SENTINEL, b_id)
@@ -295,24 +330,53 @@ def process_session(message: Dict[str, Any]) -> None:
             logger.info("stitch owned by another worker; re-checking", txn_id=txn_id)
         return
 
+    logger.info("stitch claim won — assembling transcript", txn_id=txn_id)
     parts: List[str] = []
     detected_lang: Optional[str] = None
+    current_chunk = ""
     try:
         for _, chunk_key in chunks:
             # idempotent: fast-path reads the existing transcript artifact; any
             # straggler chunk (attempts exhausted) is transcribed inline here.
+            current_chunk = chunk_key
+            cached = get_blob_store().exists(bucket, _transcript_key_for_chunk(chunk_key))
             result = _transcribe_chunk_sync(bucket, chunk_key, language)
             chunk_state.mark_done(txn_id, chunk_key.split("/")[-1], _transcript_key_for_chunk(chunk_key))
+            logger.info(
+                "chunk transcript ready",
+                txn_id=txn_id,
+                chunk=chunk_key.split("/")[-1],
+                source="artifact-cache" if cached else "inline-stt",
+                chars=len(result.get("text") or ""),
+            )
             if result.get("text"):
                 parts.append(result["text"].strip())
             detected_lang = detected_lang or result.get("language_detected")
     except Exception as e:  # noqa: BLE001 — release the stitch claim so the
         # retry does not wait out the 300s stale-claim TTL
+        logger.error(
+            "process_session FAILED while transcribing a chunk inline — "
+            "releasing stitch claim for fast retry",
+            txn_id=txn_id,
+            chunk=current_chunk.split("/")[-1] if current_chunk else "",
+            language=language,
+            error=str(e),
+            severity="high",
+        )
         chunk_state.mark_failed(txn_id, chunk_state.STITCH_SENTINEL, str(e))
         raise
 
     transcript_text = "\n".join(p for p in parts if p)
     lang = language or detected_lang or ""
+    if not transcript_text:
+        logger.warning(
+            "process_session produced an EMPTY transcript — all chunks "
+            "returned no text (silent audio, wrong language, or STT model "
+            "returning empty content)",
+            txn_id=txn_id,
+            chunks=len(chunks),
+            language=language,
+        )
 
     import orjson
     transcript_key = f"{prefix.rstrip('/')}/template_results/transcripts/{txn_id}_transcript.json"
@@ -335,6 +399,11 @@ def process_session(message: Dict[str, Any]) -> None:
     _patch_transaction(txn_id, {"transcript_status": "success"}, b_id=b_id)
     chunk_state.mark_done(txn_id, chunk_state.STITCH_SENTINEL)
 
+    logger.info(
+        "process_session complete — transcript stored, status updated, "
+        "finalize dispatched",
+        txn_id=txn_id,
+    )
     dispatch("finalize_session", {"txn_id": txn_id, "b_id": b_id, "attempt": 0})
 
 
