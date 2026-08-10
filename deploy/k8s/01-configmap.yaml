@@ -19,7 +19,7 @@ data:
   # out and back in, and breaks outright while access is port-forward only.
   # The browser-facing address is API_BASE_URL below -- that is the knob you
   # want when the API gets a real hostname.
-  SELF_URL: "http://ekascribe-api.eka-care.svc.cluster.local:8000"
+  SELF_URL: "http://varta.bharatai.gov.in/api"
 
   # Browser-facing base URL. Checked before SELF_URL by the discovery doc and
   # session helpers (voice2rx/protocol/routes/discovery.py,
@@ -27,11 +27,15 @@ data:
   # call sites append paths straight onto it.
   # Correct as-is for `kubectl port-forward svc/ekascribe-api 8000:8000`;
   # change to https://api.<your-domain>/voice once an ingress exists.
-  API_BASE_URL: "http://localhost:8000/voice"
-  WEB_URL: "http://localhost:3000"
+  API_BASE_URL: "http://varta.bharatai.gov.in/api/voice"
+  WEB_URL: "http://varta.bharatai.gov.in"
+  NEXT_PUBLIC_API_HOST: "http://varta.bharatai.gov.in/api"
+  NEXT_PUBLIC_WEB_HOST: "http://varta.bharatai.gov.in"
+  NEXT_PUBLIC_EKA_HOST: "http://varta.bharatai.gov.in/api"
+
 
   # --- Pluggable backends -------------------------------------------------
-  STORAGE_BACKEND: "s3"
+  STORAGE_BACKEND: "local"
   DB_BACKEND: "postgres"
   QUEUE_BACKEND: "postgres"
   STATE_BACKEND: "postgres"
