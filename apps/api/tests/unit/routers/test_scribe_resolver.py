@@ -8,6 +8,7 @@ the S3 download.
 """
 
 from datetime import datetime
+from types import SimpleNamespace
 from typing import Any, Dict, List, Optional
 
 import pytest
@@ -96,7 +97,7 @@ def fake_txn_repo(monkeypatch):
 
 @pytest.fixture
 def fake_s3(monkeypatch):
-    """Capture download_s3_file calls; tests set the return value per key."""
+    """Capture blob_repo.download_file calls; tests set the return value per key."""
     captured: Dict[str, Any] = {"calls": [], "by_key": {}}
 
     def fake_download(bucket_name, file_key, local_filename, session_id):
@@ -105,7 +106,7 @@ def fake_s3(monkeypatch):
         )
         return captured["by_key"].get(file_key)
 
-    monkeypatch.setattr(mod, "download_s3_file", fake_download)
+    monkeypatch.setattr(mod, "blob_repo", SimpleNamespace(download_file=fake_download))
     return captured
 
 
@@ -584,7 +585,7 @@ async def test_s3_download_failure_returns_404(
     fake_doc_service, fake_txn_repo, fake_s3
 ):
     _seed_happy_path(fake_doc_service, fake_txn_repo, fake_s3)
-    # download_s3_file returns None on failure
+    # blob_repo.download_file returns None on failure
     fake_s3["by_key"].clear()
     with pytest.raises(HTTPException) as exc:
         await mod.run_input_resolver(

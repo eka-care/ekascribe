@@ -21,8 +21,7 @@ from scribe.schemas.ekascribe_config import (
     ALLOWED_HEADER_FOOTER_TYPES,
     MAX_IMAGE_SIZE_BYTES,
 )
-from scribe.repositories.s3_service import download_s3_file, upload_file_to_s3
-from scribe.repositories.s3_storage_client import S3StorageClient
+from scribe.repositories.blob import blob_repo, storage_client_for_bucket
 from scribe.services.template_service import TemplateService
 from scribe.services.config_service import ConfigService
 from scribe.core.choices import SUPPORTED_LANGUAGES
@@ -92,7 +91,7 @@ def _upload_header_footer_image(
 ) -> str:
     ext = content_type.split("/")[-1]
     s3_key = f"header_footer_images/{oid}/{image_key}.{ext}"
-    S3StorageClient(bucket_name=header_footer_bucket).put_object(s3_key, raw_bytes, content_type)
+    storage_client_for_bucket(header_footer_bucket).put_object(s3_key, raw_bytes, content_type)
     if header_footer_cdn_base:
         return f"{header_footer_cdn_base.rstrip('/')}/{s3_key}"
     return f"https://{header_footer_bucket}.s3.amazonaws.com/{s3_key}"
@@ -147,7 +146,7 @@ async def upsert_config(request: Request, req: CreateConfigRequest = Body(...)):
         request_sys_info = req.data.get("sys_info", {})
         if request_sys_info and user_uuid:
             s3_file_key = f"system_details/{wid}/{user_uuid}/system_details.json"
-            sys_info = download_s3_file(
+            sys_info = blob_repo.download_file(
                 non_vaded_bucket, s3_file_key, "system_details.json", "download_system_details_from_s3"
             )
             sys_info_defaults = {
@@ -161,7 +160,7 @@ async def upsert_config(request: Request, req: CreateConfigRequest = Body(...)):
                 })
             else:
                 sys_info = {k: request_sys_info.get(k, default) for k, default in sys_info_defaults.items()}
-            upload_file_to_s3(non_vaded_bucket, s3_file_key, sys_info, "upload_system_details_to_s3")
+            blob_repo.upload_json(non_vaded_bucket, s3_file_key, sys_info, "upload_system_details_to_s3")
             req.data["sys_info_s3_url"] = s3_file_key
 
         oid = jwt_payload.get("oid") or wid

@@ -10,7 +10,7 @@ This ORM handles all database and storage operations for template results:
 from typing import Dict, List, Optional, Any, Tuple
 from scribe.core.custom_logger import get_logger
 from scribe.repositories.doc_store import DocStore
-from scribe.repositories.s3_service import download_s3_file, upload_file_to_s3
+from scribe.repositories.blob import blob_repo
 import os
 
 logger = get_logger(__name__)
@@ -71,14 +71,14 @@ class TemplateResultORM:
     def download_output_file(
         self, file_path: str, txn_id: str
     ) -> Optional[Dict[str, Any]]:  
-        return download_s3_file(
+        return blob_repo.download_file(
             self.s3_vaded_bucket_name, file_path, "output.json", txn_id
         )
 
     def download_transcript_file(
         self, file_path: str, txn_id: str
     ) -> Optional[Dict[str, Any]]:
-        return download_s3_file(
+        return blob_repo.download_file(
             self.s3_vaded_bucket_name, file_path, "transcript.json", txn_id
         )
 
@@ -86,7 +86,7 @@ class TemplateResultORM:
         self, file_path: str, output_file: Dict[str, Any], txn_id: str
     ) -> bool:
         try:
-            success = upload_file_to_s3(
+            success = blob_repo.upload_json(
                 self.s3_vaded_bucket_name,
                 file_path,
                 output_file,

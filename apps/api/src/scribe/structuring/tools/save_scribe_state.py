@@ -10,7 +10,7 @@ tool). Serializes ScribeState via state.snapshot() (model_dump(mode=
 
 from scribe.core.custom_logger import get_logger
 
-from scribe.repositories.s3_service import upload_file_to_s3
+from scribe.repositories.blob import blob_repo
 
 from ..state import ScribeState
 from ..storage import make_state_path
@@ -44,7 +44,7 @@ async def save_scribe_state(
     path = make_state_path(s3_url, s3_bucket, document_id)
     snapshot = state.snapshot()
 
-    ok = upload_file_to_s3(s3_bucket, path, snapshot, txn_id)
+    ok = blob_repo.upload_json(s3_bucket, path, snapshot, txn_id)
     if not ok:
         logger.error(
             "save_scribe_state: upload failed",

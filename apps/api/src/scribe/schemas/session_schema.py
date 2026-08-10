@@ -17,10 +17,6 @@ class SessionDocumentPathParts(BaseModel):
     filename: str = ""
 
 
-class SessionAudioMatrix(BaseModel):
-    quality: Optional[float] = None
-
-
 class SessionDocument(BaseModel):
     document_id: str
     session_id: str
@@ -64,7 +60,7 @@ class SessionDetailsData(BaseModel):
     patient_details: Dict[str, Any] = Field(default_factory=dict)
     additional_data: Dict[str, Any] = Field(default_factory=dict)
 
-    audio_matrix: SessionAudioMatrix = Field(default_factory=SessionAudioMatrix)
+    audio_matrix: Dict[str, Any] = Field(default_factory=dict)
 
     documents: List[SessionDocument] = Field(default_factory=list)
 

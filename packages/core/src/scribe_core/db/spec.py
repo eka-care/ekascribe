@@ -45,16 +45,6 @@ _SPECS: List[TableSpec] = [
         indexes=(("session_id", "template_id"),),
     ),
     TableSpec(
-        logical_name="ekascribe-audio-details",
-        pg_name="ekascribe_audio_details",
-        pk=("composite_key", "record_type"),
-    ),
-    TableSpec(
-        logical_name="ekascribe_template_result",
-        pg_name="ekascribe_template_result",
-        pk=("txn_id", "template_id"),
-    ),
-    TableSpec(
         logical_name="ekascribe_template",
         pg_name="ekascribe_template",
         pk=("id",),

@@ -49,7 +49,7 @@ class TestGetSessionAudioAPI:
         ) as svc, patch(
             "scribe.routers.audio.config_service"
         ) as cfg, patch(
-            "scribe.routers.audio.S3StorageClient",
+            "scribe.routers.audio.storage_client_for_bucket",
             return_value=storage,
         ) as storage_cls:
             svc.get_transaction.return_value = transaction
@@ -123,11 +123,7 @@ class TestCommitSchedulesAudioCombine:
             TransactionService,
         )
 
-        service = TransactionService(
-            transaction_repo=MagicMock(),
-            audio_repo=MagicMock(),
-            template_results_repo=MagicMock(),
-        )
+        service = TransactionService(transaction_repo=MagicMock())
         service.document_service = MagicMock()
         service.document_service.get_documents_for_session.return_value = [
             {"document_id": "doc_1", "type": "custom"}
@@ -174,13 +170,11 @@ class TestCommitSchedulesAudioCombine:
         with patch(
             "scribe.routers.sessions.transaction_service"
         ) as svc, patch(
-            "scribe.routers.sessions.get_s3_client"
-        ), patch(
-            "scribe.routers.sessions.list_files_in_s3_folder",
-            return_value=["0.mp3"],
-        ), patch(
+            "scribe.routers.sessions.blob_repo"
+        ) as blob_repo_mock, patch(
             "scribe.routers.sessions.session_adaptor"
         ) as adaptor:
+            blob_repo_mock.list_files.return_value = ["0.mp3"]
             svc.get_transaction.return_value = _transaction()
             svc.commit_transaction.return_value = _transaction()
             adaptor.create_end_session_response.return_value = {

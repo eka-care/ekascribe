@@ -146,15 +146,6 @@ class TransactionUpdateData(BaseModel):
 
 
 
-class AudioDataModel(BaseModel):
-    input_tokens: int = Field(..., description="Number of input tokens")
-    output_tokens: int = Field(..., description="Number of output tokens") 
-    voice_length_in_s: float = Field(..., description="Voice length in seconds")
-    
-    class Config:
-        extra = "allow"  # This allows extra fields to be passed through
-        use_enum_values = True
-        
 class ResultUpdateResponse(BaseModel):
     status: str
     message: str

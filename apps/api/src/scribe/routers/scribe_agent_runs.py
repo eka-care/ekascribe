@@ -20,7 +20,6 @@ from fastapi.responses import StreamingResponse
 
 from scribe.core.custom_logger import get_logger
 from scribe.services.agent_config import LLMAgentConfig
-from scribe.core.http import RequestHandler
 from scribe.core.choices import DocumentType
 from scribe.core.exceptions import MODEL_ERROR_MESSAGE
 from scribe.repositories.template_result_orm import TemplateResultORM
@@ -28,7 +27,7 @@ from scribe.repositories.transaction_orm import TransactionORM
 from scribe.services.context import ContextResolutionService
 from scribe.services import document_tiptap_service
 from scribe.services.document_service import DocumentService
-from scribe.repositories.s3_service import download_s3_file
+from scribe.repositories.blob import blob_repo
 from scribe.structuring.resume_store import paused_run_store
 from scribe.structuring.run_service import (
     AgUiRunService,
@@ -188,7 +187,7 @@ async def run_input_resolver(
             severity="medium",
         )
 
-    raw_content = download_s3_file(
+    raw_content = blob_repo.download_file(
         bucket_name=_DEFAULT_S3_BUCKET,
         file_key=transcript_path,
         local_filename="transcript.txt",

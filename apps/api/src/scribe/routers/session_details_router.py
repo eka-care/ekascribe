@@ -4,14 +4,15 @@ Session details endpoint.
 GET /voice/api/v1/sessions/{session_id}?presigned=true|false
 
 Resource-reader for sessions. No polling, no lazy migration, no S3 reads on
-the request path. Returns transaction header + audio_matrix + the documents
-list with metadata. Presigned download URLs are attached only when the
+the request path. Returns the transaction header + the documents list with
+metadata (`audio_matrix` is a deprecated always-empty field kept for wire
+compatibility). Presigned download URLs are attached only when the
 caller passes ?presigned=true; otherwise clients should call
 GET /voice/api/v1/documents/{document_id} to fetch a fresh URL on demand.
 
 Response shape evolution:
-- Additive only. New fields may appear on `data`, on documents, inside
-  `audio_matrix`. Clients MUST ignore unknown fields.
+- Additive only. New fields may appear on `data` or on documents.
+  Clients MUST ignore unknown fields.
 - `data.schema_version` is bumped only for breaking changes.
 - New top-level components (e.g. consent, integration outputs) are added as
   new keys, never folded into existing ones.

@@ -377,13 +377,6 @@ class DocumentType(str, Enum):
         use_enum_values = True
 
 
-class AudioStatus(str, Enum):
-    INITIATED = "initiated"
-    UPDATED = "updated"
-
-    class Config:
-        use_enum_values = True
-
 def validate_enum_value(value, enum_class):
     """Check if a value is a valid enum member, else raise ValueError."""
     if value not in {item.value for item in enum_class}:
