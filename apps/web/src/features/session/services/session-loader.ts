@@ -20,11 +20,6 @@ function preserveCachedContent(
     if (!fresh[i].content && prev.content) {
       fresh[i] = { ...fresh[i], content: prev.content };
     }
-    const newPub = (fresh[i].publish?.emr_webhook as { status?: string } | undefined)?.status;
-    const oldPub = (prev.publish?.emr_webhook as { status?: string } | undefined)?.status;
-    if (!newPub && oldPub) {
-      fresh[i] = { ...fresh[i], publish: prev.publish };
-    }
   }
 }
 

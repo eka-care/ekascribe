@@ -25,12 +25,6 @@ import type {
   TableColumn,
   TablePayload,
 } from '../types';
-import { medicationPayloadToBody } from './medication/medication-mapper';
-import { vitalPayloadToBody } from './vital/vital-mapper';
-import { tablePayloadToNodes } from './table/table-mapper';
-import { LAB_RESULT_CONFIG } from './lab-result/lab-result-config';
-import { PROCEDURE_CONFIG } from './procedure/procedure-config';
-
 const showdownConverter = new Showdown.Converter({ tables: true });
 
 const EMPTY_DOC: JSONContent = {
@@ -76,30 +70,6 @@ function sectionToBlock(
       break;
     case 'NARRATIVE':
       body = narrativePayloadToBody(section.payload as Partial<NarrativePayload>, extensions);
-      break;
-    case 'MEDICATION_TABLE':
-      body = [medicationPayloadToBody(section.key, section.payload as Partial<TablePayload>)];
-      break;
-    case 'VITAL_TABLE':
-      body = [vitalPayloadToBody(section.key, section.payload as Partial<TablePayload>)];
-      break;
-    case 'LAB_RESULTS':
-      body = [
-        tablePayloadToNodes(
-          LAB_RESULT_CONFIG,
-          section.key,
-          section.payload as Partial<TablePayload>
-        ),
-      ];
-      break;
-    case 'PROCEDURES':
-      body = [
-        tablePayloadToNodes(
-          PROCEDURE_CONFIG,
-          section.key,
-          section.payload as Partial<TablePayload>
-        ),
-      ];
       break;
     default:
       body = [emptyParagraph()];
@@ -334,11 +304,7 @@ export function scribeStateToMarkdown(state: ScribeState): string {
           parts.push(items.map((item) => `**${item.key}**: ${item.value}`).join('\n'));
         break;
       }
-      case 'TABLE':
-      case 'MEDICATION_TABLE':
-      case 'VITAL_TABLE':
-      case 'LAB_RESULTS':
-      case 'PROCEDURES': {
+      case 'TABLE': {
         const payload = section.payload as Partial<TablePayload>;
         const headers = Array.isArray(payload.headers) ? payload.headers : [];
         const rows = Array.isArray(payload.rows) ? payload.rows : [];

@@ -5,8 +5,6 @@ import { getSDK } from './sdk-provider';
 import useVoice2RxStore from '@/store/store';
 import { formatDate } from '@/utils/format-date-time';
 import { getPlatform } from '@/platform';
-import { MedicalRecordsClient } from '@eka-care/medical-records-ts-sdk';
-import { medicalRecordSDKConfig } from '@/constants/constant';
 import type { NormalizedDocument } from '../types';
 import { tracker } from '@/analytics';
 
@@ -243,7 +241,6 @@ export async function addNote(
       status: 'success',
       errors: [],
       warnings: [],
-      publish: {},
       get_url: null,
       edit_url: (response.data.presigned_url as string) || null,
       content: null,
@@ -335,55 +332,9 @@ export async function publishDoc(sessionId: string, documentId: string): Promise
       () => sdkService.publishDocument({ session_id: sessionId, document_id: documentId }),
       'publish document'
     );
-
-    if (response.status_code >= 400) return false;
-
-    useVoice2RxStore.getState().setSessionV2Document(sessionId, documentId, {
-      publish: {
-        emr_webhook: {
-          status: 'success',
-          updated_at: Math.floor(Date.now() / 1000),
-        },
-      },
-    });
-    return true;
+    return response.status_code < 400;
   } catch (error) {
     console.error('publishDoc error:', error);
-    return false;
-  }
-}
-
-export async function unpublishDoc(sessionId: string, documentId: string): Promise<boolean> {
-  try {
-    const response = await with401Retry(
-      () =>
-        sdkService.updateDocument({
-          document_id: documentId,
-          session_id: sessionId,
-          publish: {
-            emr_webhook: {
-              error: null,
-              updated_at: Math.floor(Date.now() / 1000),
-              status: 'unpublished',
-            },
-          },
-        }),
-      'unpublish document'
-    );
-
-    if (response.status_code >= 400) return false;
-
-    useVoice2RxStore.getState().setSessionV2Document(sessionId, documentId, {
-      publish: {
-        emr_webhook: {
-          status: 'unpublished',
-          updated_at: Math.floor(Date.now() / 1000),
-        },
-      },
-    });
-    return true;
-  } catch (error) {
-    console.error('unpublishDoc error:', error);
     return false;
   }
 }
@@ -501,239 +452,6 @@ function sanitizeContentForPrint(html: string, compact: boolean): string {
 
   const cleanText = (s: string | null | undefined) => (s ?? '').replace(/\s+/g, ' ').trim();
 
-  const buildTableFromGrid = (headers: string[], rowsData: string[][]) => {
-    const table = doc.createElement('table');
-
-    const thead = doc.createElement('thead');
-    const headRow = doc.createElement('tr');
-    headers.forEach((label) => {
-      const th = doc.createElement('th');
-      th.textContent = label;
-      headRow.appendChild(th);
-    });
-    thead.appendChild(headRow);
-    table.appendChild(thead);
-
-    const tbody = doc.createElement('tbody');
-    rowsData.forEach((cells) => {
-      const tr = doc.createElement('tr');
-      cells.forEach((text) => {
-        const td = doc.createElement('td');
-        td.textContent = text;
-        tr.appendChild(td);
-      });
-      tbody.appendChild(tr);
-    });
-    table.appendChild(tbody);
-
-    return table;
-  };
-
-  const gridCells = (parent: Element | null | undefined, tagged: string) => {
-    if (!parent) return [];
-    const byAttr = Array.from(parent.querySelectorAll(`:scope > [${tagged}]`));
-    return byAttr.length > 0 ? byAttr : Array.from(parent.children).slice(0, -1);
-  };
-
-  const extractGrid = (tableEl: Element, rowSelector: string, bodyClass: string) => {
-    const bodyEl = tableEl.querySelector(bodyClass);
-    const headerGrid = bodyEl?.previousElementSibling;
-
-    const headers = gridCells(headerGrid, 'data-col-header-cell').map((cell) =>
-      cleanText(
-        cell.querySelector('input')?.getAttribute('value') ??
-          cell.querySelector('[data-print-value]')?.getAttribute('data-print-value') ??
-          cell.textContent
-      )
-    );
-
-    const rowsData = Array.from(tableEl.querySelectorAll(rowSelector)).map((row) =>
-      gridCells(row, 'data-col-cell').map((cell) =>
-        cleanText(
-          cell.querySelector('input')?.getAttribute('value') ??
-            cell.querySelector('[data-print-value]')?.getAttribute('data-print-value')
-        )
-      )
-    );
-
-    return { headers, rowsData };
-  };
-
-  doc.querySelectorAll('.medication-table').forEach((medTable) => {
-    const { headers, rowsData } = extractGrid(medTable, '.medication-row', '.medication-table-body');
-    medTable.replaceWith(buildTableFromGrid(headers, rowsData));
-  });
-
-  if (compact) {
-    doc.querySelectorAll('.scribe-section[data-kind="MEDICATION_TABLE"] header').forEach((header) => {
-      header.remove();
-    });
-  }
-
-  const VITAL_COLUMNS = ['Vital', 'Value', 'Unit', 'Normal Range', 'Notes'];
-
-  const extractVitalRows = (vitalTable: Element) =>
-    Array.from(vitalTable.querySelectorAll('.vital-row')).map((row) => {
-      const card = row.children[0];
-      const cardDivs = card ? Array.from(card.children).filter((c) => c.tagName === 'DIV') : [];
-      const [nameRangeDiv, valueUnitDiv, notesDiv] = cardDivs;
-
-      const spans = nameRangeDiv ? Array.from(nameRangeDiv.querySelectorAll('span')) : [];
-      return {
-        vitalName: cleanText(spans[0]?.textContent),
-        normalRange: cleanText(spans[1]?.textContent?.replace(/^Normal:\s*/, '')),
-        value: cleanText(valueUnitDiv?.querySelector('input')?.getAttribute('value')),
-        unit: cleanText(valueUnitDiv?.querySelector('span')?.textContent),
-        notes: cleanText(notesDiv?.querySelector('input')?.getAttribute('value')),
-      };
-    });
-
-  if (compact) {
-    doc.querySelectorAll('.scribe-section[data-kind="VITAL_TABLE"]').forEach((sectionEl) => {
-      const vitalTable = sectionEl.querySelector('.vital-table');
-      if (!vitalTable) return;
-      const rows = extractVitalRows(vitalTable).filter((r) => r.vitalName || r.value);
-      if (rows.length === 0) return;
-
-      const headerText = cleanText(sectionEl.querySelector('header input[type="text"]')?.getAttribute('value'));
-
-      const p = doc.createElement('p');
-      p.className = 'compact-line';
-      if (headerText) {
-        const headerStrong = doc.createElement('strong');
-        headerStrong.textContent = `${headerText}: `;
-        p.appendChild(headerStrong);
-      }
-      rows.forEach((r, i) => {
-        if (i > 0) p.appendChild(doc.createTextNode(' | '));
-        const nameStrong = doc.createElement('strong');
-        nameStrong.textContent = r.vitalName;
-        p.appendChild(nameStrong);
-        const valueText = [r.value, r.unit].filter(Boolean).join(' ');
-        const notesText = r.notes ? ` [${r.notes}]` : '';
-        p.appendChild(doc.createTextNode(`: ${valueText}${notesText}`));
-      });
-
-      sectionEl.replaceWith(p);
-    });
-  }
-
-  doc.querySelectorAll('.vital-table').forEach((vitalTable) => {
-    const rows = extractVitalRows(vitalTable);
-    const rowsData = rows.map((r) => [r.vitalName, r.value, r.unit, r.normalRange, r.notes]);
-    vitalTable.replaceWith(buildTableFromGrid(VITAL_COLUMNS, rowsData));
-  });
-
-  // Compact print: a LAB_RESULTS-kind section collapses to one line, e.g.
-  // "Lab Results: Hemoglobin: 11 g/dL [Low] | WBC: 9000 /uL [Normal] (Method: Automated)".
-  // No date, matching the vitals format — it isn't shown on the row anyway.
-  // Any custom (user-added) columns are appended in parens after the status.
-  if (compact) {
-    doc.querySelectorAll('.scribe-section[data-kind="LAB_RESULTS"]').forEach((sectionEl) => {
-      const tableEl = sectionEl.querySelector('.lab-result-table');
-      if (!tableEl) return;
-      const { headers, rowsData } = extractGrid(tableEl, '.lab-result-row', '.lab-result-table-body');
-      const nameIdx = headers.indexOf('Test Name');
-      const valueIdx = headers.indexOf('Value');
-      const unitIdx = headers.indexOf('Unit');
-      const statusIdx = headers.indexOf('Status');
-      if (nameIdx === -1) return;
-
-      const knownIdxs = new Set([nameIdx, valueIdx, unitIdx, statusIdx]);
-      const customIdxs = headers.map((_, i) => i).filter((i) => !knownIdxs.has(i));
-
-      const rows = rowsData
-        .map((row) => ({
-          name: row[nameIdx] ?? '',
-          value: valueIdx !== -1 ? (row[valueIdx] ?? '') : '',
-          unit: unitIdx !== -1 ? (row[unitIdx] ?? '') : '',
-          status: statusIdx !== -1 ? (row[statusIdx] ?? '') : '',
-          custom: customIdxs
-            .map((i) => ({ label: headers[i], value: row[i] ?? '' }))
-            .filter((c) => c.label && c.value),
-        }))
-        .filter((r) => r.name || r.value);
-      if (rows.length === 0) return;
-
-      const headerText = cleanText(sectionEl.querySelector('header input[type="text"]')?.getAttribute('value'));
-
-      const p = doc.createElement('p');
-      p.className = 'compact-line';
-      if (headerText) {
-        const headerStrong = doc.createElement('strong');
-        headerStrong.textContent = `${headerText}: `;
-        p.appendChild(headerStrong);
-      }
-      rows.forEach((r, i) => {
-        if (i > 0) p.appendChild(doc.createTextNode(' | '));
-        const nameStrong = doc.createElement('strong');
-        nameStrong.textContent = r.name;
-        p.appendChild(nameStrong);
-        const valueText = [r.value, r.unit].filter(Boolean).join(' ');
-        const statusText = r.status ? ` [${r.status}]` : '';
-        const customText = r.custom.length
-          ? ` (${r.custom.map((c) => `${c.label}: ${c.value}`).join(', ')})`
-          : '';
-        p.appendChild(doc.createTextNode(`: ${valueText}${statusText}${customText}`));
-      });
-
-      sectionEl.replaceWith(p);
-    });
-  }
-
-  // Compact print: a PROCEDURES-kind section collapses to one line, e.g.
-  // "Procedures: Wound Dressing: Today [Change gauze daily] | Suture Removal: Tomorrow".
-  if (compact) {
-    doc.querySelectorAll('.scribe-section[data-kind="PROCEDURES"]').forEach((sectionEl) => {
-      const tableEl = sectionEl.querySelector('.procedure-table');
-      if (!tableEl) return;
-      const { headers, rowsData } = extractGrid(tableEl, '.procedure-row', '.procedure-table-body');
-      const nameIdx = headers.indexOf('Procedure');
-      const timingIdx = headers.indexOf('Timing');
-      const noteIdx = headers.indexOf('Note');
-      if (nameIdx === -1) return;
-
-      const rows = rowsData
-        .map((row) => ({
-          name: row[nameIdx] ?? '',
-          timing: timingIdx !== -1 ? (row[timingIdx] ?? '') : '',
-          note: noteIdx !== -1 ? (row[noteIdx] ?? '') : '',
-        }))
-        .filter((r) => r.name || r.timing);
-      if (rows.length === 0) return;
-
-      const headerText = cleanText(sectionEl.querySelector('header input[type="text"]')?.getAttribute('value'));
-
-      const p = doc.createElement('p');
-      p.className = 'compact-line';
-      if (headerText) {
-        const headerStrong = doc.createElement('strong');
-        headerStrong.textContent = `${headerText}: `;
-        p.appendChild(headerStrong);
-      }
-      rows.forEach((r, i) => {
-        if (i > 0) p.appendChild(doc.createTextNode(' | '));
-        const nameStrong = doc.createElement('strong');
-        nameStrong.textContent = r.name;
-        p.appendChild(nameStrong);
-        const noteText = r.note ? ` [${r.note}]` : '';
-        p.appendChild(doc.createTextNode(`: ${r.timing}${noteText}`));
-      });
-
-      sectionEl.replaceWith(p);
-    });
-  }
-
-  [
-    { table: '.lab-result-table', row: '.lab-result-row', body: '.lab-result-table-body' },
-    { table: '.procedure-table', row: '.procedure-row', body: '.procedure-table-body' },
-  ].forEach(({ table: tableSelector, row: rowSelector, body: bodyClass }) => {
-    doc.querySelectorAll(tableSelector).forEach((tableEl) => {
-      const { headers, rowsData } = extractGrid(tableEl, rowSelector, bodyClass);
-      tableEl.replaceWith(buildTableFromGrid(headers, rowsData));
-    });
-  });
-
   if (compact) {
     doc.querySelectorAll('.scribe-section[data-kind="LIST"]').forEach((sectionEl) => {
       const headerText = cleanText(sectionEl.querySelector('header input[type="text"]')?.getAttribute('value'));
@@ -756,8 +474,8 @@ function sanitizeContentForPrint(html: string, compact: boolean): string {
     });
   }
 
-  // Compact print: a generic TABLE-kind section collapses the same way vitals do —
-  // "Header: col0: col1 col2 | col0: col1 col2". Only medication keeps a real table.
+  // Compact print: a generic TABLE-kind section collapses to one line —
+  // "Header: col0: col1 col2 | col0: col1 col2".
   // These render via TipTap's plain Table/TableHeader/TableCell (no NodeView), so
   // it's one <tbody> with the header row using <th> and data rows using <td>.
   if (compact) {
@@ -1332,38 +1050,4 @@ export const buildDocumentPdfBuffer = async (
   const safeName = (fallbackName || 'document').replace(/[^\w.-]+/g, '-');
   const fileName = safeName.toLowerCase().endsWith('.pdf') ? safeName : `${safeName}.pdf`;
   return { buffer: await blob.arrayBuffer(), fileName };
-};
-
-// --- Medical Records HTML ---
-
-export const fetchDocumentAsHtml = async ({
-  medRecDocId,
-  patientOid,
-}: {
-  medRecDocId: string;
-  patientOid?: string;
-}): Promise<string> => {
-  const client = new MedicalRecordsClient(medicalRecordSDKConfig);
-
-  const describeResponse = await client.describeDocument({
-    documentId: medRecDocId,
-    patientId: patientOid!,
-    bid: '',
-    preferenceType: 'html',
-  });
-
-  const htmlFile = describeResponse.files?.find(
-    (f) => String(f.file_type).toLowerCase() === 'html'
-  );
-
-  if (!htmlFile?.asset_url) return '';
-
-  const htmlResponse = await getTransport().request(htmlFile.asset_url);
-  const htmlContent = await htmlResponse.text();
-
-  if (!htmlContent) return '';
-
-  const parsed = new DOMParser().parseFromString(htmlContent, 'text/html');
-  parsed.querySelectorAll('style, script, link[rel="stylesheet"]').forEach((el) => el.remove());
-  return parsed.body?.innerHTML.trim() || htmlContent;
 };

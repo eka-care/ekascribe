@@ -6,7 +6,6 @@ import { useHostBridge } from '@/platform';
 import useVoice2RxStore from '@/store/store';
 import { SESSION_PHASE } from '@/constants/enums';
 import { useSessionLifecycle } from './use-session-lifecycle';
-import { TSelectedPatientDetails } from '@/constants/types';
 
 // Phases that, when left via IDLE/undefined, mean the session was discarded rather than completed.
 // OUTPUT is excluded — the native "processed" overlay manages its own dismissal.
@@ -64,23 +63,6 @@ export function useHostRecordingBridge() {
     const unsubViewTxn = hostBridge.onViewTransaction((transactionId) => {
       router.push(`/session/${transactionId}`);
     });
-    const unsubStartWithAppt = hostBridge.onStartWithAppointment((data) => {
-      const d = data as { oid: string; name: string; age?: number | null; gender?: 'M' | 'F' | 'O' | null; mobile?: string };
-      const store = useVoice2RxStore.getState();
-      const patientDetails: TSelectedPatientDetails = {
-        oid: d.oid,
-        username: d.name,
-        age: d.age ?? 0,
-        biologicalSex: d.gender ?? 'O',
-        mobile: d.mobile,
-      };
-      store.setPendingQueuePatient(patientDetails);
-      store.setQueueRecordingPatientOid(d.oid);
-      store.setAutoStartRecording(true);
-      store.clearStore();
-      router.push('/new-session');
-      window.dispatchEvent(new CustomEvent('scribe:start-new-session'));
-    });
     const unsubGetStatus = hostBridge.onGetStatusRequest(() => {
       const state = useVoice2RxStore.getState();
       const id = state.sessionV2Ongoing.recording_session_id;
@@ -98,7 +80,6 @@ export function useHostRecordingBridge() {
       unsubPause();
       unsubResume();
       unsubViewTxn();
-      unsubStartWithAppt();
       unsubGetStatus();
     };
   }, [hostBridge, router]);

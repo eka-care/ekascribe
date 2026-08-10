@@ -227,7 +227,6 @@ export type TOutputSummary = {
   status: TOutputSummaryTemplateStatus;
   errors?: TOutputSummaryTemplateMessage[];
   warnings?: TOutputSummaryTemplateMessage[];
-  publish?: Record<string, { status?: string; error?: string | null; updated_at?: number }>;
 };
 
 export type TOutputSummaryTemplateStatus =
@@ -255,22 +254,6 @@ export type TOutputSessionData = {
 };
 
 export type Gender = 'M' | 'F' | 'O';
-
-export type TSearchPatient = {
-  oid: string;
-  c_ate?: number;
-  u_ate?: number;
-  gen: Gender;
-  fn?: string;
-  mn?: string;
-  ln?: string;
-  fln?: string;
-  dob: string; // convert it to age
-  email?: string;
-  mobile?: string;
-  username: string;
-  age: number;
-};
 
 export type TSelectedPatientDetails = {
   oid?: string;
@@ -317,29 +300,6 @@ export type TLoggedInUserDetails = {
   oid: string;
   'b-id': string;
   'w-n': string;
-};
-
-export type TPricingCardProps = {
-  id: string;
-  name: string;
-  badge: string | null;
-  badgeVariant: 'default' | 'secondary' | 'destructive' | 'outline' | null;
-  description: string;
-  price: {
-    monthly: { price: string; rawPrice: number; currency: string; symbol: string; link: string };
-    yearly: { price: string; rawPrice: number; currency: string; symbol: string; link: string };
-  } | null;
-  buttonText: string;
-  buttonVariant: 'default' | 'link' | 'secondary' | 'destructive' | 'outline' | 'ghost' | null;
-  buttonDisabled: boolean;
-  buttonAction: () => void;
-  features: {
-    label: string;
-    subfeatures?: string[];
-  }[];
-  isPopular: boolean;
-  cardStyle: { minHeight: string };
-  cardClassName: string;
 };
 
 export type TProcessingStatus =

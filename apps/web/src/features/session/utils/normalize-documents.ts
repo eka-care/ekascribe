@@ -28,7 +28,6 @@ export function normalizeDocuments(documents: TSessionDocument[]): {
         code: w?.code ?? '',
         message: w?.msg ?? '',
       })),
-      publish: doc.publish ?? {},
       get_url: doc.presigned_url ?? null,
       edit_url: null,
       content: null,

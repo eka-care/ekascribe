@@ -1,7 +1,7 @@
 'use client';
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import { useEditor, EditorContent, ReactRenderer, type Editor } from '@tiptap/react';
+import { useEditor, EditorContent, ReactRenderer } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { Highlight } from '@tiptap/extension-highlight';
 import { Table } from '@tiptap/extension-table';
@@ -28,7 +28,6 @@ import SlashCommandList, { type SlashCommandListHandle } from './slash-command-l
 import EditorToolbar from './editor-toolbar';
 import TableAddButtons from './table-add-buttons';
 import { isAllowedHref, sanitizeHtmlForNote } from '../../services/html-sanitize';
-import { insertLabResultTable } from '../../ag-ui/editor/lab-result/insert-lab-result-table';
 
 const turndown = new TurndownService({ headingStyle: 'atx', hr: '---', bulletListMarker: '-' });
 
@@ -209,8 +208,8 @@ const TiptapWysiwygEditor = forwardRef<TiptapEditorHandle, TiptapEditorProps>(
       }),
       SlashCommand.configure({
         suggestion: {
-          items: ({ query, editor }: { query: string; editor: Editor }) =>
-            getSlashCommandItems(editor).filter((item) =>
+          items: ({ query }: { query: string }) =>
+            getSlashCommandItems().filter((item) =>
               item.title.toLowerCase().includes(query.toLowerCase())
             ),
           render: renderSuggestion,
@@ -388,9 +387,6 @@ const TiptapWysiwygEditor = forwardRef<TiptapEditorHandle, TiptapEditorProps>(
         case 'table':
           editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
           break;
-        case 'labResultTable':
-          insertLabResultTable(editor);
-          break;
         case 'color':
           editor
             .chain()
@@ -441,10 +437,7 @@ const TiptapWysiwygEditor = forwardRef<TiptapEditorHandle, TiptapEditorProps>(
             onMouseDown={() => { suppressBlurRef.current = true; }}
             onMouseUp={() => { suppressBlurRef.current = false; }}
           >
-            <EditorToolbar
-              onExecCommand={execCommand}
-              showLabResultTable={!!editor?.schema.nodes.labResultTable}
-            />
+            <EditorToolbar onExecCommand={execCommand} />
           </div>
         )}
         <div className="pt-3 relative" ref={editorContainerRef}>

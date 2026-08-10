@@ -10,7 +10,6 @@ import {
   Undo2,
   Redo2,
   Table2,
-  FlaskConical,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -22,7 +21,6 @@ import {
 
 interface EditorToolbarProps {
   onExecCommand: (command: string, payload?: Record<string, unknown>) => void;
-  showLabResultTable?: boolean;
 }
 
 type ToolbarAction = {
@@ -31,7 +29,6 @@ type ToolbarAction = {
   payload?: Record<string, unknown>;
   icon?: LucideIcon;
   text?: string;
-  requiresLabResult?: boolean;
 };
 
 const SEPARATOR = 'separator';
@@ -50,12 +47,6 @@ const TOOLBAR: (ToolbarAction | typeof SEPARATOR)[] = [
   { label: 'Ordered list', command: 'orderedList', icon: ListOrdered },
   SEPARATOR,
   { label: 'Table', command: 'table', icon: Table2 },
-  {
-    label: 'Lab result table',
-    command: 'labResultTable',
-    icon: FlaskConical,
-    requiresLabResult: true,
-  },
   SEPARATOR,
   { label: 'Undo', command: 'undo', icon: Undo2 },
   { label: 'Redo', command: 'redo', icon: Redo2 },
@@ -67,10 +58,8 @@ const buttonClass =
 const headingButtonClass =
   'h-7 px-1.5 flex items-center justify-center cursor-pointer rounded-[6px] hover:bg-[#eef1f6] text-[#1a2233] text-[13px] font-semibold transition-colors';
 
-const EditorToolbar = ({ onExecCommand, showLabResultTable = false }: EditorToolbarProps) => {
-  const items = TOOLBAR.filter((item) =>
-    item === SEPARATOR ? true : !item.requiresLabResult || showLabResultTable
-  );
+const EditorToolbar = ({ onExecCommand }: EditorToolbarProps) => {
+  const items = TOOLBAR;
   return (
     <div className="flex items-center py-0.5 overflow-x-auto">
       <div className="flex items-center gap-0.5 w-max">

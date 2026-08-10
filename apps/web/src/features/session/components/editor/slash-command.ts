@@ -2,7 +2,6 @@ import { Extension, type Editor } from '@tiptap/react';
 import { PluginKey } from '@tiptap/pm/state';
 import Suggestion, { SuggestionOptions } from '@tiptap/suggestion';
 
-import { insertLabResultTable } from '../../ag-ui/editor/lab-result/insert-lab-result-table';
 
 export const SlashCommandPluginKey = new PluginKey('slashCommand');
 
@@ -129,17 +128,4 @@ const BASE_SLASH_COMMAND_ITEMS: SlashCommandItem[] = [
   },
 ];
 
-const LAB_RESULT_SLASH_ITEM: SlashCommandItem = {
-  title: 'Lab Result Table',
-  description: 'Insert a lab result table',
-  icon: 'FlaskConical',
-  command: ({ editor, range }) => {
-    editor.chain().focus().deleteRange(range).run();
-    insertLabResultTable(editor);
-  },
-};
-
-export const getSlashCommandItems = (editor?: Editor): SlashCommandItem[] => {
-  const supportsLabResult = !!editor?.schema.nodes.labResultTable;
-  return supportsLabResult ? [...BASE_SLASH_COMMAND_ITEMS, LAB_RESULT_SLASH_ITEM] : BASE_SLASH_COMMAND_ITEMS;
-};
+export const getSlashCommandItems = (): SlashCommandItem[] => BASE_SLASH_COMMAND_ITEMS;

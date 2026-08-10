@@ -90,12 +90,12 @@ export async function deleteDocument(documentId: string) {
   return getSDK().documents.deleteDocument(documentId);
 }
 
-export async function getDocument(request: { documentId: string; params?: string }) {
-  return getSDK().documents.getDocument(request);
-}
-
 export async function publishDocument(request: TPostV1DocumentRequest) {
   return getSDK().documents.publishDocument(request);
+}
+
+export async function getDocument(request: { documentId: string; params?: string }) {
+  return getSDK().documents.getDocument(request);
 }
 
 export async function convertToTemplate(request: { txn_id: string; template_id: string }) {

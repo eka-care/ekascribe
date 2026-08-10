@@ -13,7 +13,7 @@ import {
   Button,
 } from '@ui/src';
 import { useWhatsApp } from '@/platform';
-import WhatsAppIcon from './whatsapp-icon';
+import WhatsAppIcon from '@/shared-components/whatsapp-icon';
 
 interface WhatsAppSetupDialogProps {
   open: boolean;

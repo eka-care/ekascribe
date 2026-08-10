@@ -13,10 +13,6 @@
  *   TABLE            → one table child (typed cells)
  *   KEY_VALUE        → one kvList child
  *   NARRATIVE        → one or more paragraph / heading / list children
- *   MEDICATION_TABLE → one medicationTable child (custom NodeView)
- *   VITAL_TABLE      → one vitalTable child (card grid NodeView)
- *   LAB_RESULTS      → one labResultTable child (table NodeView)
- *   PROCEDURES       → one procedureTable child (table NodeView)
  */
 
 import { Node, mergeAttributes } from '@tiptap/core';

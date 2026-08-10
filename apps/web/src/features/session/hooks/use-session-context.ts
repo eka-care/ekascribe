@@ -6,13 +6,6 @@ import { with401Retry } from '@/fetch-client/api-with-retry';
 import useVoice2RxStore from '@/store/store';
 import * as sdkService from '../services/sdk-service';
 
-export type AttachedDocument = {
-  documentId: string;
-  name: string;
-};
-
-export const MAX_ATTACHMENTS = 1;
-
 export function useSessionContext({
   sessionId,
   patientOid,
@@ -22,8 +15,6 @@ export function useSessionContext({
 }) {
   const [linkedSessions, setLinkedSessions] = useState<TPastSessionHistoryData[]>([]);
   const [showLinkDialog, setShowLinkDialog] = useState(false);
-  const [showAttachmentsDialog, setShowAttachmentsDialog] = useState(false);
-  const [attachedDocument, setAttachedDocument] = useState<AttachedDocument | null>(null);
   const [patientSessions, setPatientSessions] = useState<TPastSessionHistoryData[]>([]);
   const [loadingPatientSessions, setLoadingPatientSessions] = useState(false);
 
@@ -32,8 +23,8 @@ export function useSessionContext({
     (s) => s.sessionV2ContentById[sessionId]?.session_context
   );
 
-  // Restore linked sessions and attachment from V2 store session_context.
-  // API returns: { past_sessions: [{ session_id, date_epoch }], attachments: [{ id, patient_oid }] }
+  // Restore linked sessions from V2 store session_context.
+  // API returns: { past_sessions: [{ session_id, date_epoch }] }
   // Skip effect when we ourselves wrote to the store (via syncToStore) to avoid loops.
   const isLocalWriteRef = useRef(false);
 
@@ -47,7 +38,6 @@ export function useSessionContext({
     }
 
     const sessions = storeSessionContext.past_sessions ?? [];
-    const attachments = storeSessionContext.attachments ?? [];
 
     setLinkedSessions(
       sessions.map((s) => ({
@@ -61,15 +51,11 @@ export function useSessionContext({
         oid: '',
       }))
     );
-
-    setAttachedDocument(
-      attachments.length > 0 ? { documentId: attachments[0].id, name: 'Attachment' } : null
-    );
   }, [storeSessionContext]);
 
   // Sync local state back to store so context survives navigation
   const syncToStore = useCallback(
-    (sessions: TPastSessionHistoryData[], attachment: AttachedDocument | null) => {
+    (sessions: TPastSessionHistoryData[]) => {
       isLocalWriteRef.current = true;
       useVoice2RxStore.getState().setSessionV2Content(sessionId, {
         session_context: {
@@ -77,7 +63,6 @@ export function useSessionContext({
             session_id: s.txn_id,
             date_epoch: s.created_at ? Math.floor(new Date(s.created_at).getTime() / 1000) : 0,
           })),
-          attachments: attachment ? [{ id: attachment.documentId }] : [],
         },
       });
     },
@@ -89,7 +74,6 @@ export function useSessionContext({
   const handleOpenLinkDialog = useCallback(async () => {
     if (!patientOid) return;
     setShowLinkDialog(true);
-    setShowAttachmentsDialog(false);
     setLoadingPatientSessions(true);
 
     try {
@@ -116,7 +100,7 @@ export function useSessionContext({
       const updated = [...linkedSessions, ...sessions];
       setLinkedSessions(updated);
       setShowLinkDialog(false);
-      syncToStore(updated, attachedDocument);
+      syncToStore(updated);
 
       if (sessionId && sessions.length > 0) {
         try {
@@ -136,14 +120,14 @@ export function useSessionContext({
         }
       }
     },
-    [sessionId, linkedSessions, attachedDocument, syncToStore]
+    [sessionId, linkedSessions, syncToStore]
   );
 
   const handleRemoveLinkedSession = useCallback(
     async (txnId: string) => {
       const updated = linkedSessions.filter((s) => s.txn_id !== txnId);
       setLinkedSessions(updated);
-      syncToStore(updated, attachedDocument);
+      syncToStore(updated);
 
       if (sessionId) {
         try {
@@ -163,82 +147,18 @@ export function useSessionContext({
         }
       }
     },
-    [sessionId, linkedSessions, attachedDocument, syncToStore]
+    [sessionId, linkedSessions, syncToStore]
   );
-
-  const handleAttach = useCallback(
-    async (doc: AttachedDocument) => {
-      setAttachedDocument(doc);
-
-      setShowAttachmentsDialog(false);
-      syncToStore(linkedSessions, doc);
-      if (sessionId) {
-        try {
-          await with401Retry(
-            () =>
-              sdkService.addSessionContext({
-                txn_id: sessionId,
-                context: {
-                  attachments: [
-                    {
-                      id: doc.documentId,
-                      ...(patientOid ? { patient_oid: patientOid } : {}),
-                    },
-                  ],
-                },
-              }),
-            'add attachment context'
-          );
-        } catch {
-          // Attachment add failed — UI already updated optimistically
-        }
-      }
-    },
-    [sessionId, patientOid, linkedSessions, syncToStore]
-  );
-
- const handleRemoveAttachment = useCallback(async () => {
-    const docId = attachedDocument?.documentId;
-    setAttachedDocument(null);
-    syncToStore(linkedSessions, null);
-
-    if (sessionId && docId) {
-      try {
-        await with401Retry(
-          () =>
-            sdkService.removeSessionContext({
-              txn_id: sessionId,
-              context: {
-                attachments: [
-                  {
-                    id: docId,
-                    ...(patientOid ? { patient_oid: patientOid } : {}),
-                  },
-                ],
-              },
-            }),
-          'remove attachment context'
-        );
-      } catch {
-        // Attachment remove failed — UI already updated optimistically
-      }
-    }
-  }, [sessionId, attachedDocument, patientOid, linkedSessions, syncToStore]);
 
   return {
     linkedSessions,
     showLinkDialog,
     setShowLinkDialog,
-    showAttachmentsDialog,
-    setShowAttachmentsDialog,
-    attachedDocument,
     patientSessions,
     loadingPatientSessions,
     isPatientSelected,
     handleOpenLinkDialog,
     handleAddLinkedSessions,
     handleRemoveLinkedSession,
-    handleAttach,
-    handleRemoveAttachment,
   };
 }

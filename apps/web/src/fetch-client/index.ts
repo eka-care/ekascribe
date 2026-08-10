@@ -7,11 +7,9 @@ import { tracker } from '@/analytics';
 
 function classifyService(url: string): string {
   if (url.includes('.amazonaws.com')) return 's3';
-  if (url.includes('/voice/api/v1/integrations')) return 'integrations';
   if (url.includes('/voice/api/v2') || url.includes('/voice/api/v3') || url.includes('/voice/v1')) return 'voice_api';
   if (url.includes('/connect-auth/')) return 'connect_auth';
   if (url.includes('/profiles/v1/patient')) return 'aortago';
-  if (url.includes('/mdb/v1/')) return 'mdb';
   return 'unknown';
 }
 

@@ -6,7 +6,6 @@ import type { JSONContent } from '@tiptap/core';
 import type { TiptapEditorHandle } from '../components/editor/tiptap-wysiwyg-editor';
 import { useDocumentLoader, type DocumentLoaderState } from './use-document-loader';
 import { useDocumentSaver } from './use-document-saver';
-import { unpublishDoc } from '../services/document-service';
 import useVoice2RxStore from '@/store/store';
 import type { NormalizedDocument } from '../types';
 
@@ -73,14 +72,6 @@ export function useDocumentTab({ sessionId, documentId }: Args): DocumentTabResu
     const md = editorRef.current?.getInstance()?.getMarkdown() ?? latestMdRef.current;
     if (md === null || md === undefined) return false;
     const json = editorRef.current?.getInstance()?.getJSON();
-
-    // If the document was previously published, unpublish before saving so
-    // downstream consumers don't see a stale "success" status on edits.
-    const publishStatus = (docRef.current?.publish?.emr_webhook as { status?: string } | undefined)
-      ?.status;
-    if (publishStatus === 'success' && docRef.current?.document_id) {
-      unpublishDoc(sessionIdRef.current, docRef.current.document_id);
-    }
 
     return saverRef.current.save({ json, markdown: md });
   }, []);

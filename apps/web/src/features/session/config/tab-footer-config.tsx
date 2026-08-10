@@ -2,14 +2,13 @@ import { type ReactNode } from 'react';
 import {
   Copy,
   Layers,
-  Paperclip,
   Play,
   Printer,
   RotateCcwIcon,
   Square,
   Trash2,
 } from 'lucide-react';
-import WhatsAppIcon from '@/features/integrations/components/whatsapp-icon';
+import WhatsAppIcon from '@/shared-components/whatsapp-icon';
 
 // --- Types ---
 
@@ -36,10 +35,9 @@ export type TabFooterConfig = {
     onSaveNote: () => void;
     isNoteSaved?: boolean;
   };
-  reviewPublish?: {
-    onReviewPublish: () => void;
+  publish?: {
+    onPublish: () => void;
     disabled?: boolean;
-    isPublished?: boolean;
   };
 };
 
@@ -47,13 +45,11 @@ export type TabFooterConfig = {
 
 export function getContextFooterConfig({
   onLinkPastSessions,
-  onAddAttachments,
   isPatientSelected,
   saveStatus,
   overlay,
 }: {
   onLinkPastSessions: () => void;
-  onAddAttachments: () => void;
   isPatientSelected: boolean;
   saveStatus: SaveStatusState;
   overlay?: ReactNode;
@@ -70,13 +66,6 @@ export function getContextFooterConfig({
         disabledTooltip: 'Add a patient to this session first',
         buttonStyle: 'link',
       },
-      {
-        key: 'attach',
-        label: 'Add attachments',
-        icon: <Paperclip className="w-4 h-4 text-primary" />,
-        onClick: onAddAttachments,
-        buttonStyle: 'link',
-      },
     ],
     overlay,
   };
@@ -87,13 +76,12 @@ export function getDocumentFooterConfig({
   onPrint,
   onSendWhatsApp,
   onSaveNote,
-  onReviewPublish,
+  onPublish,
   saveStatus,
   copyDisabled,
   printDisabled,
   whatsappDisabled,
   publishDisabled,
-  isPublished,
   isNoteSaved,
 }: {
   onCopy: () => void;
@@ -102,13 +90,12 @@ export function getDocumentFooterConfig({
   onSendWhatsApp?: () => void;
   /** When provided, adds a "Save note" button at the end of the toolbar. */
   onSaveNote?: () => void;
-  onReviewPublish: () => void;
+  onPublish?: () => void;
   saveStatus: SaveStatusState;
   copyDisabled?: boolean;
   printDisabled?: boolean;
   whatsappDisabled?: boolean;
   publishDisabled?: boolean;
-  isPublished?: boolean;
   isNoteSaved?: boolean;
 }): TabFooterConfig {
   return {
@@ -145,11 +132,7 @@ export function getDocumentFooterConfig({
         : []),
     ],
     saveNote: onSaveNote ? { onSaveNote, isNoteSaved } : undefined,
-    reviewPublish: {
-      onReviewPublish,
-      disabled: publishDisabled,
-      isPublished,
-    },
+    publish: onPublish ? { onPublish, disabled: publishDisabled } : undefined,
   };
 }
 

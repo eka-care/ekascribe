@@ -6,7 +6,6 @@ import useVoice2RxStore from '@/store/store';
 import { SessionBodySkeleton } from '@/app/new-session/loading';
 import { useContextTab } from '../../hooks/use-context-tab';
 import type { TPastSessionHistoryData } from '@/constants/types';
-import type { AttachedDocument } from '../../hooks/use-session-context';
 
 const WysiwygEditor = dynamic(() => import('../../components/editor/tiptap-wysiwyg-editor'), {
   ssr: false,
@@ -16,24 +15,16 @@ interface ContextTabContentProps {
   sessionId: string;
   patientOid?: string;
   linkedSessions: TPastSessionHistoryData[];
-  attachedDocument: AttachedDocument | null;
   onRemoveLinkedSession: (txnId: string) => void;
-  onRemoveAttachment: () => void;
 }
 
 export function ContextTabContent({
   sessionId,
   linkedSessions,
-  attachedDocument,
   onRemoveLinkedSession,
-  onRemoveAttachment,
 }: ContextTabContentProps) {
   const { contextContent, contextEditorRef, handleContextChange, saveContext, isLoadingContent } =
     useContextTab({ sessionId });
-
-  const mappedAttachment = attachedDocument
-    ? { documentId: attachedDocument.documentId, name: attachedDocument.name }
-    : null;
 
   if (isLoadingContent) {
     return <SessionBodySkeleton />;
@@ -67,9 +58,7 @@ export function ContextTabContent({
       </div>
       <ContextItemsList
         linkedSessions={linkedSessions}
-        attachedDocument={mappedAttachment}
         onRemoveLinkedSession={onRemoveLinkedSession}
-        onRemoveAttachment={onRemoveAttachment}
       />
     </div>
   );

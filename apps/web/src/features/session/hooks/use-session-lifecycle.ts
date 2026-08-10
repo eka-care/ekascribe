@@ -14,7 +14,6 @@ import {
   pollAndLoadSessionDetails,
   abortPolling,
 } from '../services/session-loader';
-import type { TSelectedPatientDetails } from '@/constants/types';
 import { getFlavour } from '@/platform';
 import { SESSION_PHASE, MIXPANEL_EVENT_NAME, MIXPANEL_EVENT_TYPE } from '@/constants/enums';
 import { tracker, setSessionContext } from '@/analytics';
@@ -43,13 +42,11 @@ export function useSessionLifecycle() {
   const createSession = useCallback(
     async ({
       encounter_id,
-      patient_details: paramPatientDetails,
       upload_type = 'chunked',
       force = false,
     }: {
       templates?: string[];
       encounter_id?: string;
-      patient_details?: TSelectedPatientDetails | null;
       upload_type?: 'chunked' | 'single';
       // Bypass the reuse guard to replace a stale pointer with a fresh session.
       force?: boolean;
@@ -69,20 +66,13 @@ export function useSessionLifecycle() {
         const sessionId = 'sc-' + uuidv4().replace(/-/g, '').slice(0, 28);
 
         try {
-          const { userLevelPreferences, pendingQueuePatient, setPendingQueuePatient } =
-            useVoice2RxStore.getState();
-          const selectedPatientDetails = paramPatientDetails ?? pendingQueuePatient ?? null;
-
-          // Clear pending queue patient after consuming it
-          if (!paramPatientDetails && pendingQueuePatient) {
-            setPendingQueuePatient(null);
-          }
+          const { userLevelPreferences } = useVoice2RxStore.getState();
 
           // Snapshot the user's defaults as this session's own config. New sessions always start from default config.
           const newSessionConfig = {
             input_languages: userLevelPreferences.input_languages,
             output_format_template: userLevelPreferences.output_format_template,
-            consultation_mode: userLevelPreferences.consultation_mode,
+            consultation_mode: 'dictation',
             model_type: userLevelPreferences.model_type,
           };
 
@@ -92,7 +82,6 @@ export function useSessionLifecycle() {
           // (prev && !sessionId) and would remount SessionScreen, causing an infinite loop.
           store.setSessionV2Content(sessionId, {
             phase: SESSION_PHASE.IDLE,
-            patient_details: selectedPatientDetails,
             session_config: newSessionConfig,
           });
           store.setRecordingSessionId(sessionId);
@@ -101,6 +90,19 @@ export function useSessionLifecycle() {
           const inputLanguage = userLevelPreferences.input_languages.map((l) => l.id);
           const outputTemplates = userLevelPreferences.output_format_template.map((t) => t.id);
           const systemInfo = await getSystemInfo();
+
+          // Also mirrored into the store below: the session PATCH replaces
+          // additional_data wholesale, so title edits must merge against this.
+          const additionalData = {
+            model_training_consent: userLevelPreferences.model_training_consent.value,
+            system_info: systemInfo,
+            ...(encounter_id ? { encounter_id } : {}),
+            _flavour: getFlavour(),
+            input_languages: userLevelPreferences.input_languages,
+            output_format_template: userLevelPreferences.output_format_template,
+            model_type: userLevelPreferences.model_type,
+            consultation_mode: 'dictation',
+          };
 
           const response = await with401Retry(
             () =>
@@ -113,25 +115,8 @@ export function useSessionLifecycle() {
                   transcript_language: userLevelPreferences.output_language || 'en-IN',
                   upload_type,
                   communication_protocol: 'http',
-                  session_mode: userLevelPreferences.consultation_mode,
-                  patient_details: selectedPatientDetails
-                    ? {
-                        oid: selectedPatientDetails.oid || '',
-                        name: selectedPatientDetails.username || '',
-                        age: selectedPatientDetails.age ? String(selectedPatientDetails.age) : '',
-                        gender: selectedPatientDetails.biologicalSex || '',
-                      }
-                    : undefined,
-                  additional_data: {
-                    model_training_consent: userLevelPreferences.model_training_consent.value,
-                    system_info: systemInfo,
-                    ...(encounter_id ? { encounter_id } : {}),
-                    _flavour: getFlavour(),
-                    input_languages: userLevelPreferences.input_languages,
-                    output_format_template: userLevelPreferences.output_format_template,
-                    model_type: userLevelPreferences.model_type,
-                    consultation_mode: userLevelPreferences.consultation_mode,
-                  },
+                  session_mode: 'dictation',
+                  additional_data: additionalData,
                 },
                 'v2'
               ),
@@ -190,10 +175,10 @@ export function useSessionLifecycle() {
           store.setNewSessionId(session_id);
           store.setSessionV2Content(session_id, {
             phase: SESSION_PHASE.IDLE,
-            patient_details: selectedPatientDetails,
             created_at: created_at || '',
             upload_url: upload_url || {},
             expires_at: expires_at || '',
+            additional_data: additionalData,
             session_config: newSessionConfig,
           });
 
@@ -505,11 +490,6 @@ export function useSessionLifecycle() {
           name: 'processing_completed',
           properties: { session_id: sessionId },
         });
-        // Mark queue patient as completed so the sidebar shows the check icon
-        const { queueRecordingPatientOid, addCompletedQueuePatient } = useVoice2RxStore.getState();
-        if (queueRecordingPatientOid) {
-          addCompletedQueuePatient(queueRecordingPatientOid);
-        }
       }
     } catch (e) {
       tracker.log({

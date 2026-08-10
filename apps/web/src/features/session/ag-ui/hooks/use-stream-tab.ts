@@ -6,7 +6,6 @@ import type { JSONContent } from '@tiptap/core';
 import type { TiptapEditorHandle } from '../../components/editor/tiptap-wysiwyg-editor';
 import { useStreamTemplateRun } from './use-stream-template-run';
 import { scribeStateToTiptap, scribeStateToMarkdown } from '../editor/scribe-state-converters';
-import { preserveLabResultEdits } from '../editor/preserve-user-edits';
 import { useDocumentSaver } from '../../hooks/use-document-saver';
 import useVoice2RxStore from '@/store/store';
 
@@ -142,7 +141,7 @@ export function useStreamTab({ sessionId, templateId, streamKey, onFinished, onD
     if (syncFrozen.current) return;
     const instance = editorRef.current?.getInstance();
     if (!instance) return;
-    instance.setJSON(preserveLabResultEdits(instance.getJSON(), scribeStateToTiptap(state)));
+    instance.setJSON(scribeStateToTiptap(state));
     if (phase === 'finished') syncFrozen.current = true;
   }, [state, phase]);
 

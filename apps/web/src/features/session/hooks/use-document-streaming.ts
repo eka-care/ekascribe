@@ -203,7 +203,6 @@ export function useDocumentStreaming({
   // Build the full tabs list
   const tabs = useMemo<TSessionTab[]>(() => {
     const result: TSessionTab[] = [
-      { id: 'records', label: 'Records' },
       { id: 'context', label: 'Add context' },
       { id: 'transcript', label: 'Transcript' },
     ];

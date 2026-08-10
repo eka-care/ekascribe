@@ -7,15 +7,7 @@
  * fits a doctor-template heading and fills the payload with markdown.
  */
 
-export type SectionKind =
-  | 'LIST'
-  | 'TABLE'
-  | 'KEY_VALUE'
-  | 'NARRATIVE'
-  | 'MEDICATION_TABLE'
-  | 'VITAL_TABLE'
-  | 'LAB_RESULTS'
-  | 'PROCEDURES';
+export type SectionKind = 'LIST' | 'TABLE' | 'KEY_VALUE' | 'NARRATIVE';
 
 export type SectionStatusState =
   | 'pending'

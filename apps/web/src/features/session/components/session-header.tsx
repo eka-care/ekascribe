@@ -38,7 +38,7 @@ import AudioQualitySummary from './recording/audio-quality-summary';
 import DownloadAudioButton from '@/features/session/components/recording/download-audio-button';
 import { useSessionLifecycle } from '../hooks/use-session-lifecycle';
 import { useSessionLimitGuard } from '../hooks/use-session-limit-guard';
-import { PatientDirectoryComponent } from '@/features/patient/components/patient-directory-component';
+import SessionTitleField from './session-title-field';
 
 interface SessionHeaderProps {
   sessionId: string;
@@ -110,7 +110,6 @@ const SessionHeader = ({
       .join(', ');
   }, [sessionConfig, templateNameById]);
 
-  const consultationModeText = sessionConfig?.consultation_mode || '';
   const modelTypeText = sessionConfig?.model_type || '';
 
   const showEditButton = phase === SESSION_PHASE.IDLE && !uiLoading;
@@ -140,9 +139,8 @@ const SessionHeader = ({
   const isProcessing = phase === SESSION_PHASE.PROCESSING;
 
   const settingsItems = useMemo(
-    () =>
-      [inputLanguagesText, outputFormatText, modelTypeText, consultationModeText].filter(Boolean),
-    [inputLanguagesText, outputFormatText, modelTypeText, consultationModeText]
+    () => [inputLanguagesText, outputFormatText, modelTypeText].filter(Boolean),
+    [inputLanguagesText, outputFormatText, modelTypeText]
   );
 
   // Init session with no output format: hint the fallback template.
@@ -160,21 +158,17 @@ const SessionHeader = ({
   const headerErrorLabel = showSessionError ? sessionErrorContent?.title : null;
   const headerErrorMessage = showSessionError ? sessionErrorContent?.description : null;
 
-  const renderPatientSection = () => {
-    return (
-      <PatientDirectoryComponent
-        sessionId={sessionId}
-        disabled={phase === SESSION_PHASE.PROCESSING || limitGuard.isLimitExceeded}
-        onDisabledClick={limitGuard.disabledClickHandler}
-      />
-    );
-  };
-
   return (
     <div className="grid grid-cols-[auto_1fr] sm:grid-cols-[1fr_auto] items-start gap-2 w-full p-4">
-      {/* 1. Patient details — full width on mobile, col 1 on desktop */}
+      {/* 1. Session title — full width on mobile, col 1 on desktop */}
       <div className="col-span-2 sm:col-span-1 w-full sm:w-auto min-w-0 flex items-center gap-2">
-        <div className="flex-1 min-w-0">{renderPatientSection()}</div>
+        <div className="flex-1 min-w-0">
+          <SessionTitleField
+            sessionId={sessionId}
+            disabled={phase === SESSION_PHASE.PROCESSING || limitGuard.isLimitExceeded}
+            onDisabledClick={limitGuard.disabledClickHandler}
+          />
+        </div>
         {isOutput && (
           <div className="sm:hidden shrink-0">
             <DownloadAudioButton sessionID={sessionId} />

@@ -5,7 +5,6 @@ import { useSettings } from '@/features/settings/hooks/use-settings';
 import { getEkascribeConfigQueryKey } from '@/features/settings/hooks/use-get-config';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import {
   Button,
   Dialog,
@@ -29,21 +28,19 @@ import PreferenceCard from '@/features/settings/components/preference-card';
 import DesktopWidgetSettings, {
   useDesktopWidgetSettings,
 } from '@/features/settings/components/desktop-widget-settings';
+import WhatsAppSetupDialog from '@/features/settings/components/whatsapp-setup-dialog';
 import DownloadDesktopApp from '@/features/settings/components/download-desktop-app';
 import { MODEL_TYPE } from '@/constants/enums';
 import { TUserSelectedPreferences } from '@/constants/types';
-import { Sparkles, List, Download, Cpu, Printer, MonitorCog } from 'lucide-react';
+import { Sparkles, List, Cpu, MonitorCog } from 'lucide-react';
 import SingleSelectInput from '@/shared-components/input/single-select-input';
-import A4Preview from '@/features/settings/print-settings/components/a4-preview';
-import CompactPrintToggle from '@/features/settings/print-settings/components/compact-print-toggle';
-import { buildStateFromConfig } from '@/features/settings/print-settings/utils/print-config-payload';
 import { SUPPORTED_MODELS } from '@/constants/settings';
 import MultiSelectInput from '@/shared-components/input/multi-select-input';
 import React from 'react';
 import { with401Retry } from '@/fetch-client/api-with-retry';
 import { getSDK } from '@/features/session/services/sdk-provider';
 import { toast } from 'sonner';
-import { useCapabilities, getStorage } from '@/platform';
+import { useCapabilities } from '@/platform';
 
 type UserDefaultsDialogProps = {
   open: boolean;
@@ -54,7 +51,6 @@ const UserDefaultsDialog = ({ open, onOpenChange }: UserDefaultsDialogProps) => 
   useSettings();
 
   const capabilities = useCapabilities();
-  const router = useRouter();
   const appConfig = useVoice2RxStore((state) => state.appConfig);
   const userSelectedTemplatesList = useVoice2RxStore((state) => state.userSelectedTemplatesList);
   const userLevelPreferences = useVoice2RxStore((state) => state.userLevelPreferences);
@@ -78,14 +74,9 @@ const UserDefaultsDialog = ({ open, onOpenChange }: UserDefaultsDialogProps) => 
     }
   }, [open, userLevelPreferences]);
 
-  const [settingsPage, setSettingsPage] = useState<
-    | 'user-defaults'
-    | 'customise-print-settings'
-    | 'manage-profile'
-    | 'recycle-bin'
-    | 'subscription'
-    | 'desktop-widget'
-  >('user-defaults');
+  const [settingsPage, setSettingsPage] = useState<'user-defaults' | 'desktop-widget'>(
+    'user-defaults'
+  );
 
   const {
     componentProps: desktopWidgetProps,
@@ -100,17 +91,10 @@ const UserDefaultsDialog = ({ open, onOpenChange }: UserDefaultsDialogProps) => 
     onOpenChange(nextOpen);
   };
 
+  const [isWhatsAppSetupOpen, setIsWhatsAppSetupOpen] = useState(false);
+
   const handleConnectWhatsApp = () => {
-    handleOpenChange(false);
-    getStorage().session.set('open_whatsapp_setup', 'true');
-    router.push('/integrations');
-  };
-
-  const hasConfiguredPrintTemplate =
-    Boolean(appConfig.print_header) || Boolean(appConfig.print_footer);
-
-  const handleOpenPrintSettings = () => {
-    window.open('/settings/print', '_blank', 'noopener,noreferrer');
+    setIsWhatsAppSetupOpen(true);
   };
 
   const getBreadcrumbItems = () => {
@@ -118,10 +102,6 @@ const UserDefaultsDialog = ({ open, onOpenChange }: UserDefaultsDialogProps) => 
 
     const pageLabelMap: Record<typeof settingsPage, string> = {
       'user-defaults': 'User Defaults',
-      'customise-print-settings': 'Customise Print Settings',
-      'manage-profile': 'Manage Profile',
-      'recycle-bin': 'Recycle Bin',
-      subscription: 'Subscription',
       'desktop-widget': 'Desktop Widget',
     };
 
@@ -172,9 +152,7 @@ const UserDefaultsDialog = ({ open, onOpenChange }: UserDefaultsDialogProps) => 
   };
 
   const isFormValid =
-    localPreferences.input_languages.length > 0 &&
-    localPreferences.consultation_mode.length > 0 &&
-    localPreferences.model_type.length > 0;
+    localPreferences.input_languages.length > 0 && localPreferences.model_type.length > 0;
 
   const hasUnsavedChanges =
     !!userLevelPreferences &&
@@ -200,19 +178,6 @@ const UserDefaultsDialog = ({ open, onOpenChange }: UserDefaultsDialogProps) => 
                     >
                       <List className="w-4 h-4" />
                       <span>User Defaults</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton
-                      className={`${
-                        settingsPage === 'customise-print-settings'
-                          ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-                          : 'bg-transparent text-foreground'
-                      } cursor-pointer`}
-                      onClick={() => setSettingsPage('customise-print-settings')}
-                    >
-                      <Printer className="w-4 h-4" />
-                      <span>Customise Print Settings</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                   <SidebarMenuItem>
@@ -256,7 +221,7 @@ const UserDefaultsDialog = ({ open, onOpenChange }: UserDefaultsDialogProps) => 
             </div>
 
             {settingsPage === 'user-defaults' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 overflow-y-auto h-full py-1">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 content-start overflow-y-auto h-full py-1">
                 <PreferenceCard
                   CardIcon={<Sparkles className="w-4 h-4" />}
                   title="AI Model Preferences"
@@ -324,53 +289,11 @@ const UserDefaultsDialog = ({ open, onOpenChange }: UserDefaultsDialogProps) => 
                 </PreferenceCard>
 
                 <PreferenceCard
-                  CardIcon={<Sparkles className="w-4 h-4" />}
-                  title="Default Mode"
-                  description="Choose your default mode for note generation. You can still override this per session."
-                >
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium leading-5">Default Mode</Label>
-                    <SingleSelectInput
-                      name="mode"
-                      value={localPreferences.consultation_mode}
-                      options={appConfig.consultation_modes}
-                      onSelectionChange={(selected) => {
-                        setLocalPreferences((prev) => ({
-                          ...prev,
-                          consultation_mode: selected,
-                        }));
-                      }}
-                    />
-                  </div>
-                </PreferenceCard>
-
-                <PreferenceCard
-                  CardIcon={<Download className="w-4 h-4" />}
-                  title="Auto Download"
-                  description="Choose whether to automatically download recordings after each session. You can override this per session."
-                >
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium leading-5"></Label>
-                    <Switch
-                      defaultChecked={localPreferences.auto_download}
-                      onCheckedChange={(checked) => {
-                        setLocalPreferences((prev) => ({
-                          ...prev,
-                          auto_download: checked,
-                        }));
-                      }}
-                      className="shrink-0 w-11 h-6 *:data-[slot=switch-thumb]:size-5 *:data-[slot=switch-thumb]:data-[state=checked]:translate-x-[calc(100%)] data-[state=unchecked]:bg-muted-foreground cursor-pointer"
-                    />
-                  </div>
-                </PreferenceCard>
-
-                <PreferenceCard
                   CardIcon={<Cpu className="w-4 h-4" />}
                   title="Help us make the model better"
                   description="Share anonymized data for model training & research purposes."
                 >
                   <div className="space-y-2">
-                    <Label className="text-sm font-medium leading-5"></Label>
                     <Switch
                       defaultChecked={localPreferences.model_training_consent.value}
                       disabled={!localPreferences.model_training_consent.editable}
@@ -392,7 +315,7 @@ const UserDefaultsDialog = ({ open, onOpenChange }: UserDefaultsDialogProps) => 
 
             {settingsPage === 'desktop-widget' &&
               (capabilities.has('desktop-settings') ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 overflow-y-auto h-full py-1">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 content-start overflow-y-auto h-full py-1">
                   <DesktopWidgetSettings
                     {...desktopWidgetProps}
                     onConnectWhatsApp={handleConnectWhatsApp}
@@ -401,43 +324,6 @@ const UserDefaultsDialog = ({ open, onOpenChange }: UserDefaultsDialogProps) => 
               ) : (
                 <DownloadDesktopApp />
               ))}
-
-            {settingsPage === 'customise-print-settings' && (
-              <div className="flex-1 min-h-0 flex flex-col py-1">
-                {hasConfiguredPrintTemplate ? (
-                  <>
-                    <div className="flex-1 min-h-0 overflow-y-auto">
-                      <div className="w-full flex justify-center p-4 border border-border rounded-md bg-muted">
-                        <A4Preview
-                          state={buildStateFromConfig(appConfig.print_header, appConfig.print_footer)}
-                        />
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between w-full shrink-0 pt-4">
-                      <Button className="cursor-pointer" onClick={handleOpenPrintSettings}>
-                        Change Configuration
-                      </Button>
-                      <CompactPrintToggle />
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="flex-1 min-h-0 overflow-y-auto flex flex-col items-center justify-center">
-                      <p className="text-sm text-[#767676] text-center">
-                        You haven&apos;t configured a print template yet. Set up your header and
-                        footer to customise prints.
-                      </p>
-                    </div>
-                    <div className="flex items-center justify-between w-full shrink-0 pt-4">
-                      <Button className="cursor-pointer" onClick={handleOpenPrintSettings}>
-                        Configure
-                      </Button>
-                      <CompactPrintToggle />
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
 
             {settingsPage === 'user-defaults' && (
               <div className="flex justify-end items-center gap-2">
@@ -479,6 +365,7 @@ const UserDefaultsDialog = ({ open, onOpenChange }: UserDefaultsDialogProps) => 
           </section>
         </SidebarProvider>
       </DialogContent>
+      <WhatsAppSetupDialog open={isWhatsAppSetupOpen} onOpenChange={setIsWhatsAppSetupOpen} />
     </Dialog>
   );
 };
@@ -494,7 +381,7 @@ export const updateUserPreferences = async ({
         data: {
           auto_download: userSelectedPreferences.auto_download,
           input_languages: userSelectedPreferences.input_languages,
-          consultation_mode: userSelectedPreferences.consultation_mode,
+          consultation_mode: 'dictation',
           model_type: userSelectedPreferences.model_type,
           output_format_template: userSelectedPreferences.output_format_template,
           auto_detect_language: userSelectedPreferences.auto_detect_language,

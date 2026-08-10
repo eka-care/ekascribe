@@ -14,7 +14,6 @@ import { MODEL_TYPE } from '@/constants/enums';
 import { TPreferenceItem } from '@/constants/types';
 import useGetConfigMyTemplates from '@/features/templates/hooks/use-get-config-my-templates';
 import { useGetAllTemplates } from '@/features/templates/hooks/use-get-all-templates';
-import { subscribeToPrintConfigUpdates } from '@/features/settings/print-settings/utils/print-config-broadcast';
 import { getStorage } from '@/platform';
 
 export const useSettings = () => {
@@ -36,7 +35,6 @@ export const useSettings = () => {
   const {
     data: cachedConfigData,
     isLoading: isLoadingConfig,
-    refetch: refetchEkascribeConfig,
   } = useGetEkascribeConfig();
 
   const { isLoading: isLoadingUserSelectedTemplatesList } = useGetConfigMyTemplates();
@@ -234,12 +232,6 @@ export const useSettings = () => {
       setRefreshLoggedInUserDetailsPromise(null);
     };
   }, []);
-
-  useEffect(() => {
-    return subscribeToPrintConfigUpdates(() => {
-      refetchEkascribeConfig();
-    });
-  }, [refetchEkascribeConfig]);
 
   return {
     appConfig,

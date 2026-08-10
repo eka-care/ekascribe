@@ -21,14 +21,8 @@ export function useProcessAudio() {
     const store = useVoice2RxStore.getState();
 
     try {
-      // Flow 6: ensure session exists, passing current patient if available
-      const recordingSessionId = store.sessionV2Ongoing.recording_session_id;
-      const currentPatient = recordingSessionId
-        ? store.sessionV2ContentById[recordingSessionId]?.patient_details
-        : null;
-
+      // Flow 6: ensure a session exists
       const sessionId = await createSession({
-        patient_details: currentPatient,
         upload_type: 'single',
       });
 

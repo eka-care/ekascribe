@@ -29,7 +29,6 @@ export type NormalizedDocument = {
   status: string;
   errors: SessionV2Error[];
   warnings: SessionV2Error[];
-  publish: Record<string, unknown>;
   edit_url: string | null;
   get_url: string | null;
   content: string | null;

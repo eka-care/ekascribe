@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import { useState, useMemo, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import { TriangleAlert, CheckCircle2 } from 'lucide-react';
 import useVoice2RxStore from '@/store/store';
@@ -14,16 +14,13 @@ import {
   renameDocument,
   publishDoc,
 } from '@/features/session/services/document-service';
-import { PublishModal } from './dialogs/publish-modal';
 import LinkPastSessionsDialog from './dialogs/link-past-sessions-dialog';
-import AddAttachmentsDialog from './dialogs/add-attachments-dialog';
 import WhatsAppSendDialog from './dialogs/whatsapp-send-dialog';
 import { useCapabilities } from '@/platform';
 import { SessionBodySkeleton } from '@/app/new-session/loading';
 import AnalysingStateDisplay from './output/analysing-component';
 import ErrorComponent, { getSessionErrorContent } from './output/error-component';
 import { ContextTabContent } from './tabs/context-tab-content';
-import { RecordsTabContent } from './tabs/records-tab-content';
 import { TranscriptTabContent } from './tabs/transcript-tab-content';
 import { SessionDocument, type SessionDocumentHandle } from './tabs/session-document';
 import { TabFooter } from './tabs/tab-footer';
@@ -81,8 +78,6 @@ const SessionBody = ({ sessionId, onAddTranscript, isLimitExceeded }: SessionBod
   const patientOid = useVoice2RxStore(
     (s) => s.sessionV2ContentById[sessionId]?.patient_details?.oid
   );
-  const businessId = useVoice2RxStore((s) => s.loggedInUserDetails?.['b-id']);
-  const loggedInOid = useVoice2RxStore((s) => s.loggedInUserDetails?.oid);
   const selectedPatientDetails = useVoice2RxStore(
     (s) => s.sessionV2ContentById[sessionId]?.patient_details ?? null
   );
@@ -102,16 +97,9 @@ const SessionBody = ({ sessionId, onAddTranscript, isLimitExceeded }: SessionBod
   const warningListItems = useVoice2RxStore((s) => s.warningListItems);
   const WarningAction = useVoice2RxStore((s) => s.warningAction);
   const clearWarningInfo = useVoice2RxStore((s) => s.clearWarningInfo);
-  const setIsRecordsTabActive = useVoice2RxStore((s) => s.setIsRecordsTabActive);
 
   const [activeTab, setActiveTab] = useState('transcript');
 
-  useEffect(() => {
-    setIsRecordsTabActive(activeTab === 'records');
-    return () => setIsRecordsTabActive(false);
-  }, [activeTab, setIsRecordsTabActive]);
-
-  const [publishModalOpen, setPublishModalOpen] = useState(false);
   const [whatsappSendOpen, setWhatsappSendOpen] = useState(false);
   const [whatsappSendDoc, setWhatsappSendDoc] = useState<{ id: string; name: string } | null>(null);
   const loggedInUserDetails = useVoice2RxStore((s) => s.loggedInUserDetails);
@@ -141,7 +129,6 @@ const SessionBody = ({ sessionId, onAddTranscript, isLimitExceeded }: SessionBod
   // --- Document streaming hook ---
   const streaming = useDocumentStreaming({ sessionId, activeTab, setActiveTab });
   const {
-    pendingTabs,
     finishedStreamTabs,
     streamDocIds,
     activeStreamTabs,
@@ -157,7 +144,6 @@ const SessionBody = ({ sessionId, onAddTranscript, isLimitExceeded }: SessionBod
   } = streaming;
 
   const isContextTab = activeTab === 'context';
-  const isRecordsTab = activeTab === 'records';
   const isTranscriptTab = activeTab === 'transcript';
   const isStreamTab = activeTab.startsWith('stream:');
   const activeDoc = documents.find((d) => d.document_id === activeTab);
@@ -170,11 +156,6 @@ const SessionBody = ({ sessionId, onAddTranscript, isLimitExceeded }: SessionBod
   for (const id of mountedDocIdsRef.current) {
     if (!documents.some((d) => d.document_id === id)) mountedDocIdsRef.current.delete(id);
   }
-
-  const [hasVisitedRecords, setHasVisitedRecords] = useState(false);
-  useEffect(() => {
-    if (isRecordsTab) setHasVisitedRecords(true);
-  }, [isRecordsTab]);
 
   // --- Tab handlers ---
   const handleTabChange = useCallback(
@@ -189,7 +170,6 @@ const SessionBody = ({ sessionId, onAddTranscript, isLimitExceeded }: SessionBod
 
       setActiveTab(tabId);
       sessionContext.setShowLinkDialog(false);
-      sessionContext.setShowAttachmentsDialog(false);
 
       if (tabId === 'context') {
         await ensureContextDocument();
@@ -320,6 +300,18 @@ const SessionBody = ({ sessionId, onAddTranscript, isLimitExceeded }: SessionBod
     [savedNotes]
   );
 
+  const handlePublish = useCallback(
+    async (documentId: string) => {
+      const success = await publishDoc(sessionId, documentId);
+      if (success) {
+        toast.success('Published');
+      } else {
+        toast.error('Failed to publish');
+      }
+    },
+    [sessionId]
+  );
+
   const handlePickSavedNote = useCallback(
     async (note: SavedNote, closePopover: () => void) => {
       closePopover();
@@ -345,7 +337,7 @@ const SessionBody = ({ sessionId, onAddTranscript, isLimitExceeded }: SessionBod
     if (activeTab.startsWith('pending-processing-') && phase === SESSION_PHASE.PROCESSING)
       return <AnalysingStateDisplay />;
 
-    if (phase === SESSION_PHASE.ERROR && !isContextTab && !isRecordsTab) {
+    if (phase === SESSION_PHASE.ERROR && !isContextTab) {
       const activeTabLabel = tabs.find((t) => t.id === activeTab)?.label;
       const { title, description } = getSessionErrorContent(sessionError, activeTabLabel);
       const isChunkLimit = sessionError?.code === 'chunk_limit_reached';
@@ -361,7 +353,6 @@ const SessionBody = ({ sessionId, onAddTranscript, isLimitExceeded }: SessionBod
     if (uiLoading) return <SessionBodySkeleton />;
 
     if (isStreamTab) return null;
-    if (isRecordsTab) return null;
 
     if (isContextTab) {
       return (
@@ -369,9 +360,7 @@ const SessionBody = ({ sessionId, onAddTranscript, isLimitExceeded }: SessionBod
           sessionId={sessionId}
           patientOid={patientOid}
           linkedSessions={sessionContext.linkedSessions}
-          attachedDocument={sessionContext.attachedDocument}
           onRemoveLinkedSession={sessionContext.handleRemoveLinkedSession}
-          onRemoveAttachment={sessionContext.handleRemoveAttachment}
         />
       );
     }
@@ -385,7 +374,7 @@ const SessionBody = ({ sessionId, onAddTranscript, isLimitExceeded }: SessionBod
 
   // --- Footer config ---
   const footerConfig = ((): TabFooterConfig | null => {
-    if (phase === SESSION_PHASE.ERROR && !isContextTab && !isRecordsTab) {
+    if (phase === SESSION_PHASE.ERROR && !isContextTab) {
       if (sessionError?.code === 'chunk_limit_reached') {
         return getChunkLimitFooterConfig({
           onEndRecording: endRecording,
@@ -411,7 +400,10 @@ const SessionBody = ({ sessionId, onAddTranscript, isLimitExceeded }: SessionBod
           const docId = streamDocIds.get(activeTab) || streamRef.current?.getDocumentId() || '';
           if (docId) await printDocument({ documentId: docId, sessionId });
         },
-        onReviewPublish: () => setPublishModalOpen(true),
+        onPublish: () => {
+          const docId = streamDocIds.get(activeTab) || streamRef.current?.getDocumentId() || '';
+          if (docId) handlePublish(docId);
+        },
         saveStatus: isDone ? saveStatus : 'generating',
         copyDisabled: !isDone,
         printDisabled: !isDone || !streamDocId,
@@ -420,42 +412,21 @@ const SessionBody = ({ sessionId, onAddTranscript, isLimitExceeded }: SessionBod
     }
 
     if (isContextTab) {
-      const contextOverlay =
-        sessionContext.showLinkDialog || sessionContext.showAttachmentsDialog ? (
-          <>
-            {sessionContext.showLinkDialog && (
-              <div className="absolute bottom-full left-2 mb-2 z-10">
-                <LinkPastSessionsDialog
-                  patientName={selectedPatientDetails?.username || ''}
-                  sessions={sessionContext.patientSessions}
-                  loading={sessionContext.loadingPatientSessions}
-                  onClose={() => sessionContext.setShowLinkDialog(false)}
-                  onAddContext={sessionContext.handleAddLinkedSessions}
-                  alreadyLinkedIds={sessionContext.linkedSessions.map((s) => s.txn_id)}
-                />
-              </div>
-            )}
-            {sessionContext.showAttachmentsDialog && (
-              <div className="absolute bottom-full left-2 sm:left-[170px] mb-2 z-10">
-                <AddAttachmentsDialog
-                  onClose={() => sessionContext.setShowAttachmentsDialog(false)}
-                  onAttach={sessionContext.handleAttach}
-                  onRemoveAttachment={sessionContext.handleRemoveAttachment}
-                  patientOid={patientOid}
-                  bid={businessId ?? ''}
-                  alreadyAttachedId={sessionContext.attachedDocument?.documentId}
-                />
-              </div>
-            )}
-          </>
-        ) : undefined;
+      const contextOverlay = sessionContext.showLinkDialog ? (
+        <div className="absolute bottom-full left-2 mb-2 z-10">
+          <LinkPastSessionsDialog
+            patientName={selectedPatientDetails?.username || ''}
+            sessions={sessionContext.patientSessions}
+            loading={sessionContext.loadingPatientSessions}
+            onClose={() => sessionContext.setShowLinkDialog(false)}
+            onAddContext={sessionContext.handleAddLinkedSessions}
+            alreadyLinkedIds={sessionContext.linkedSessions.map((s) => s.txn_id)}
+          />
+        </div>
+      ) : undefined;
 
       return getContextFooterConfig({
         onLinkPastSessions: sessionContext.handleOpenLinkDialog,
-        onAddAttachments: () => {
-          sessionContext.setShowAttachmentsDialog(true);
-          sessionContext.setShowLinkDialog(false);
-        },
         isPatientSelected: sessionContext.isPatientSelected,
         saveStatus,
         overlay: contextOverlay,
@@ -481,19 +452,6 @@ const SessionBody = ({ sessionId, onAddTranscript, isLimitExceeded }: SessionBod
     }
 
     if (isDocumentTab && activeDoc) {
-      const emrWebhook = activeDoc.publish?.emr_webhook as
-        | { status?: string; updated_at?: number }
-        | undefined;
-      const hasPublishStatus = !!emrWebhook?.status;
-      const rawIsPublished = hasPublishStatus ? emrWebhook.status === 'success' : undefined;
-
-      const isEditing = saveStatus === 'typing';
-      const isPublished = rawIsPublished === true && isEditing ? false : rawIsPublished;
-
-      const publishedAt = emrWebhook?.updated_at ?? 0;
-      const lastSavedAt = activeDoc.last_saved_at ?? 0;
-      const hasNoNewChanges = publishedAt >= lastSavedAt;
-
       const hasContent = activeDoc.content !== '' && (!!activeDoc.content || activeDoc.status === 'success');
       return getDocumentFooterConfig({
         onCopy: handleCopyDocument,
@@ -509,15 +467,13 @@ const SessionBody = ({ sessionId, onAddTranscript, isLimitExceeded }: SessionBod
               setWhatsappSendOpen(true);
             }
           : undefined,
-        onReviewPublish: () => setPublishModalOpen(true),
         onSaveNote: () => handleSaveNote(activeDoc.document_id, activeDoc.document_name || 'Note'),
+        onPublish: () => handlePublish(activeDoc.document_id),
         isNoteSaved: savedNotes.isNoteSaved(activeDoc.document_id),
         saveStatus,
         copyDisabled: !hasContent,
-        printDisabled: !hasContent || isPublished !== true || !hasNoNewChanges,
+        printDisabled: !hasContent,
         whatsappDisabled: !hasContent,
-        publishDisabled: !hasContent || isPublished === true,
-        isPublished,
       });
     }
 
@@ -576,19 +532,6 @@ const SessionBody = ({ sessionId, onAddTranscript, isLimitExceeded }: SessionBod
         />
 
         <div className="flex-1 min-h-0 overflow-y-auto flex flex-col relative" data-print-content>
-          {hasVisitedRecords && (
-            <div className={isRecordsTab ? 'flex flex-col flex-1 min-h-0' : 'hidden'}>
-              <RecordsTabContent
-                sessionId={sessionId}
-                patientOid={patientOid}
-                bid={businessId}
-                oid={loggedInOid}
-                onGoToContext={() => setActiveTab('context')}
-                onGoToTab={(documentId) => setActiveTab(documentId)}
-              />
-            </div>
-          )}
-
           {/* Stream tabs stay mounted so SSE connections survive tab switches */}
           {activeStreamTabs.map((tab) => {
             const templateId = tab.id.split(':')[1] ?? '';
@@ -654,29 +597,6 @@ const SessionBody = ({ sessionId, onAddTranscript, isLimitExceeded }: SessionBod
 
         {footerConfig && <TabFooter config={footerConfig} sessionId={sessionId} />}
       </div>
-
-      {publishModalOpen && (activeDoc || isStreamTab) && (
-        <PublishModal
-          open={publishModalOpen}
-          onOpenChange={setPublishModalOpen}
-          sessionId={sessionId}
-          patientName={selectedPatientDetails?.username}
-          patientAge={selectedPatientDetails?.age}
-          patientSex={selectedPatientDetails?.biologicalSex}
-          noteType={
-            activeDoc?.document_name || pendingTabs.find((t) => t.id === activeTab)?.label || 'Note'
-          }
-          onPublish={async () => {
-            const docId = activeDoc?.document_id || streamRef.current?.getDocumentId();
-            if (!docId) return false;
-            const result = await publishDoc(sessionId, docId);
-            if (result) {
-              useVoice2RxStore.getState().setDocSaveStatus(sessionId, docId, 'idle');
-            }
-            return result;
-          }}
-        />
-      )}
 
       {whatsappSendOpen && whatsappSendDoc && (
         <WhatsAppSendDialog

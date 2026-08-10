@@ -12,11 +12,8 @@ import ErrorBoundaryProvider from '@/provider/error-boundary-provider';
 import QueryClientRootProvider from '@/provider/query-client-provider';
 import SecretsProvider from '@/provider/secrets-provider';
 import Script from 'next/script';
-import CrispUserSync from '@/shared-components/crisp-user-sync';
 import OfflineIndicator from '@/shared-components/offline-indicator';
-import TrayAppointmentSender from '@/features/tray-appointments/components/tray-appointment-sender';
-import PrescriptionConsoleBindings from '@/features/prescription-whatsapp/dev/console-bindings';
-import { PlatformProvider, DesktopOnly } from '@/platform';
+import { PlatformProvider } from '@/platform';
 import DesktopAuthBootstrap from '@/provider/desktop-auth-bootstrap';
 
 const geistSans = { variable: GeistSans.variable };
@@ -82,42 +79,14 @@ export default function RootLayout({
                       </ScreenContainer>
                     </Suspense>
                   </DesktopAuthBootstrap>
-                  <DesktopOnly>
-                    <TrayAppointmentSender />
-                    <PrescriptionConsoleBindings />
-                  </DesktopOnly>
                   <ToastWrapper />
                   <OfflineIndicator />
-                  <CrispUserSync />
                 </PlatformProvider>
               </ThemeProvider>
             </QueryClientRootProvider>
           </SecretsProvider>
         </ErrorBoundaryProvider>
 
-        {/* Crisp Chat Widget — opt-in for on-prem */}
-        {process.env.NEXT_PUBLIC_ENABLE_CRISP === 'true' && process.env.NEXT_PUBLIC_CRISP_WEBSITE_ID && (
-          <Script
-            id="crisp-chat"
-            strategy="afterInteractive"
-            dangerouslySetInnerHTML={{
-              __html: `
-                window.$crisp=[];
-                window.CRISP_WEBSITE_ID="${process.env.NEXT_PUBLIC_CRISP_WEBSITE_ID}";
-                window.$crisp.push(["safe", true]);
-                window.$crisp.push(["do", "chat:hide"]);
-                window.$crisp.push(["on", "chat:closed", function(){ window.$crisp.push(["do", "chat:hide"]); }]);
-                (function(){
-                  d=document;
-                  s=d.createElement("script");
-                  s.src="https://client.crisp.chat/l.js";
-                  s.async=1;
-                  d.getElementsByTagName("head")[0].appendChild(s);
-                })();
-              `,
-            }}
-          />
-        )}
       </body>
     </html>
   );

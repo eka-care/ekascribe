@@ -1,16 +1,10 @@
 /**
- * SSE consumers for the AG-UI scribe endpoints.
+ * SSE consumer for the AG-UI scribe template-run endpoint.
  *
- * Two stream endpoints share an identical SSE transport:
+ * Template run — POST {EKA_HOST}/voice/v1/scribe/agent/runs/{template_id}
+ * Body: RunAgentInput (AG-UI core); thread_id == session_id.
  *
- * 1. Template run — POST {EKA_HOST}/voice/v1/scribe/agent/runs/{template_id}
- *    Body: RunAgentInput (AG-UI core); thread_id == session_id.
- *
- * 2. Document chat — POST {EKA_HOST}/voice/v1/scribe/agent/documents/{document_id}/chat
- *    Body: DocumentChatInput. document_markdown MUST be the live editor
- *    markdown so direct, not-yet-saved edits are never lost.
- *
- * Both return text/event-stream — sequence of AG-UI BaseEvents.
+ * Returns text/event-stream — a sequence of AG-UI BaseEvents.
  *
  * We consume via fetch + ReadableStream because:
  *  - native EventSource can't POST or set custom headers
@@ -78,16 +72,6 @@ export type StartRunOptions = {
   input: RunAgentInput;
   signal?: AbortSignal;
   documentId?: string;
-};
-
-export type ChatHistoryMessage = { role: 'user' | 'assistant'; content: string };
-
-export type DocumentChatInput = {
-  thread_id: string;
-  run_id: string;
-  message: string;
-  document_markdown: string;
-  history: ChatHistoryMessage[];
 };
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -209,20 +193,3 @@ export async function* streamAgUiRun({
   yield* streamSseEvents(url, input, signal, 'AG-UI run failed');
 }
 
-const CHAT_URL_PATH = '/voice/v1/scribe/agent/documents';
-
-/**
- * Open the document-chat stream and yield decoded events.
- */
-export async function* streamDocumentChat({
-  documentId,
-  input,
-  signal,
-}: {
-  documentId: string;
-  input: DocumentChatInput;
-  signal?: AbortSignal;
-}): AsyncGenerator<AgUiEvent, void, void> {
-  const url = `${GET_EKA_HOST()}${CHAT_URL_PATH}/${encodeURIComponent(documentId)}/chat`;
-  yield* streamSseEvents(url, input, signal, 'document chat failed');
-}

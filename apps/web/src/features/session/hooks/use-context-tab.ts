@@ -92,7 +92,6 @@ export function useContextTab({ sessionId }: { sessionId: string }) {
           status: 'success',
           errors: [],
           warnings: [],
-          publish: {},
           get_url: null,
           edit_url: (response.data.presigned_url as string) || null,
           content: null,

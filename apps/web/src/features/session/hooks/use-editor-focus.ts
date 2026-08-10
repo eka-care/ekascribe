@@ -5,7 +5,6 @@ import type { TiptapEditorHandle } from '../components/editor/tiptap-wysiwyg-edi
 
 export function useEditorFocus(editorRef: React.RefObject<TiptapEditorHandle | null>) {
   const [editorFocused, setEditorFocused] = useState(false);
-  const [chatDockOpen, setChatDockOpen] = useState(false);
   const execCommandRef = useRef<
     ((cmd: string, payload?: Record<string, unknown>) => void) | undefined
   >(undefined);
@@ -19,9 +18,6 @@ export function useEditorFocus(editorRef: React.RefObject<TiptapEditorHandle | n
     },
     []
   );
-
-  const handleOpenChatDock = useCallback(() => setChatDockOpen(true), []);
-  const handleCloseChatDock = useCallback(() => setChatDockOpen(false), []);
 
   // Blur editor when clicking outside editor + toolbar
   useEffect(() => {
@@ -57,12 +53,9 @@ export function useEditorFocus(editorRef: React.RefObject<TiptapEditorHandle | n
 
   return {
     editorFocused,
-    chatDockOpen,
     editorWrapperRef,
     toolbarRef,
     handleFocusChange,
-    handleOpenChatDock,
-    handleCloseChatDock,
     handleToolbarMouseDown,
     handleExecCommand,
   };

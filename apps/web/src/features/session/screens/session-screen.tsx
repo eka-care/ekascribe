@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import useVoice2RxStore from '@/store/store';
-import QueueEmptyState from '@/features/session/components/queue-empty-state';
 import { MicrophoneSelectorComponent } from '@/features/session/components/recording/microphone-selector-container';
 import { tracker } from '@/analytics';
 import { MIXPANEL_EVENT_NAME, MIXPANEL_EVENT_TYPE } from '@/constants/enums';
@@ -24,29 +23,15 @@ interface SessionScreenProps {
 }
 
 const SessionScreen = ({ sessionId }: SessionScreenProps) => {
-  const sidebarActiveTab = useVoice2RxStore((s) => s.sidebarActiveTab);
-  const queueCount = useVoice2RxStore((s) => s.queueCount);
-  const selectedQueueDoctorId = useVoice2RxStore((s) => s.selectedQueueDoctorId);
+  const router = useRouter();
+  const { createSession, loadSession, startRecording } = useSessionLifecycle();
+  useBeforeUnload();
 
   useEffect(() => {
     tracker.track({
       name: MIXPANEL_EVENT_NAME.SCRIBEWEB_HOME,
     });
   }, []);
-
-  if (sidebarActiveTab === 'my_queue' && queueCount === 0) {
-    return (
-      <QueueEmptyState variant={selectedQueueDoctorId ? 'no_patients' : 'no_doctor_selected'} />
-    );
-  }
-
-  return <SessionScreenInner sessionId={sessionId} />;
-};
-
-const SessionScreenInner = ({ sessionId }: SessionScreenProps) => {
-  const router = useRouter();
-  const { createSession, loadSession, startRecording } = useSessionLifecycle();
-  useBeforeUnload();
 
   const recordingSessionId = useVoice2RxStore((s) => s.sessionV2Ongoing.recording_session_id);
   const recordingPhase = useVoice2RxStore(

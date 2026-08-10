@@ -80,7 +80,6 @@ export function EditPreferencesDialog({
       ...userLevelPreferences,
       input_languages: sessionConfig.input_languages,
       output_format_template: sessionConfig.output_format_template,
-      consultation_mode: sessionConfig.consultation_mode ?? userLevelPreferences.consultation_mode,
       model_type: (sessionConfig.model_type as MODEL_TYPE) ?? userLevelPreferences.model_type,
       auto_detect_language: sessionConfig.input_languages.some((l) => l.id === 'auto_detect'),
     });
@@ -94,7 +93,7 @@ export function EditPreferencesDialog({
       session_config: {
         input_languages: localPreferences.input_languages,
         output_format_template: localPreferences.output_format_template,
-        consultation_mode: localPreferences.consultation_mode,
+        consultation_mode: 'dictation',
         model_type: localPreferences.model_type,
       },
     });
@@ -114,7 +113,7 @@ export function EditPreferencesDialog({
       templates: outputTemplates,
       language_hint: inputLanguage,
       model: localPreferences.model_type,
-      session_mode: localPreferences.consultation_mode,
+      session_mode: 'dictation',
     };
 
     await with401Retry(
@@ -174,7 +173,6 @@ export function EditPreferencesDialog({
     return (
       languagesEqual &&
       outputsEqual &&
-      a.consultation_mode === b.consultation_mode &&
       a.model_type === b.model_type
     );
   };
@@ -189,7 +187,7 @@ export function EditPreferencesDialog({
             data: {
               auto_download: localPreferences.auto_download,
               input_languages: localPreferences.input_languages,
-              consultation_mode: localPreferences.consultation_mode,
+              consultation_mode: 'dictation',
               model_type: localPreferences.model_type,
               output_format_template: localPreferences.output_format_template,
               auto_detect_language: localPreferences.auto_detect_language,
@@ -215,17 +213,15 @@ export function EditPreferencesDialog({
   };
 
   const isFormValid =
-    localPreferences.input_languages.length > 0 &&
-    localPreferences.consultation_mode.length > 0 &&
-    localPreferences.model_type.length > 0;
+    localPreferences.input_languages.length > 0 && localPreferences.model_type.length > 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogOverlay className="fixed inset-0 bg-alpha-black-5" />
       <DialogContent className="w-full md:max-w-lg border-border">
-        <DialogHeader className="">
-          <DialogTitle className="text-lg font-medium">Edit Details</DialogTitle>
-          <DialogDescription className="text-sm text-muted-foreground">
+        <DialogHeader className="text-left sm:text-left">
+          <DialogTitle className="text-lg font-medium text-left">Edit Details</DialogTitle>
+          <DialogDescription className="text-sm text-muted-foreground text-left">
             Make changes to your patient settings here. Click save when you&apos;re done.
           </DialogDescription>
         </DialogHeader>
@@ -253,22 +249,6 @@ export function EditPreferencesDialog({
               placeholder="Select output format"
               searchPlaceholder="Search templates..."
               emptyMessage="No options available."
-            />
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="mode">Mode</Label>
-            <SingleSelectInput
-              name="mode"
-              value={localPreferences.consultation_mode}
-              options={appConfig?.consultation_modes || []}
-              onSelectionChange={(selected) =>
-                setLocalPreferences((prev) => ({
-                  ...prev,
-                  consultation_mode: selected,
-                }))
-              }
-              placeholder="Select mode"
             />
           </div>
 
