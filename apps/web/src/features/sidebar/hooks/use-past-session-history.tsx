@@ -38,7 +38,8 @@ export const usePastSessionsHistory = ({
     const query = searchQuery.toLowerCase().trim();
     return allSessions.filter((session) => {
       const patientName = session.patient_details?.username?.toLowerCase() || '';
-      return patientName.includes(query);
+      const title = session.title?.toLowerCase() || '';
+      return patientName.includes(query) || title.includes(query);
     });
   }, [allSessions, searchQuery, isSearching]);
 

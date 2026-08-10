@@ -273,6 +273,10 @@ const SidebarPastSessions = ({
                 const storeContent = sessionV2ContentById[session.txn_id];
                 const effectivePatientDetails = storeContent?.patient_details ?? session.patient_details;
                 const { username } = effectivePatientDetails || {};
+                // Live title from the store (reflects edits) beats the API snapshot.
+                const sessionTitle =
+                  ((storeContent?.additional_data?.title as string | undefined) ?? session.title) ||
+                  null;
 
                 const hasPatientInfo = Boolean(username);
                 const initials = getInitials(username);
@@ -344,7 +348,16 @@ const SidebarPastSessions = ({
 
                     {/* Card content */}
                     <div className="flex flex-col gap-px flex-1 min-w-0">
-                      {hasPatientInfo ? (
+                      {sessionTitle ? (
+                        <>
+                          <p className="text-xs truncate leading-4 font-medium text-[#1A1A1A]">
+                            {sessionTitle}
+                          </p>
+                          <p className="text-xs leading-4 text-[#767676]">
+                            {hasNotesReady ? `${time} · Notes Ready` : time}
+                          </p>
+                        </>
+                      ) : hasPatientInfo ? (
                         <>
                           <div className="flex items-center gap-1">
                             <p className="text-xs truncate leading-4 capitalize font-medium text-[#1A1A1A]">
@@ -363,9 +376,9 @@ const SidebarPastSessions = ({
                           <p className="text-xs truncate leading-4 font-medium text-[#1A1A1A]">
                             Session at {time}
                           </p>
-                          <p className="text-xs leading-4 text-[#767676]">
-                            {hasNotesReady ? 'Notes Ready' : '+ Add patient'}
-                          </p>
+                          {hasNotesReady && (
+                            <p className="text-xs leading-4 text-[#767676]">Notes Ready</p>
+                          )}
                         </>
                       )}
                     </div>

@@ -3,6 +3,7 @@ Transaction ORM for DynamoDB operations.
 """
 
 import os
+import orjson
 from typing import Dict, List, Optional, Any
 from datetime import datetime, timezone, time, timedelta
 from decimal import Decimal
@@ -316,7 +317,7 @@ class TransactionORM(BaseORM):
         try:
             projection = (
                 "arc, #mode, b_id, processing_status, flavour, oid, model_type, "
-                "user_status, patient_details, txn_id, created_at"
+                "user_status, patient_details, txn_id, created_at, additional_data"
             )
             expression_attr_names = {"#mode": "mode", "#uuid": "uuid"}
 
@@ -340,7 +341,9 @@ class TransactionORM(BaseORM):
                 max_items=limit,
             )
 
-            return [self._deserialize_item(item) for item in items]
+            return [
+                self._lift_title(self._deserialize_item(item)) for item in items
+            ]
 
         except Exception as e:
             logger.error(
@@ -351,6 +354,21 @@ class TransactionORM(BaseORM):
                 severity="medium",
             )
             raise
+
+    @staticmethod
+    def _lift_title(item: Dict[str, Any]) -> Dict[str, Any]:
+        """Expose additional_data.title as a top-level `title` field and drop
+        the (potentially large) additional_data blob from list responses."""
+        raw = item.pop("additional_data", None)
+        if raw:
+            try:
+                data = orjson.loads(raw) if isinstance(raw, (str, bytes)) else raw
+                title = data.get("title") if isinstance(data, dict) else None
+                if title:
+                    item["title"] = title
+            except Exception:
+                pass
+        return item
 
     def _paginate_query(
         self,
