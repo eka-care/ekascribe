@@ -5,6 +5,9 @@
 # Job specs are largely immutable, so re-applying after an image tag change
 # fails. Delete first:
 #   kubectl -n eka-care delete job ekascribe-migrate --ignore-not-found
+#
+# Numbered 06 so it sorts after the Postgres manifests (04, 05) -- it needs a
+# database to migrate.
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -25,6 +28,28 @@ spec:
       restartPolicy: Never
       imagePullSecrets:
         - name: ekascribe-regcred
+      # `kubectl apply -f deploy/k8s/` applies in filename order but does not
+      # WAIT, so without this the Job starts while Postgres is still running
+      # initdb, fails its first step ([FAIL] postgres, scripts/setup.py), and
+      # spends its backoffLimit racing the database.
+      initContainers:
+        - name: wait-for-postgres
+          image: postgres:16-alpine
+          command:
+            - sh
+            - -c
+            - |
+              until pg_isready -h ekascribe-postgres -p 5432 -U scribe -d scribe; do
+                echo "waiting for postgres..."
+                sleep 2
+              done
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
       containers:
         - name: migrate
           image: ekacare/ekascribe:api-latest
