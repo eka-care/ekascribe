@@ -60,7 +60,7 @@ def _txn(**overrides):
         "processing_status": "completed",
         "transfer": "vaded",
         "flavour": "ekascribe-web",
-        "patient_details": {"name": "Alice"},
+        "session_details": {"name": "Alice"},
         "additional_data": {"k": "v"},
     }
     base.update(overrides)
@@ -189,7 +189,7 @@ class TestHappyPath:
         assert data["status"] == "processed"
         assert data["transfer"] == "vaded"
         assert data["flavour"] == "ekascribe-web"
-        assert data["patient_details"] == {"name": "Alice"}
+        assert data["session_details"] == {"name": "Alice"}
         assert data["additional_data"] == {"k": "v"}
 
 

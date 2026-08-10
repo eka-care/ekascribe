@@ -57,7 +57,7 @@ class SessionDetailsData(BaseModel):
     transfer: Optional[str] = None
     flavour: Optional[str] = None
 
-    patient_details: Dict[str, Any] = Field(default_factory=dict)
+    session_details: Dict[str, Any] = Field(default_factory=dict)
     additional_data: Dict[str, Any] = Field(default_factory=dict)
 
     audio_matrix: Dict[str, Any] = Field(default_factory=dict)

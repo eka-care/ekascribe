@@ -68,7 +68,7 @@ class TransactionInitRequest(BaseModel):
     client_generated_files: Optional[List[str]] = []
     model_training_consent: Optional[bool] = True
     model_type: Optional[VOICE2RX_MODEL_TYPE] = Field(default=VOICE2RX_MODEL_TYPE.PRO.value)
-    patient_details: Optional[Dict[str, Any]] = None
+    session_details: Optional[Dict[str, Any]] = None
     output_language: Optional[InputLanguage] = None
     context: Optional[TransactionContext] = None
     encounter_id: Optional[str] = None
@@ -110,7 +110,7 @@ class TransactionUpdateData(BaseModel):
     arc: Optional[bool] = None
     arc_at: Optional[int] = None
     context: Optional[TransactionContext] = None
-    patient_details: Optional[Dict[str, Any]] = None
+    session_details: Optional[Dict[str, Any]] = None
     patient_oid: Optional[str] = None
     transcript_status : Optional[str] = None
     model_type : Optional[VOICE2RX_MODEL_TYPE] = None

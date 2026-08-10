@@ -443,9 +443,9 @@ class TransactionService:
             url = item_data.get(url_field, "")
             item_data[url_field] = url.rstrip("/") if url else url
 
-        if item_data.get("patient_details"):
-            patient_details = item_data.get("patient_details")
-            patient_oid = patient_details.get("oid")
+        if item_data.get("session_details"):
+            session_details = item_data.get("session_details")
+            patient_oid = session_details.get("oid")
             if patient_oid:
                 item_data["patient_oid"] = patient_oid
 

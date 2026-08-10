@@ -5,7 +5,6 @@ import { tracker } from '@/analytics';
 import type { NormalizedDocument, SessionV2Phase } from '../types';
 import { normalizeDocuments } from '../utils/normalize-documents';
 import { resolveSessionPreferences, TRawSessionConfig } from '../utils/resolve-session-preferences';
-import { normalizePatientDetails, TRawPatientDetails } from '@/utils/shared-helpers';
 import * as sdkService from './sdk-service';
 
 function preserveCachedContent(
@@ -62,7 +61,6 @@ export async function loadSessionDetails(
     upload_url,
     expires_at,
     additional_data,
-    patient_details: rawPatient,
     context: sessionContext,
     status: processingStatus,
   } = response.data;
@@ -86,9 +84,8 @@ export async function loadSessionDetails(
       ? SESSION_PHASE.IDLE
       : SESSION_PHASE.OUTPUT);
 
-  const patientDetails = normalizePatientDetails(
-    rawPatient as TRawPatientDetails | null | undefined
-  );
+  const sessionDetails =
+    ((response.data as Record<string, unknown>).session_details as Record<string, unknown>) || {};
 
   // Preserve cached content/publish so revisiting a session doesn't flash a skeleton.
   const existing = store.sessionV2ContentById[sessionId];
@@ -100,7 +97,7 @@ export async function loadSessionDetails(
 
   store.setSessionV2Content(sessionId, {
     phase,
-    patient_details: patientDetails,
+    session_details: sessionDetails,
     audio_matrix: audio_matrix?.quality ? { quality: String(audio_matrix.quality) } : null,
     created_at: created_at ? String(created_at) : '',
     upload_url: (upload_url as Record<string, unknown>) || {},
