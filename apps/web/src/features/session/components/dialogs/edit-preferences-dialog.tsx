@@ -219,7 +219,7 @@ export function EditPreferencesDialog({
         <DialogHeader className="text-left sm:text-left">
           <DialogTitle className="text-lg font-medium text-left">Edit Details</DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground text-left">
-            Make changes to your patient settings here. Click save when you&apos;re done.
+            Make changes to your session settings here. Click save when you&apos;re done.
           </DialogDescription>
         </DialogHeader>
 

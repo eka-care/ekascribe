@@ -286,7 +286,7 @@ const CustomSidebar = () => {
             <div className="flex items-center gap-2">
               <img src="/favicon.ico" alt="varta" className="w-8 h-8 shrink-0" />
               <div className="flex flex-col justify-center">
-                <span className="text-lg font-bold tracking-tight text-[#1A1A1A] leading-5">
+                <span className="text-lg font-bold tracking-tight text-primary leading-5">
                   varta
                 </span>
                 <span className="text-[9px] italic font-medium tracking-wide text-[#767676] leading-3">

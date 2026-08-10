@@ -2,8 +2,8 @@ import { Card, CardContent } from '@ui/src';
 
 const templateCreationTips = [
   'Start with a brief session overview.',
-  'Use markdown headings (## History, ## Plan) to define sections.',
-  'List key items to capture (eg. symptoms, medications, advice).',
+  'Use markdown headings (## Summary, ## Action Items) to define sections.',
+  'List key items to capture (eg. key points, decisions, follow-ups).',
   'Specify phrasing preferences and what to avoid.',
 ];
 
