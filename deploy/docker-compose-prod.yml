@@ -46,7 +46,6 @@ services:
       SELF_URL: ${SELF_URL:-https://bharat-backend.dev.eka.care}
       WEB_URL: ${WEB_URL:-https://bharat-net.dev.eka.care}
       STORAGE_ROOT: /data/storage
-      UVICORN_WORKERS: ${UVICORN_WORKERS:-2}
     volumes:
       - storage:/data/storage
       - logs:/data/logs
