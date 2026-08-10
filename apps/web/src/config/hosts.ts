@@ -1,18 +1,23 @@
 /**
- * Host configuration — same-origin only.
+ * Host configuration — the API base comes from the `apiOrigin` capability.
  *
- * The static bundle is served by the FastAPI api itself, so every backend URL
- * is relative ('' base). No NEXT_PUBLIC_*_HOST env vars, no baked hostnames:
- * the bundle works unchanged on any domain. In dev, `next dev` proxies the API
- * paths to :8000 (see rewrites() in next.config.ts).
+ * On web that resolves to '' : the static bundle is served by the FastAPI api itself, so
+ * every backend URL is relative. No NEXT_PUBLIC_*_HOST env vars, no baked hostnames — the
+ * bundle works unchanged on any domain. In dev, `next dev` proxies the API paths to :8000
+ * (see rewrites() in next.config.ts).
+ *
+ * On desktop it resolves to the Electron host's main-process HTTP proxy, so every backend
+ * call leaves through the main process, which attaches credentials and refreshes expired
+ * tokens. Read synchronously — the table below is built as this module is evaluated.
  *
  * This module also publishes the host table to globalThis.__SCRIBE_HOSTS__,
  * which the vendored @eka-care/ekascribe-ts-sdk dist reads (see
  * packages/scribe-client-sdk/README.md). Import this module before any SDK use
  * (done in the root layout / sdk-provider).
  */
+import { getApiOrigin } from '@/platform';
 
-const API_HOST = '';
+const API_HOST = getApiOrigin();
 const WEB_HOST = '';
 
 export const HOSTS = {

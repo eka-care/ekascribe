@@ -1,5 +1,8 @@
 import type { AuthTokens, IAuthTokens } from '../contracts';
-import { GET_EKA_HOST } from '@/fetch-client/helper';
+// Sourced from the sibling capability rather than `@/config/hosts` (which is what
+// `GET_EKA_HOST()` returned): hosts.ts now builds its table *from* the platform layer, so
+// reaching back into app code from here would make the module graph circular.
+import { apiOriginElectron } from './api-origin';
 
 /**
  * Electron auth tokens — delegates to `window.authApi` (exposed by the DeskDocEka preload).
@@ -25,7 +28,7 @@ export const authTokensElectron: IAuthTokens = {
 
   async refresh(): Promise<AuthTokens | null> {
     if (typeof window.authApi?.refreshConnectToken === 'function') {
-      const result = await window.authApi.refreshConnectToken(GET_EKA_HOST());
+      const result = await window.authApi.refreshConnectToken(apiOriginElectron.get());
       if (result?.refreshed && result?.authToken) {
         return { accessToken: result.authToken, refreshToken: result.refreshToken ?? undefined };
       }

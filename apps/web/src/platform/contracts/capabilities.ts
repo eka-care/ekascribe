@@ -12,6 +12,7 @@ export type CapabilityId =
   | 'mic-permission-prompt' // microphone permission flow
   | 'system-audio-capture' // mixed system + mic capture
   | 'ipc-network' // requests routed through host IPC (already done via transport)
+  | 'host-api-proxy' // backend calls routed through a host-run HTTP proxy
   | 'rich-clipboard' // HTML + plain-text clipboard
   | 'native-pdf-export' // native HTML→PDF export
   | 'os-notifications' // OS-level notifications

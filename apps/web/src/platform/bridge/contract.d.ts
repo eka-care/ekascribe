@@ -139,6 +139,19 @@ interface LogApi {
   log?(message: string): Promise<void>;
 }
 
+/**
+ * v6 addition — the host's main-process HTTP proxy. Every backend URL is built against
+ * `origin` so all renderer traffic leaves through the main process, which attaches
+ * credentials and handles token refresh.
+ *
+ * `origin` is a value, not a method: the host resolves it over synchronous IPC in its
+ * preload because `config/hosts.ts` consumes it during module evaluation.
+ */
+interface ApiProxyApi {
+  origin?: string;
+  getOrigin?(): Promise<string>;
+}
+
 interface BridgeMeta {
   version: number;
 }
@@ -146,6 +159,7 @@ interface BridgeMeta {
 declare global {
   interface Window {
     __bridge?: BridgeMeta;
+    apiProxyApi?: ApiProxyApi;
     storageApi?: StorageApi;
     blobApi?: BlobApi;
     fileApi?: FileApi;

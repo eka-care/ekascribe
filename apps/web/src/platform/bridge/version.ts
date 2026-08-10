@@ -6,7 +6,7 @@
  *
  * Bump `BRIDGE_CONTRACT_VERSION` whenever `contract.d.ts` gains members.
  */
-export const BRIDGE_CONTRACT_VERSION = 5;
+export const BRIDGE_CONTRACT_VERSION = 6;
 
 /** Oldest host bridge version this web build can still operate against. */
 export const MIN_SUPPORTED = 1;

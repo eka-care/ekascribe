@@ -236,6 +236,39 @@ change** (v1 → v2).
 
 ---
 
+## Phase 7 — API origin capability (host-run backend proxy)
+
+**Status:** Done (2026-08-11)
+**Goal:** Stop hardcoding the backend base in `config/hosts.ts`. The desktop host runs an HTTP
+proxy in its Electron main process; the web app must address it so **all** renderer traffic
+(raw SDK `fetch()` included, not just the IPC transport) leaves through the main process, which
+attaches credentials and refreshes expired tokens. Second additive bridge change.
+
+> Driven by DeskDocEka: `src/main/managers/apiProxyManager.ts` (Express, loopback-only,
+> `localhost:6087`). `hosts.ts` had been locally pinned to `http://localhost:3876` — a hardcode
+> that only worked because the embedded Next server's `rewrites()` forwarded to a dev API.
+
+- [x] **Capability.** `contracts/api-origin.ts` (`IApiOrigin.get(): string` — synchronous, since
+      `hosts.ts` builds its table at module load); `apiOrigin` key in the `Platform` map;
+      `web/api-origin.ts` returns `''` (same-origin); `electron/api-origin.ts` feature-detects
+      `window.apiProxyApi.origin` and falls back to `''`. Descriptor `host-api-proxy`;
+      `getApiOrigin()` registry accessor (non-React — `hosts.ts` is not a component) and
+      `useApiOrigin()` hook. Bridge `contract.d.ts` gains optional `apiProxyApi`;
+      `BRIDGE_CONTRACT_VERSION` bumped to **6**.
+- [x] **Call site.** `config/hosts.ts` derives `API_HOST` from `getApiOrigin()`; no hardcoded host.
+- [x] **Cycle broken.** `electron/auth-tokens.ts` no longer imports `GET_EKA_HOST` from
+      `@/fetch-client/helper` — it reads the sibling `apiOriginElectron`. With `hosts.ts` now
+      importing the platform layer, that adapter→app-code import made the graph circular and
+      `next build` failed with a TDZ error (`Cannot access 'Z' before initialization`).
+- [x] **Rewrites.** `next.config.ts` points the standalone (desktop) rewrites at the host proxy
+      instead of `localhost:8000`, so any residual relative API path also lands on it.
+      Static-export/web dev behaviour unchanged.
+- [x] **Validate.** `tsc --noEmit` clean; `next build` (standalone, electron family) succeeds;
+      verified live against the running desktop app — every backend call appears in the proxy log
+      and the unauthenticated endpoint returns 200 through it.
+
+---
+
 ## Notes / decisions log
 
 - 2026-06-22 — Injection model: **build-time** per design doc (`NEXT_PUBLIC_APP_SOURCE` +
@@ -266,3 +299,11 @@ change** (v1 → v2).
   lifecycle via `use-host-recording-bridge`. Network/auth are **light wrappers** over the existing
   `src/transport/` + fetch-client (intentionally not rewritten); web auth-tokens lazy-imports
   `@/fetch-client` to avoid a module-load cycle. Descriptor over-activation wrinkles documented.
+- 2026-08-11 — Phase 7 done (API origin capability). The backend base is now a capability rather
+  than a constant: `''` on web, the host's main-process Express proxy on desktop. Chosen over
+  reading `window.apiProxyApi` from `hosts.ts` directly (P1) and over an env var (`NEXT_PUBLIC_*`
+  is inlined at build time, so a packaged bundle couldn't follow the host's port). The contract is
+  **synchronous** because `hosts.ts` builds `HOSTS` during module evaluation — an async getter
+  would resolve after the SDK had already read `__SCRIBE_HOSTS__`. **Cross-repo dependency:**
+  DeskDocEka must expose `window.apiProxyApi.origin` (its preload resolves it over *sync* IPC for
+  the same reason); without it the adapter degrades to same-origin, i.e. pre-proxy behaviour.

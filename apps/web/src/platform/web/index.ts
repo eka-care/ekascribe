@@ -1,4 +1,5 @@
 import type { HostId, PlatformImplementations } from '../contracts';
+import { apiOriginWeb } from './api-origin';
 import { audioCaptureWeb } from './audio-capture';
 import { authTokensWeb } from './auth-tokens';
 import { blobStoreWeb } from './blob-store';
@@ -22,6 +23,7 @@ export const host: HostId = 'web';
 export const flavour: string = 'ekascribe-web';
 
 export const implementations: PlatformImplementations = {
+  apiOrigin: apiOriginWeb,
   audioCapture: audioCaptureWeb,
   authTokens: authTokensWeb,
   blobStore: blobStoreWeb,

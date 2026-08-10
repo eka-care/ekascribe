@@ -19,9 +19,7 @@ logs/
 !apps/api/src/logs/**
 *.egg-info/
 .next/
-<<<<<<< HEAD
 /_to_delete/
-=======
 
 # Filled-in Kubernetes credentials. Only the *.yaml.example templates belong
 # in git; these patterns end in .yaml so they do not match the templates.
@@ -29,7 +27,6 @@ logs/
 # which never writes a file at all.
 deploy/k8s/*secret*.yaml
 deploy/k8s/*regcred*.yaml
->>>>>>> f9239af (added config)
 apps/web/.next-desktop/
 apps/desktop/node_modules/
 apps/desktop/.vite/

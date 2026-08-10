@@ -8,6 +8,7 @@
 export {
   getPlatform,
   getActiveCapabilities,
+  getApiOrigin,
   getStorage,
   getHost,
   getFlavour,
@@ -31,6 +32,7 @@ export {
   useAuthTokens,
   useHost,
   useFlavour,
+  useApiOrigin,
   useAppUpdates,
   useDesktopSettings,
 } from './hooks';

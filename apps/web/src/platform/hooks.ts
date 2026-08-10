@@ -17,7 +17,7 @@ import type {
   ISystem,
   PlatformImplementations,
 } from './contracts';
-import { getFlavour } from './registry';
+import { getApiOrigin, getFlavour } from './registry';
 import { usePlatformContext } from './provider';
 
 /** The full build-selected capability map. */
@@ -100,6 +100,15 @@ export function useHost(): HostId {
 /** Build-time app flavour string (`'ekascribe-web'` | `'ekascribe-desktop-mac'` | `'ekascribe-desktop-windows'`). */
 export function useFlavour(): string {
   return getFlavour();
+}
+
+/**
+ * Base origin backend URLs are built against — `''` (same-origin) on web, the host's
+ * proxy origin on desktop. Most code should read `HOSTS` from `@/config/hosts` instead;
+ * this is for the rare component that needs to build a URL itself.
+ */
+export function useApiOrigin(): string {
+  return getApiOrigin();
 }
 
 /** Desktop app-update events (check / download / install). `undefined` on web. */

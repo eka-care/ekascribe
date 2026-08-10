@@ -14,6 +14,11 @@ if (fs.existsSync(rootEnvPath)) {
   }
 }
 
+// Desktop packaging sets EKASCRIBE_STATIC_EXPORT=false → Next standalone
+// (consumed by prepare-ekascribe-runtime). Web/API deploy leaves it unset/true →
+// static export served by FastAPI (apps/api web_static.py).
+const useStaticExport = process.env.EKASCRIBE_STATIC_EXPORT !== 'false';
+
 const nextConfig: NextConfig = {
   // Pin the workspace root so Next ignores stray lockfiles in parent dirs
   // (e.g. a ~/yarn.lock) when detecting the monorepo root.
@@ -26,7 +31,9 @@ const nextConfig: NextConfig = {
   // headers() block set here. Export doesn't support headers()/rewrites().
   // Build-only: `next dev` enforces export's generateStaticParams matching,
   // which would 500 every real /session/<id> deep link on :3000.
-  ...(process.env.NODE_ENV === 'development' ? {} : { output: 'export' as const }),
+  ...(process.env.NODE_ENV === 'development'
+    ? {}
+    : { output: useStaticExport ? ('export' as const) : ('standalone' as const) }),
   // Lint never gated builds before (the old eslint config crashed and was
   // skipped); keep it advisory via `npm run lint` until violations are fixed.
   eslint: { ignoreDuringBuilds: true },
@@ -35,19 +42,47 @@ const nextConfig: NextConfig = {
   images: { unoptimized: true },
   // StrictMode's dev double-mount fires the AG-UI run POST twice, creating ghost documents
   reactStrictMode: false,
-  // Dev-only API proxy: hosts.ts uses relative URLs (same-origin as the API in
-  // prod), so `next dev` on :3000 forwards API paths to the local API on :8000.
-  // `next build` with output:'export' ignores rewrites; `next dev` applies them.
+  // API proxy for same-origin backend paths. hosts.ts normally makes these absolute, but
+  // anything still emitting a relative path is forwarded here so it can't escape the
+  // intended backend.
+  //
+  // Web dev: `next dev` on :3000 forwards to the local API on :8000.
+  // Desktop (standalone): forwards to the Electron main process's Express proxy, keeping
+  // the "all traffic leaves through the main process" invariant intact.
+  // `next build` with output:'export' ignores rewrites entirely.
   async rewrites() {
+    const apiTarget = useStaticExport
+      ? 'http://localhost:8000'
+      : (process.env.EKASCRIBE_API_PROXY_ORIGIN ?? 'http://localhost:6087');
+
     return [
-      { source: '/voice/:path*', destination: 'http://localhost:8000/voice/:path*' },
+      { source: '/voice/:path*', destination: `${apiTarget}/voice/:path*` },
       {
         source: '/connect-auth/:path*',
-        destination: 'http://localhost:8000/connect-auth/:path*',
+        destination: `${apiTarget}/connect-auth/:path*`,
       },
-      { source: '/healthz', destination: 'http://localhost:8000/healthz' },
+      { source: '/healthz', destination: `${apiTarget}/healthz` },
     ];
   },
+  ...(useStaticExport
+    ? {}
+    : {
+      // Standalone (desktop) — force fresh content; export can't use headers().
+      async headers() {
+        return [
+          {
+            source: '/((?!_next/static|_next/image|favicon.ico).*)',
+            headers: [
+              {
+                key: 'Cache-Control',
+                value: 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+              },
+            ],
+          },
+        ];
+      },
+    }),
+
   webpack: (config, { isServer }) => {
     // ui-lib lives outside apps/web (monorepo packages/ui-lib) — make its
     // imports resolve against this app's node_modules.

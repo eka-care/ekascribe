@@ -1,6 +1,7 @@
 import type {
   CapabilityId,
   HostId,
+  IApiOrigin,
   IBlobStore,
   IStorage,
   Platform,
@@ -17,6 +18,7 @@ import { host as familyHost, flavour as familyFlavour, implementations as family
  * active and any UI gated on them appears. Keep this aligned with `CapabilityId`.
  */
 const DESCRIPTORS_BY_CAPABILITY: Record<keyof Platform, CapabilityId[]> = {
+  apiOrigin: ['host-api-proxy'],
   appUpdates: ['app-updates'],
   audioCapture: ['mic-permission-prompt', 'system-audio-capture'],
   authTokens: ['host-managed-auth'],
@@ -61,6 +63,16 @@ export function getHost(): HostId {
 /** Build-time app flavour string. Varies per platform family. */
 export function getFlavour(): string {
   return familyFlavour;
+}
+
+/**
+ * Base origin for backend URLs, for non-React code. `config/hosts.ts` calls this while
+ * building the host table at module load, so it must stay synchronous. Every family
+ * registers it; `''` (same-origin) is the fallback if one ever doesn't.
+ */
+export function getApiOrigin(): string {
+  const apiOrigin: IApiOrigin | undefined = implementations.apiOrigin;
+  return apiOrigin ? apiOrigin.get() : '';
 }
 
 /** Network transport for non-React code. Every family registers it. */

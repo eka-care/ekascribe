@@ -1,4 +1,5 @@
 import type { ITransport } from './network';
+import type { IApiOrigin } from './api-origin';
 import type { IAudioCapture } from './audio-capture';
 import type { IAppUpdates } from './app-updates';
 import type { IAuthTokens } from './auth-tokens';
@@ -20,6 +21,7 @@ import type { ISystem } from './system';
  * `capabilities.ts` and are wired in `registry.ts`.
  */
 export interface Platform {
+  apiOrigin: IApiOrigin;
   appUpdates: IAppUpdates;
   audioCapture: IAudioCapture;
   authTokens: IAuthTokens;
@@ -48,6 +50,7 @@ export type { IBlobStore } from './blob-store';
 export type { IFilePicker, FilePickerOptions } from './file-picker';
 export type { IAudioCapture, MicPermissionState, AudioInputDevice } from './audio-capture';
 export type { ITransport, TransportResponse } from './network';
+export type { IApiOrigin } from './api-origin';
 export type { IClipboard } from './clipboard';
 export type { IPrinter } from './printer';
 export type { INotifier, NotificationOptions } from './notifier';

@@ -1,4 +1,5 @@
 import type { HostId, PlatformImplementations } from '../contracts';
+import { apiOriginElectron } from './api-origin';
 import { appUpdatesElectron } from './app-updates';
 import { desktopSettingsElectron } from './desktop-settings';
 import { audioCaptureElectron } from './audio-capture';
@@ -28,6 +29,7 @@ export const flavour: string =
   _appSource === 'electron-windows' ? 'ekascribe-desktop-windows' : 'ekascribe-desktop-mac';
 
 export const implementations: PlatformImplementations = {
+  apiOrigin: apiOriginElectron,
   appUpdates: appUpdatesElectron,
   desktopSettings: desktopSettingsElectron,
   audioCapture: audioCaptureElectron,
