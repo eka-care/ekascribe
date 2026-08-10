@@ -331,6 +331,14 @@ const SessionHeader = ({
                 <span className="text-xs text-foreground capitalize">{item}</span>
               </span>
             ))}
+            {sessionId && (
+              <span className="flex items-center gap-2">
+                {settingsItems.length > 0 && (
+                  <span className="w-1 h-1 rounded-full bg-foreground" />
+                )}
+                <span className="text-xs text-[#767676]">{sessionId}</span>
+              </span>
+            )}
           </div>
 
           {showEditPreferences && onEditPreferences && (
@@ -352,7 +360,6 @@ const SessionHeader = ({
           )}
         </div>
 
-        {sessionId && <span className="text-[8px] text-[#767676]">{sessionId}</span>}
       </div>
 
       {/* 4. Microphone — beside Start on mobile (row 2 col 2), under Start on desktop (row 2 col 2) */}

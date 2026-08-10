@@ -8,8 +8,22 @@ import type {
   TPatchVoiceApiV2ConfigRequest,
 } from '@eka-care/ekascribe-ts-sdk';
 import { getSDK } from './sdk-provider';
+import fetchWrapper from '@/fetch-client';
+import { GET_EKA_HOST } from '@/fetch-client/helper';
 
 // --- Session operations ---
+
+/** Re-trigger the processing pipeline for an already-uploaded session (e.g.
+ * when it processed but produced no transcript). Same PATCH the SDK sends on
+ * commit, usable without a live SDK recording session. */
+export async function recommitSession(sessionId: string) {
+  const response = await fetchWrapper(`${GET_EKA_HOST()}/voice/v1/sessions/${sessionId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user_status: 'commit' }),
+  });
+  return { status_code: response.status };
+}
 
 export async function createSession(request: CreateSessionRequest, version?: string) {
   return getSDK().sessions.createSession(request, version);
