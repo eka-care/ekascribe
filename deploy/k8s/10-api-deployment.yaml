@@ -117,8 +117,8 @@ spec:
             periodSeconds: 20
             timeoutSeconds: 5
             failureThreshold: 3
-          # Blobs live in S3; these are scratch space only and intentionally
-          # ephemeral -- nothing here survives a restart.
+          # STORAGE_BACKEND=local: /data/storage is the recording store and
+          # rides the PVC (07-api-storage-pvc.yaml); logs stay ephemeral.
           volumeMounts:
             - name: storage
               mountPath: /data/storage
@@ -140,6 +140,7 @@ spec:
               memory: 6656Mi
       volumes:
         - name: storage
-          emptyDir: {}
+          persistentVolumeClaim:
+            claimName: ekascribe-api-storage
         - name: logs
           emptyDir: {}
