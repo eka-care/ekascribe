@@ -107,10 +107,14 @@ class DevAuthMiddleware(BaseHTTPMiddleware):
                 return JSONResponse({"detail": "unauthorized"}, status_code=401)
 
         # Inject the pre-verified jwt-payload header (replaces API Gateway).
-        payload = json.dumps(dev_principal().to_jwt_payload())
-        headers = request.headers.mutablecopy()
-        headers[JWT_PAYLOAD_HEADER] = payload
-        request.scope["headers"] = headers.raw
+        # A caller-supplied jwt-payload is respected — dev mode trusts the
+        # header (tests and multi-identity dev flows rely on this; production
+        # auth replaces this middleware entirely).
+        if not request.headers.get(JWT_PAYLOAD_HEADER):
+            payload = json.dumps(dev_principal().to_jwt_payload())
+            headers = request.headers.mutablecopy()
+            headers[JWT_PAYLOAD_HEADER] = payload
+            request.scope["headers"] = headers.raw
 
         return await call_next(request)
 

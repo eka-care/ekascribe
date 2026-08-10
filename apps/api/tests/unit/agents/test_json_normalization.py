@@ -1,6 +1,6 @@
 import pytest
 import orjson
-from voice2rx.utils.json_normalization import _normalize_json_output, normalize_whitespace
+from scribe.core.json_normalization import _normalize_json_output, normalize_whitespace
 
 def test_normalize_json_output_raw_json():
     """Test with raw JSON array."""

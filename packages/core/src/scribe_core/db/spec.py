@@ -1,10 +1,10 @@
-"""Relational specs for every logical table (plan B2, Phase 2).
+"""Relational specs for every logical table.
 
-Each Dynamo table maps to a Postgres table with REAL typed columns for its keys
-and every field the code queries on (the old GSIs become btree indexes), plus a
-``data JSONB`` column holding the full item. Reads reconstruct the item from
-``data``; writes mirror the spec'd columns. This keeps Dynamo semantic parity
-(the same call sites run on either backend) while giving deployments real SQL:
+Each logical table maps to a Postgres table with REAL typed columns for its
+keys and every field the code queries on (btree-indexed), plus a ``data JSONB``
+column holding the full item. Reads reconstruct the item from ``data``; writes
+mirror the spec'd columns. Documents-in-Postgres keeps call sites simple while
+giving deployments real SQL:
 
     SELECT txn_id, processing_status FROM voice2rx_transactions
     WHERE b_id = '...' AND created_at > '2026-07-01' ORDER BY created_at DESC;
@@ -18,11 +18,11 @@ from typing import Dict, List, Tuple
 
 @dataclass(frozen=True)
 class TableSpec:
-    logical_name: str                    # Dynamo table name used by call sites
+    logical_name: str                    # logical table name used by call sites
     pg_name: str                         # physical Postgres table name
     pk: Tuple[str, ...]                  # primary key column(s): (partition,) or (partition, sort)
     columns: Tuple[str, ...] = ()        # extra mirrored/typed columns (all TEXT)
-    indexes: Tuple[Tuple[str, ...], ...] = ()  # btree indexes (the old GSIs)
+    indexes: Tuple[Tuple[str, ...], ...] = ()  # btree indexes for queried fields
 
     @property
     def sort_key(self) -> str | None:
@@ -45,21 +45,11 @@ _SPECS: List[TableSpec] = [
         indexes=(("session_id", "template_id"),),
     ),
     TableSpec(
-        logical_name="ekascribe-audio-details",
-        pg_name="ekascribe_audio_details",
-        pk=("composite_key", "record_type"),
-    ),
-    TableSpec(
-        logical_name="ekascribe_template_result",
-        pg_name="ekascribe_template_result",
-        pk=("txn_id", "template_id"),
-    ),
-    TableSpec(
         logical_name="ekascribe_template",
         pg_name="ekascribe_template",
         pk=("id",),
         columns=("wid",),  # workspace id; "DEFAULT" = available to all
-        indexes=(("wid", "id"),),  # the wid-id GSI
+        indexes=(("wid", "id"),),  # composite wid+id lookup index
     ),
     TableSpec(
         logical_name="ekascribe_template_section",

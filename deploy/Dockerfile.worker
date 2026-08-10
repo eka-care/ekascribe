@@ -1,6 +1,7 @@
-# ekascribe pipeline worker
+# scribe pipeline worker (EXECUTION_MODE=worker only)
 FROM python:3.11-slim
 
+# ffmpeg: pydub/VAD audio chunking; git: echo-sdk installs from git tag
 RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg git \
     && rm -rf /var/lib/apt/lists/*
 
@@ -12,10 +13,8 @@ COPY packages/core ./packages/core
 COPY apps/api ./apps/api
 COPY apps/worker ./apps/worker
 RUN uv sync --all-packages --frozen --no-dev
-RUN printf '/app/apps/api/src\n/app/apps/worker/src\n' > /app/.venv/lib/python3.11/site-packages/ekascribe_src.pth
+RUN printf '/app/apps/api/src\n/app/apps/worker/src\n' > /app/.venv/lib/python3.11/site-packages/scribe_src.pth
 
-COPY prompts ./prompts
-
-ENV STORAGE_ROOT=/data/storage LOG_DIR=/data/logs ECHO_PROMPT_DIR=/app/prompts
+ENV STORAGE_ROOT=/data/storage LOG_DIR=/data/logs
 ENV PYTHONPATH=/app/apps/api/src:/app/apps/worker/src
 CMD ["sh", "-c", "PYTHONPATH=/app/apps/api/src:/app/apps/worker/src /app/.venv/bin/procrastinate --app scribe_worker.main.queue_app worker -q scribe"]

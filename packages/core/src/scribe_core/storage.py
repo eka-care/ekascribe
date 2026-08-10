@@ -2,7 +2,7 @@
 
 Everything in the pipeline addresses blobs with s3://-style URLs
 (``s3://<bucket>/<key>``) — those stay the canonical *logical* format in DB rows
-regardless of backend, so Postgres/Dynamo rows are portable between deployments.
+regardless of backend, so DB rows are portable between deployments.
 
 Backends:
 - ``LocalFSBlobStore`` — files under ``STORAGE_ROOT/<bucket>/<key>``. "Presigned"

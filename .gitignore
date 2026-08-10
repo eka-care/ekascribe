@@ -18,3 +18,4 @@ logs/
 !apps/api/src/logs/**
 *.egg-info/
 .next/
+/_to_delete/
