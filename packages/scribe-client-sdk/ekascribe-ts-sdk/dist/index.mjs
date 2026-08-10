@@ -189,7 +189,11 @@ const qs = {
   parchiHost: "https://parchi.eka.care"
 };
 function Vs(t) {
-  return t === "PROD" ? Gs : qs;
+  // NOTE(oss): on-prem host override — the app sets globalThis.__SCRIBE_HOSTS__
+  // (see apps/web/src/config/hosts.ts). Keys: voiceV1/V2/V3, cookV1, ekaHost, parchiHost.
+  const base = t === "PROD" ? Gs : qs;
+  const o = typeof globalThis !== "undefined" && globalThis.__SCRIBE_HOSTS__;
+  return o ? { ...base, ...o } : base;
 }
 class Ws {
   constructor() {
