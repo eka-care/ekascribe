@@ -28,7 +28,6 @@ import PreferenceCard from '@/features/settings/components/preference-card';
 import DesktopWidgetSettings, {
   useDesktopWidgetSettings,
 } from '@/features/settings/components/desktop-widget-settings';
-import WhatsAppSetupDialog from '@/features/settings/components/whatsapp-setup-dialog';
 import DownloadDesktopApp from '@/features/settings/components/download-desktop-app';
 import { MODEL_TYPE } from '@/constants/enums';
 import { TUserSelectedPreferences } from '@/constants/types';
@@ -91,11 +90,6 @@ const UserDefaultsDialog = ({ open, onOpenChange }: UserDefaultsDialogProps) => 
     onOpenChange(nextOpen);
   };
 
-  const [isWhatsAppSetupOpen, setIsWhatsAppSetupOpen] = useState(false);
-
-  const handleConnectWhatsApp = () => {
-    setIsWhatsAppSetupOpen(true);
-  };
 
   const getBreadcrumbItems = () => {
     const items = [{ label: 'Settings', isCurrentPage: false }];
@@ -318,7 +312,6 @@ const UserDefaultsDialog = ({ open, onOpenChange }: UserDefaultsDialogProps) => 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 content-start overflow-y-auto h-full py-1">
                   <DesktopWidgetSettings
                     {...desktopWidgetProps}
-                    onConnectWhatsApp={handleConnectWhatsApp}
                   />
                 </div>
               ) : (
@@ -365,7 +358,6 @@ const UserDefaultsDialog = ({ open, onOpenChange }: UserDefaultsDialogProps) => 
           </section>
         </SidebarProvider>
       </DialogContent>
-      <WhatsAppSetupDialog open={isWhatsAppSetupOpen} onOpenChange={setIsWhatsAppSetupOpen} />
     </Dialog>
   );
 };

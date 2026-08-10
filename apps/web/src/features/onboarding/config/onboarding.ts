@@ -74,9 +74,4 @@ export const FUTURE_STEPS = [
     title: 'Learn your keyboard shortcuts',
     description: 'Start and end recordings without touching the mouse',
   },
-  {
-    number: 4,
-    title: 'Share notes via WhatsApp',
-    description: 'Send prescriptions and visit summaries directly to patients',
-  },
 ];

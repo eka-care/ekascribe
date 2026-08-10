@@ -1,13 +1,11 @@
 'use client';
 
-import { useState, useMemo, useCallback, useRef } from 'react';
+import { useMemo, useCallback, useRef } from 'react';
 import useVoice2RxStore from '@/store/store';
 import SessionTabRow from '@/features/session/components/session-tab-row';
 import SessionContent from '@/features/session/components/session-content';
 import { AddOrConvertPopover } from '@/features/session/components/dialogs/add-or-convert-popover';
 import { printDocument } from '@/features/session/services/document-service';
-import WhatsAppSendDialog from './dialogs/whatsapp-send-dialog';
-import { useCapabilities } from '@/platform';
 import type { SessionDocumentHandle } from './tabs/session-document';
 import { TabFooter } from './tabs/tab-footer';
 import {
@@ -47,9 +45,6 @@ const SessionBody = ({ sessionId, onAddTranscript, isLimitExceeded }: SessionBod
   const transcriptDocs = useVoice2RxStore(
     (s) => s.sessionV2ContentById[sessionId]?.transcript ?? EMPTY_TRANSCRIPT
   );
-  const selectedPatientDetails = useVoice2RxStore(
-    (s) => s.sessionV2ContentById[sessionId]?.patient_details ?? null
-  );
   const selectedTranscriptLang = useVoice2RxStore(
     (s) => s.sessionV2ContentById[sessionId]?.ui?.selected_transcript_lang || ''
   );
@@ -75,10 +70,6 @@ const SessionBody = ({ sessionId, onAddTranscript, isLimitExceeded }: SessionBod
     mountedDocIds,
   } = useSessionTabs(sessionId);
 
-  const [whatsappSendOpen, setWhatsappSendOpen] = useState(false);
-  const [whatsappSendDoc, setWhatsappSendDoc] = useState<{ id: string; name: string } | null>(null);
-  const loggedInUserDetails = useVoice2RxStore((s) => s.loggedInUserDetails);
-  const hasWhatsApp = useCapabilities().has('whatsapp-linked-device');
   const streamRef = useRef<SessionDocumentHandle>(null);
   const documentRef = useRef<SessionDocumentHandle>(null);
   const contextRef = useRef<ContextTabContentHandle>(null);
@@ -237,19 +228,9 @@ const SessionBody = ({ sessionId, onAddTranscript, isLimitExceeded }: SessionBod
           onPrint: async () => {
             await printDocument({ documentId: activeDoc.document_id, sessionId });
           },
-          onSendWhatsApp: hasWhatsApp
-            ? () => {
-                setWhatsappSendDoc({
-                  id: activeDoc.document_id,
-                  name: activeDoc.document_name || 'Prescription',
-                });
-                setWhatsappSendOpen(true);
-              }
-            : undefined,
           saveStatus,
           copyDisabled: !hasContent,
           printDisabled: !hasContent,
-          whatsappDisabled: !hasContent,
         });
       }
 
@@ -292,20 +273,6 @@ const SessionBody = ({ sessionId, onAddTranscript, isLimitExceeded }: SessionBod
 
         {footerConfig && <TabFooter config={footerConfig} />}
       </div>
-
-      {whatsappSendOpen && whatsappSendDoc && (
-        <WhatsAppSendDialog
-          open={whatsappSendOpen}
-          onOpenChange={setWhatsappSendOpen}
-          patientName={selectedPatientDetails?.username || ''}
-          patientMobile={selectedPatientDetails?.mobile}
-          doctorName={`${loggedInUserDetails?.s || ''} ${loggedInUserDetails?.fn || ''} ${loggedInUserDetails?.ln || ''}`.trim()}
-          sessionCreatedAt={useVoice2RxStore.getState().sessionV2ContentById[sessionId]?.created_at}
-          documentId={whatsappSendDoc.id}
-          sessionId={sessionId}
-          fallbackDocumentName={whatsappSendDoc.name}
-        />
-      )}
     </div>
   );
 };

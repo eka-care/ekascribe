@@ -30,7 +30,6 @@ const DESCRIPTORS_BY_CAPABILITY: Record<keyof Platform, CapabilityId[]> = {
   printer: ['native-pdf-export'],
   storage: ['persistent-kv'],
   system: ['shell-open'],
-  whatsapp: ['whatsapp-linked-device'],
 };
 
 const implementations: PlatformImplementations = familyImplementations;

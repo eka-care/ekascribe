@@ -18,7 +18,6 @@ export type CapabilityId =
   | 'shell-open' // open external URLs / shell integration
   | 'host-managed-auth' // tokens supplied/refreshed by the host
   | 'host-recording-control' // host drives scribe start/stop/status
-  | 'whatsapp-linked-device' // send documents via a host-linked WhatsApp account
   | 'app-updates' // desktop app auto-updater (check, download, install)
   | 'desktop-settings'; // desktop widget settings (shortcuts, WA auto-send, overlay visibility)
 
