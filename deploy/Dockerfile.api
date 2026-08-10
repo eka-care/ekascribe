@@ -1,8 +1,9 @@
-# ekascribe API
+# scribe API
 FROM python:3.11-slim
 
+# ffmpeg: pydub/VAD audio chunking; git: echo-sdk installs from git tag
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ffmpeg git libpango-1.0-0 libpangocairo-1.0-0 libgdk-pixbuf-2.0-0 shared-mime-info \
+    ffmpeg git \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
@@ -13,21 +14,18 @@ COPY packages/core ./packages/core
 COPY apps/api ./apps/api
 COPY apps/worker ./apps/worker
 RUN uv sync --all-packages --frozen --no-dev
-# uv/hatchling editable does not expose every src package (logs, voice2rx...);
-# a .pth adds the whole src dir to sys.path at interpreter startup (site.py).
-RUN printf '/app/apps/api/src\n' > /app/.venv/lib/python3.11/site-packages/ekascribe_src.pth
+# belt-and-suspenders: keep the src dirs on sys.path at interpreter startup
+RUN printf '/app/apps/api/src\n' > /app/.venv/lib/python3.11/site-packages/scribe_src.pth
 
-COPY prompts ./prompts
 COPY templates ./templates
 COPY scripts ./scripts
 COPY .env.example ./
 
-ENV STORAGE_ROOT=/data/storage LOG_DIR=/data/logs ECHO_PROMPT_DIR=/app/prompts
-# src-layout packages (logs, voice2rx, scribe_api, medical_record) importable regardless of install mode
+ENV STORAGE_ROOT=/data/storage LOG_DIR=/data/logs
 ENV PYTHONPATH=/app/apps/api/src
 EXPOSE 8000
-# EXECUTION_MODE=inprocess (default) runs the pipeline in-process — use 1 worker
-# so background jobs + in-memory state stay in one process. For EXECUTION_MODE=worker,
-# set UVICORN_WORKERS=4 (jobs run in the separate worker container).
-ENV UVICORN_WORKERS=1
-CMD ["sh", "-c", "PYTHONPATH=/app/apps/api/src /app/.venv/bin/uvicorn scribe_api.main:app --host 0.0.0.0 --port 8000 --workers ${UVICORN_WORKERS:-1}"]
+# Chunk coordination lives in Postgres (audio_chunks claims), so multiple
+# uvicorn workers are safe in both execution modes. For multi-container
+# scale-out use EXECUTION_MODE=worker + worker containers (durable queue).
+ENV UVICORN_WORKERS=2
+CMD ["sh", "-c", "PYTHONPATH=/app/apps/api/src /app/.venv/bin/uvicorn scribe.main:app --host 0.0.0.0 --port 8000 --workers ${UVICORN_WORKERS:-1}"]

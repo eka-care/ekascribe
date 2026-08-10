@@ -81,24 +81,29 @@ export function useSessionTabs(sessionId: string) {
 
       if (successCustomDoc) {
         setActiveTab(successCustomDoc.document_id);
-      } else if (customDocs.length === 0 && outputFormatTemplates.length > 0) {
-        const now = Date.now();
-        const newStreamTabs: TSessionTab[] = outputFormatTemplates.map((t) => ({
-          id: `stream:${t.id}:${now}`,
-          label: t.name,
-          closable: true,
-        }));
-        setPendingTabs((prev) => [...prev, ...newStreamTabs]);
-        if (newStreamTabs.length > 0) {
+      } else if (customDocs.length === 0) {
+        // No template selected → nothing to generate; stay on the transcript.
+        if (outputFormatTemplates.length > 0) {
+          const now = Date.now();
+          const newStreamTabs: TSessionTab[] = outputFormatTemplates.map((t) => ({
+            id: `stream:${t.id}:${now}`,
+            label: t.name,
+            closable: true,
+          }));
+          setPendingTabs((prev) => [...prev, ...newStreamTabs]);
           setActiveTab(newStreamTabs[0].id);
+        } else {
+          setActiveTab('transcript');
         }
       } else {
         const inProgressDoc = customDocs.find((d) => d.status === 'in-progress');
         if (inProgressDoc) {
           setActiveTab(inProgressDoc.document_id);
           setAutoStreamDocId(inProgressDoc.document_id);
-        } else {
+        } else if (storeDocs.length > 0) {
           setActiveTab(storeDocs[0].document_id);
+        } else {
+          setActiveTab('transcript');
         }
       }
     }

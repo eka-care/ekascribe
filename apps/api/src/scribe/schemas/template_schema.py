@@ -1,0 +1,130 @@
+from pydantic import BaseModel, Field, field_validator
+from typing import List, Optional
+from enum import Enum
+from datetime import datetime
+
+
+class FormatEnum(str, Enum):
+    PARAGRAPH = "P"
+    BULLET = "B"
+
+# Section Schemas
+class SectionCreate(BaseModel):
+    title: str
+    desc: str = ""
+    format: FormatEnum
+    example: str = ""
+
+class SectionUpdate(BaseModel):
+    title: Optional[str] = None
+    desc: Optional[str] = None
+    format: Optional[FormatEnum] = None
+    example: Optional[str] = None
+
+class SectionResponse(BaseModel):
+    id: str
+    title: str
+    desc: str
+    format: str
+    example: str
+    default: bool
+
+class SectionsListResponse(BaseModel):
+    items: List[SectionResponse]
+
+# Template Schemas
+class TemplateCreate(BaseModel):
+    title: str
+    desc: str = ""
+    section_ids: List[str]
+    type: str = "" # template type: default/custom/integration
+
+class TemplateUpdate(BaseModel):
+    title: Optional[str] = None
+    desc: Optional[str] = None
+    section_ids: Optional[List[str]] = None
+
+class TemplateResponse(BaseModel):
+    id: str
+    title: str
+    desc: str
+    section_ids: List[str]
+    default: bool
+    is_favorite: bool
+
+class TemplatesListResponse(BaseModel):
+    items: List[TemplateResponse]
+
+# Response Schemas
+class MessageResponse(BaseModel):
+    msg: str
+
+class SectionCreateResponse(MessageResponse):
+    section_id: str
+
+class SectionUpdateResponse(MessageResponse):
+    section_id: str
+    action: str  # "updated" or "created_custom"
+
+class TemplateCreateResponse(MessageResponse):
+    template_id: str
+
+class SectionUpdateModel(BaseModel):
+    title: Optional[str] = None
+    desc: Optional[str] = None
+    format: Optional[str] = None
+    example: Optional[str] = None
+    updated_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+
+class TemplateUpdateModel(BaseModel):
+    title: Optional[str] = None
+    desc: Optional[str] = None
+    section_ids: Optional[List[str]] = None
+    updated_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+class AiCreateTemplateRequest(BaseModel):
+    """Input for AI-authoring a reusable template.
+
+    Supply `content` (pasted text) and/or `file_base64` (an uploaded file).
+    The backend reads PDFs and images with a vision model and extracts text
+    from other documents (docx, rtf, txt, csv, md, json, ...) server-side, so
+    callers no longer need to extract text themselves.
+    `instruction` is optional steering, e.g. "generate SOAP notes".
+    """
+    content: Optional[str] = Field(None, description="Pasted/extracted text")
+    instruction: Optional[str] = Field(None, description="Optional steering, e.g. 'generate SOAP notes'")
+    file_base64: Optional[str] = Field(None, description="Base64 of an uploaded file (PDF/image read directly; docx/rtf/txt/csv/... extracted server-side)")
+    media_type: Optional[str] = Field(None, description="MIME type, e.g. image/jpeg, application/pdf, .docx, text/csv")
+    file_name: Optional[str] = Field(None, description="Original filename")
+
+    @field_validator("content")
+    @classmethod
+    def _require_some_input(cls, v):
+        # full cross-field check lives in the service; this just trims.
+        return v.strip() if isinstance(v, str) else v
+
+class AiCreateTemplateResponse(BaseModel):
+    """AI-authored template draft. `template_instructions` is markdown the FE
+    drops straight into the raw-template editor (no structured sections)."""
+    title: str
+    desc: str
+    template_instructions: str
+
+class TemplateRequestData(BaseModel):
+    template_id: Optional[str] = Field(None, description="Template ID for generation")
+    transcript: Optional[str] = Field(None, description="Direct transcript input")
+
+    # this is used to convert the given transcript or stored transcript to any other langueage.
+    target_language: Optional[str] = Field(None, description="Target language for translation")
+
+    @field_validator("target_language")
+    @classmethod
+    def validate_target_language(cls, v):
+        if v is None:
+            return v
+        
+        valid_languages = ["eng", "hi", "ta", "te", "bn", "mr", "gu", "kn", "ml", "pa", "as"]
+        if v not in valid_languages:
+            raise ValueError(
+                f"Invalid target_language. Must be one of: {', '.join(valid_languages)}"
+            )
+        return v

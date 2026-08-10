@@ -9,7 +9,7 @@ Steps (each skippable):
   3. Storage read/write/delete probe
   4. Migrations: app schema + procrastinate queue schema
   5. Queue enqueue round-trip probe
-  6. Seeds: DEFAULT sections + 3 default templates (templates/seed_data.yaml)
+  6. Seeds: 3 starter templates for the directory (templates/seed_data.yaml)
      + workspace config bound to the dev identity            [--no-seed]
   7. Model checks: prompts resolve, LLM ping, STT ping       [--skip-model-check]
   8. Serve-and-verify: boot API, hit /voice/ping + discovery [--no-serve-check]
@@ -78,19 +78,11 @@ def step_db() -> bool:
 
     s = get_settings()
     try:
-        if s.db_backend == "postgres":
-            import psycopg
+        import psycopg
 
-            with psycopg.connect(s.database_url, connect_timeout=5) as conn:
-                conn.execute("SELECT 1")
-            print(f"{OK} postgres reachable ({s.database_url.split('@')[-1]})")
-        else:
-            import boto3
-
-            boto3.client(
-                "dynamodb", region_name=s.aws_region, endpoint_url=s.dynamodb_endpoint_url
-            ).list_tables(Limit=1)
-            print(f"{OK} dynamodb reachable")
+        with psycopg.connect(s.database_url, connect_timeout=5) as conn:
+            conn.execute("SELECT 1")
+        print(f"{OK} postgres reachable ({s.database_url.split('@')[-1]})")
         return True
     except Exception as e:
         print(f"{FAIL} database: {e}")
@@ -118,42 +110,35 @@ def step_migrations() -> bool:
 
     s = get_settings()
     ok = True
-    if s.db_backend == "postgres":
-        try:
-            from scribe_core.db import ensure_schema
+    try:
+        from scribe_core.db import ensure_schema
 
-            ensure_schema()
-            print(f"{OK} app schema (tables + indexes)")
-        except Exception as e:
-            print(f"{FAIL} app schema: {e}")
-            ok = False
-    else:
-        print(f"{WARN} dynamodb backend: create tables via infra tooling")
-    if s.queue_backend == "postgres":
-        try:
-            import procrastinate
+        ensure_schema()
+        print(f"{OK} app schema (tables + indexes)")
+    except Exception as e:
+        print(f"{FAIL} app schema: {e}")
+        ok = False
+    try:
+        import procrastinate
 
-            app = procrastinate.App(
-                connector=procrastinate.SyncPsycopgConnector(conninfo=s.procrastinate_dsn)
-            )
-            with app.open():
-                try:
-                    app.schema_manager.apply_schema()
-                    print(f"{OK} procrastinate schema applied")
-                except Exception:
-                    print(f"{OK} procrastinate schema already present")
-        except Exception as e:
-            print(f"{FAIL} procrastinate schema: {e}")
-            ok = False
+        app = procrastinate.App(
+            connector=procrastinate.SyncPsycopgConnector(conninfo=s.procrastinate_dsn)
+        )
+        with app.open():
+            try:
+                app.schema_manager.apply_schema()
+                print(f"{OK} procrastinate schema applied")
+            except Exception:
+                print(f"{OK} procrastinate schema already present")
+    except Exception as e:
+        print(f"{FAIL} procrastinate schema: {e}")
+        ok = False
     return ok
 
 
 def step_queue() -> bool:
     from scribe_core.settings import get_settings
 
-    if get_settings().queue_backend != "postgres":
-        print(f"{SKIP} queue probe (sqs backend)")
-        return True
     try:
         from scribe_core.queue import get_task_queue
 
@@ -180,27 +165,25 @@ def step_seed() -> bool:
         import yaml
 
         from scribe_core.settings import get_settings
-        from voice2rx.utils.dynamo_helper import DynamoHelper
+        from scribe.repositories.doc_store import DocStore
 
         s = get_settings()
         data = yaml.safe_load((ROOT / "templates" / "seed_data.yaml").read_text())
 
-        section_db = DynamoHelper("ekascribe_template_section")
+        section_db = DocStore("ekascribe_template_section")
         for sec in data.get("sections", []):
             sec.setdefault("wid", "DEFAULT")
-            section_db.update_item(key_dict={"id": sec["id"]}, update_dict=sec)
-        template_db = DynamoHelper("ekascribe_template")
+            section_db.upsert_item(key_dict={"id": sec["id"]}, update_dict=sec)
+        template_db = DocStore("ekascribe_template")
         for tpl in data.get("templates", []):
             tpl.setdefault("wid", "DEFAULT")
-            template_db.update_item(key_dict={"id": tpl["id"]}, update_dict=tpl)
+            template_db.upsert_item(key_dict={"id": tpl["id"]}, update_dict=tpl)
 
-        config_db = DynamoHelper("ekascribe_config")
-        config_db.update_item(
+        # No default template selection — users pick from the directory.
+        config_db = DocStore("ekascribe_config")
+        config_db.upsert_item(
             key_dict={"b_id": s.dev_b_id, "user_uuid": "_"},
-            update_dict={
-                "my_templates": [t["id"] for t in data.get("templates", [])],
-                "model_type": "pro",
-            },
+            update_dict={"model_type": "pro"},
         )
         print(
             f"{OK} seeded {len(data.get('sections', []))} sections, "
@@ -214,25 +197,14 @@ def step_seed() -> bool:
 
 def step_models() -> bool:
     ok = True
-    # prompts resolve
+    # agent prompt files resolve
     try:
-        import asyncio
+        from scribe.prompts import AGENT_PROMPT_NAMES, get_prompt_service
 
-        from echo.prompts.file_provider import FilePromptProvider
-
-        provider = FilePromptProvider(prompt_dir=str(ROOT / "prompts"))
-        names = [
-            "voice2rx/summary/agent",
-            "voice2rx/transcript/agent",
-            "voice2rx/translation/agent",
-            "voice2rx/medication/agent",
-            "voice2rx/template/generation/agent",
-            "voice2rx/template/markdown/agent",
-            "voice2rx/template/integration/agent",
-        ]
-        for name in names:
-            asyncio.run(provider.get_prompt(name))
-        print(f"{OK} all {len(names)} agent prompts resolve from prompts/")
+        svc = get_prompt_service()
+        for key in AGENT_PROMPT_NAMES:
+            svc.get_parsed_agent_prompt(key)
+        print(f"{OK} all {len(AGENT_PROMPT_NAMES)} agent prompts resolve from agents/prompts/")
     except Exception as e:
         print(f"{FAIL} prompts: {e}")
         ok = False
@@ -302,7 +274,7 @@ def step_serve() -> bool:
     log_path.parent.mkdir(parents=True, exist_ok=True)
     log_f = open(log_path, "w")
     proc = subprocess.Popen(
-        [sys.executable, "-m", "uvicorn", "scribe_api.main:app", "--port", str(port)],
+        [sys.executable, "-m", "uvicorn", "scribe.main:app", "--port", str(port)],
         cwd=ROOT,
         env={**os.environ, "PYTHONPATH": str(ROOT / "apps" / "api" / "src")},
         stdout=log_f,

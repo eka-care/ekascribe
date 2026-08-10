@@ -1,0 +1,140 @@
+# In-cluster Postgres. Single replica, one PVC, no operator -- the same shape
+# as the postgres service in deploy/docker-compose.yml, which is why the image
+# tag matches it. Everything the app needs lives in this one database: the
+# app tables (scribe_core/db/spec.py), the procrastinate queue, the session
+# state, and the formulary catalog.
+#
+# TWO KNOBS you may need to change before applying:
+#
+#   1. storage size -- 20Gi below, in volumeClaimTemplates. A PVC cannot be
+#      shrunk and most drivers cannot grow it in place either, so pick this now.
+#   2. storageClassName -- commented out, so the cluster's DEFAULT
+#      StorageClass binds. If `kubectl -n eka-care get pvc` shows Pending, the
+#      cluster has no default; uncomment it and name one.
+#
+# What this is not: there is no HA, no replica, no automated backup and no
+# PITR. See "What this Postgres does not give you" in README.md.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: ekascribe-postgres
+  namespace: eka-care
+  labels:
+    app.kubernetes.io/name: ekascribe-postgres
+    app.kubernetes.io/part-of: ekascribe
+spec:
+  # 1, and it cannot usefully be more. This is a plain postgres image with no
+  # replication configured -- a second replica would initdb its own empty PVC
+  # and serve a different database behind the same Service name.
+  replicas: 1
+  serviceName: ekascribe-postgres
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ekascribe-postgres
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ekascribe-postgres
+        app.kubernetes.io/part-of: ekascribe
+    spec:
+      # No imagePullSecrets: postgres is an official Docker Hub image and pulls
+      # anonymously. ekascribe-regcred exists only for the private
+      # ekacare/ekascribe repo.
+      securityContext:
+        # 70 is the postgres uid/gid in the ALPINE image. The debian-based tags
+        # use 999 -- if you switch off -alpine, change both of these.
+        runAsUser: 70
+        runAsGroup: 70
+        runAsNonRoot: true
+        # Makes the PVC group-writable for uid 70. Required: because we set
+        # runAsUser, the image's entrypoint sees it is not root and skips its
+        # own chown of PGDATA.
+        fsGroup: 70
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: postgres
+              containerPort: 5432
+          # Explicit env, deliberately NOT envFrom. `envFrom: secretRef:
+          # ekascribe-secrets` would hand ANTHROPIC_API_KEY, SARVAM_API_KEY and
+          # UPLOAD_URL_SIGNING_SECRET to the database container for no reason.
+          env:
+            # Literals: user and database name are already baked into every
+            # DATABASE_URL in this repo and in .env.example.
+            - name: POSTGRES_USER
+              value: scribe
+            - name: POSTGRES_DB
+              value: scribe
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ekascribe-secrets
+                  key: POSTGRES_PASSWORD
+            # Must be a SUBDIRECTORY of the mount, not the mount itself:
+            # initdb refuses a non-empty directory and many CSI drivers leave a
+            # lost+found at the volume root. Paired with subPath below.
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+            # Applied by initdb on first boot only. Changing it later does
+            # nothing to an existing volume.
+            - name: POSTGRES_INITDB_ARGS
+              value: "--data-checksums"
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+              subPath: pgdata
+            - name: dshm
+              mountPath: /dev/shm
+          # exec, not tcpSocket: the port accepts connections during crash
+          # recovery while the server is still refusing queries, so a TCP probe
+          # reports ready too early and the api pod connects to a closed door.
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "scribe", "-d", "scribe"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "scribe", "-d", "scribe"]
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 6
+          # Sized for this workload: the api's psycopg pool caps at 10
+          # (scribe_core/db/pg_engine.py) plus procrastinate's connections.
+          # Postgres defaults (max_connections=100, shared_buffers=128MB) are
+          # left untuned -- they are comfortably above what one api replica
+          # asks for.
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 2Gi
+      volumes:
+        # Postgres uses shared memory for parallel query and large sorts. The
+        # container runtime's default /dev/shm is 64Mi, which is small enough
+        # to produce "could not resize shared memory segment" at runtime.
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 256Mi
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+        labels:
+          app.kubernetes.io/name: ekascribe-postgres
+          app.kubernetes.io/part-of: ekascribe
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        # Uncomment and name a class if the cluster has no default
+        # StorageClass (symptom: the PVC sits Pending forever).
+        # storageClassName: gp3
+        resources:
+          requests:
+            storage: 20Gi
