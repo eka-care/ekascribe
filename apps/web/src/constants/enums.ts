@@ -76,7 +76,7 @@ export enum TEMPLATE_ID {
 }
 
 export enum TEMPLATE_WARNINGS_MSG {
-  PARTIAL_OUTPUT = 'Some part of the consultation could not be processed. Please review the output.',
+  PARTIAL_OUTPUT = 'Some part of the recording could not be processed. Please review the output.',
   NO_MEDICAL_CONTEXT = 'No relevant content for this output type was generated from the processed recording for this template.',
 }
 
