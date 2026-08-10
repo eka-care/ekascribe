@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { AudioLines } from 'lucide-react';
 import { SidebarProvider, SidebarTrigger } from '@ui/src';
 import StickyBanner from './sticky-banner';
 import UIHydrationComponent from '@/shared-components/ui-hydration-component';
