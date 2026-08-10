@@ -14,8 +14,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from voice2rx.choices import DocumentType
-from voice2rx.services.transactions.transaction_service import TransactionService
+from scribe.core.choices import DocumentType
+from scribe.services.transaction_service import TransactionService
 
 
 TXN_ID = "txn_123"
@@ -69,7 +69,7 @@ def _run_init(service, flavour):
     with patch.object(
         service, "_prepare_transaction_data", return_value=prepared
     ), patch.object(service, "_validate_transaction_limit"), patch(
-        "voice2rx.services.transactions.transaction_service.validate_s3_urls"
+        "scribe.services.transaction_service.validate_s3_urls"
     ), patch.object(
         service, "_store_document_results"
     ) as store_mock, patch.object(

@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from voice2rx.services.documents.document_service import DocumentService
+from scribe.services.document_service import DocumentService
 
 
 BUCKET = "test-bucket"

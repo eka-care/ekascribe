@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from voice2rx.services.documents.populate_documents_service import (
+from scribe.services.populate_documents_service import (
     PopulateDocumentsService,
     _FAILED_STATUSES,
 )

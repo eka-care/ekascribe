@@ -165,7 +165,7 @@ def step_seed() -> bool:
         import yaml
 
         from scribe_core.settings import get_settings
-        from voice2rx.utils.dynamo_helper import DynamoHelper
+        from scribe.repositories.dynamo_helper import DynamoHelper
 
         s = get_settings()
         data = yaml.safe_load((ROOT / "templates" / "seed_data.yaml").read_text())
@@ -201,7 +201,7 @@ def step_models() -> bool:
     ok = True
     # agent prompt files resolve
     try:
-        from voice2rx.services.prompts import AGENT_PROMPT_NAMES, get_prompt_service
+        from scribe.prompts import AGENT_PROMPT_NAMES, get_prompt_service
 
         svc = get_prompt_service()
         for key in AGENT_PROMPT_NAMES:
@@ -276,7 +276,7 @@ def step_serve() -> bool:
     log_path.parent.mkdir(parents=True, exist_ok=True)
     log_f = open(log_path, "w")
     proc = subprocess.Popen(
-        [sys.executable, "-m", "uvicorn", "scribe_api.main:app", "--port", str(port)],
+        [sys.executable, "-m", "uvicorn", "scribe.main:app", "--port", str(port)],
         cwd=ROOT,
         env={**os.environ, "PYTHONPATH": str(ROOT / "apps" / "api" / "src")},
         stdout=log_f,

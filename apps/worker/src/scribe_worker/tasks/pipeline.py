@@ -1,6 +1,6 @@
 """Worker task wrappers (EXECUTION_MODE=worker).
 
-The pipeline logic lives once in ``voice2rx.background.pipeline``. These thin
+The pipeline logic lives once in ``scribe.pipeline.pipeline``. These thin
 wrappers register it with procrastinate for the Postgres-queue worker; the
 pipeline's own follow-up enqueues route through ``dispatch`` (queue in this
 mode). Retry= values match the pipeline's TASKS registry so both execution
@@ -12,7 +12,7 @@ from __future__ import annotations
 from typing import Any, Dict
 
 from scribe_worker.main import queue_app
-from voice2rx.background import pipeline as bp
+from scribe.pipeline import pipeline as bp
 
 
 @queue_app.task(name="transcribe_chunk", queue="scribe", retry=3)

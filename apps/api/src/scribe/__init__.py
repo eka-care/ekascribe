@@ -1,0 +1,1 @@
+"""Scribe backend application package."""

@@ -1,7 +1,7 @@
 """Unit tests for TemplateFormatConverter."""
 
 import pytest
-from voice2rx.services.templates.format_adapter import TemplateFormatConverter
+from scribe.services.format_adapter import TemplateFormatConverter
 
 
 class TestTemplateFormatConverter:

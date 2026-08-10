@@ -11,8 +11,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from voice2rx.core.exceptions import ResourceNotFoundException
-from voice2rx.services.sessions.session_details_service import (
+from scribe.core.exceptions import ResourceNotFoundException
+from scribe.services.session_details_service import (
     SCHEMA_VERSION,
     SessionDetailsService,
 )
@@ -59,7 +59,7 @@ def service(mock_txn_repo, mock_doc_repo, mock_storage):
 def stub_audio_matrix():
     """Default: empty audio_matrix. Tests can override per-case."""
     with patch(
-        "voice2rx.services.sessions.session_details_service.compute_audio_matrix",
+        "scribe.services.session_details_service.compute_audio_matrix",
         return_value={},
     ) as p:
         yield p

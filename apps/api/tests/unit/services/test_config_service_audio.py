@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import pytest
 
-from voice2rx.services.config_service import ConfigService
+from scribe.services.config_service import ConfigService
 
 B_ID = "EC_test"
 
