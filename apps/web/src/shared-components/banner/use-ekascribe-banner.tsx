@@ -40,12 +40,6 @@ const CARD_ITEMS: CardItem[] = [
     subtitle: 'Native desktop client',
     buttonLabel: 'Get',
   },
-  {
-    icon: '/images/use-ekascribe-banner/icon-whatsapp.svg',
-    title: 'WhatsApp',
-    subtitle: 'Varta inside WhatsApp',
-    buttonLabel: 'Connect',
-  },
 ];
 
 const UseEkascribeBanner = () => {

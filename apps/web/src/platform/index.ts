@@ -26,7 +26,6 @@ export {
   useSystem,
   usePrinter,
   useNotifier,
-  useWhatsApp,
   useAudioCapture,
   useHostBridge,
   useAuthTokens,
