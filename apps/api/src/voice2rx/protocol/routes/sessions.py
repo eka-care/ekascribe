@@ -582,7 +582,7 @@ async def process_session_template(
     tags=["sessions"],
     summary="Patch Session",
     description=(
-        "Update session metadata (patient_details, user_status, processing_status, "
+        "Update session metadata (session_details, user_status, processing_status, "
         "additional_data, language_hint, templates, session_mode, model). "
         "`session_mode` and `model` may only be changed before the session is "
         "committed (user_status != 'commit'), otherwise a 409 is returned."
@@ -649,9 +649,9 @@ async def patch_session(
                 patch_request.model.value, VOICE2RX_MODEL_TYPE.LITE.value
             )
 
-        if patch_request.patient_details:
-            update_data["patient_details"] = patch_request.patient_details
-            patient_oid = patch_request.patient_details.get("oid")
+        if patch_request.session_details:
+            update_data["session_details"] = patch_request.session_details
+            patient_oid = patch_request.session_details.get("oid")
             if patient_oid:
                 update_data["patient_oid"] = patient_oid
 

@@ -273,10 +273,10 @@ const SidebarPastSessions = ({
                 const storeContent = sessionV2ContentById[session.txn_id];
                 const effectivePatientDetails = storeContent?.patient_details ?? session.patient_details;
                 const { username } = effectivePatientDetails || {};
-                // Title lives in additional_data — available once the session's
+                // Title lives in session_details — available once the session's
                 // details are in the store (opened or created this visit).
                 const sessionTitle =
-                  (storeContent?.additional_data?.title as string | undefined) || null;
+                  (storeContent?.session_details?.title as string | undefined) || null;
 
                 const hasPatientInfo = Boolean(username);
                 const initials = getInitials(username);

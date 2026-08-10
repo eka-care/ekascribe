@@ -193,7 +193,7 @@ class TransactionORM(BaseORM):
                 "ProjectionExpression": (
                     "txn_id, created_at, b_id, arc, #mode, client, "
                     "processing_status, #uuid, oid, user_status, "
-                    "patient_details, flavour, version"
+                    "session_details, flavour, version"
                 ),
                 "ExpressionAttributeNames": {"#mode": "mode", "#uuid": "uuid"},
             }
@@ -316,7 +316,7 @@ class TransactionORM(BaseORM):
         try:
             projection = (
                 "arc, #mode, b_id, processing_status, flavour, oid, model_type, "
-                "user_status, patient_details, txn_id, created_at"
+                "user_status, session_details, txn_id, created_at"
             )
             expression_attr_names = {"#mode": "mode", "#uuid": "uuid"}
 

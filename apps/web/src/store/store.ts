@@ -44,6 +44,7 @@ export const emptySessionV2Content: SessionV2Content = {
   upload_progress: { success: 0, total: 0 },
   audio_matrix: null,
   additional_data: {},
+  session_details: {},
   session_config: null,
   session_context: {},
   user_status: '',

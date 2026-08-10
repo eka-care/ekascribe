@@ -7,18 +7,19 @@ import { getSDK } from '@/features/session/services/sdk-provider';
 import { tracker } from '@/analytics';
 
 /**
- * Session title lives in the session's `additional_data.title`. The backend
- * PATCH replaces additional_data wholesale, so we always send the merged object.
+ * Session title lives in the session's `session_details.title` (session meta).
+ * The backend PATCH replaces session_details wholesale, so we always send the
+ * merged object.
  */
 export const useSessionTitle = (sessionId: string) => {
   const title = useVoice2RxStore(
-    (s) => (s.sessionV2ContentById[sessionId]?.additional_data?.title as string | undefined) ?? ''
+    (s) => (s.sessionV2ContentById[sessionId]?.session_details?.title as string | undefined) ?? ''
   );
 
   const saveTitle = useCallback(
     async (nextTitle: string) => {
       const store = useVoice2RxStore.getState();
-      const current = store.sessionV2ContentById[sessionId]?.additional_data ?? {};
+      const current = store.sessionV2ContentById[sessionId]?.session_details ?? {};
       const trimmed = nextTitle.trim();
 
       const next = { ...current };
@@ -29,15 +30,21 @@ export const useSessionTitle = (sessionId: string) => {
       }
 
       // Optimistic update; revert on API failure
-      store.setSessionV2Content(sessionId, { additional_data: next });
+      store.setSessionV2Content(sessionId, { session_details: next });
 
       try {
         const response = await with401Retry(
-          () => getSDK().sessions.patchSessionStatus({ additional_data: next }, sessionId),
+          () =>
+            getSDK().sessions.patchSessionStatus(
+              { session_details: next } as unknown as Parameters<
+                ReturnType<typeof getSDK>['sessions']['patchSessionStatus']
+              >[0],
+              sessionId
+            ),
           'patch session title'
         );
         if (!response.success) {
-          useVoice2RxStore.getState().setSessionV2Content(sessionId, { additional_data: current });
+          useVoice2RxStore.getState().setSessionV2Content(sessionId, { session_details: current });
           useVoice2RxStore.getState().setWarningInfo({
             message: 'Failed to save title. Please try again.',
             type: 'error',
@@ -45,7 +52,7 @@ export const useSessionTitle = (sessionId: string) => {
           });
         }
       } catch (err) {
-        useVoice2RxStore.getState().setSessionV2Content(sessionId, { additional_data: current });
+        useVoice2RxStore.getState().setSessionV2Content(sessionId, { session_details: current });
         tracker.error(err, {
           domain: 'api',
           component: 'voice_api',

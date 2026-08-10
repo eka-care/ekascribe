@@ -227,9 +227,9 @@ class SessionAdaptor:
             "model_training_consent": True,
         }
 
-        if session_request.patient_details:
-            backend_request["patient_details"] = session_request.patient_details
-            patient_oid = session_request.patient_details.get("oid")
+        if session_request.session_details:
+            backend_request["session_details"] = session_request.session_details
+            patient_oid = session_request.session_details.get("oid")
             if patient_oid:
                 backend_request["patient_oid"] = patient_oid
 
@@ -299,7 +299,7 @@ class SessionAdaptor:
             expires_at=expires_at_epoch,
             upload_url=upload_url,
             storage_provider=storage_provider,
-            patient_details=backend_data.get("patient_details") or request.patient_details,
+            session_details=backend_data.get("session_details") or request.session_details,
         )
 
     async def get_transaction_status(self, session_id: str, b_id: str) -> Dict[str, Any]:
@@ -511,7 +511,7 @@ class SessionAdaptor:
             "audio_files_received": audio_files_received,
             "audio_files": audio_files,
             "additional_data": backend_status.get("additional_data", {}),
-            "patient_details": backend_status.get("patient_details"),
+            "session_details": backend_status.get("session_details"),
         }
 
         if protocol_status != SessionStatus.COMPLETED.value:

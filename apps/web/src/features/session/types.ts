@@ -72,6 +72,8 @@ export type SessionV2Content = {
   // --- Session details (from API) ---
   audio_matrix: { quality: string } | null;
   additional_data: Record<string, unknown>;
+  /** Session meta (title, …) — mirrors the API's session_details key. */
+  session_details: Record<string, unknown>;
   session_config: TResolvedSessionPreferences | null;
   session_context: {
     past_sessions?: Array<{ date_epoch: number; session_id: string }>;

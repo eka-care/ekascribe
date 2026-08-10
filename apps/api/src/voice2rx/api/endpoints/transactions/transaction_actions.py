@@ -249,9 +249,9 @@ def update_transaction_api(
             )     
         
         # if transaction actions 
-        if update_data.get("patient_details"):
-            patient_details = update_data.get("patient_details")
-            patient_oid = patient_details.get("oid")
+        if update_data.get("session_details"):
+            session_details = update_data.get("session_details")
+            patient_oid = session_details.get("oid")
             if patient_oid:
                 update_data["patient_oid"] = patient_oid
 

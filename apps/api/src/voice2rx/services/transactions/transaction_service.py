@@ -608,9 +608,9 @@ class TransactionService:
         # this has to be removed when complete integration module/flow is implemented.
         self._inject_configured_integration_templates(item_data, b_id)
 
-        if item_data.get("patient_details"):
-            patient_details = item_data.get("patient_details")
-            patient_oid = patient_details.get("oid")
+        if item_data.get("session_details"):
+            session_details = item_data.get("session_details")
+            patient_oid = session_details.get("oid")
             if patient_oid:
                 item_data["patient_oid"] = patient_oid
 

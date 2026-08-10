@@ -178,7 +178,7 @@ class DynamoDBOperations:
                     ":bid_val": {"S": b_id}
                 },
                 "ScanIndexForward": False,  # False for descending order (latest first)
-                "ProjectionExpression": "txn_id, created_at, b_id, arc, #mode, client, processing_status, #uuid, oid, user_status, patient_details, flavour, version",
+                "ProjectionExpression": "txn_id, created_at, b_id, arc, #mode, client, processing_status, #uuid, oid, user_status, session_details, flavour, version",
                 "ExpressionAttributeNames": {
                     "#mode": "mode",
                     "#uuid": "uuid"

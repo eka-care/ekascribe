@@ -115,7 +115,7 @@ class CreateSessionRequest(BaseModel):
         description="Pass-through data returned in webhooks and responses (max 4KB recommended)"
     )
 
-    patient_details: Optional[Dict[str, Any]] = Field(
+    session_details: Optional[Dict[str, Any]] = Field(
         default=None,
         description="Patient demographic / identifier metadata. 'oid' is promoted to patient_oid for indexing."
     )
@@ -211,7 +211,7 @@ class CreateSessionResponse(BaseModel):
         examples=["aws"]
     )
 
-    patient_details: Optional[Dict[str, Any]] = Field(
+    session_details: Optional[Dict[str, Any]] = Field(
         default=None,
         description="Patient demographic / identifier metadata supplied at session creation"
     )
@@ -241,7 +241,7 @@ class SessionProcessingResponse(BaseModel):
         default=None,
         description="Partial or complete transcript if available"
     )
-    patient_details: Optional[Dict[str, Any]] = Field(default=None)
+    session_details: Optional[Dict[str, Any]] = Field(default=None)
 
     class Config:
         use_enum_values = True
@@ -283,7 +283,7 @@ class SessionCompletedResponse(BaseModel):
         default=None,
         description="Full transcript of audio conversation"
     )
-    patient_details: Optional[Dict[str, Any]] = Field(default=None)
+    session_details: Optional[Dict[str, Any]] = Field(default=None)
 
     class Config:
         use_enum_values = True
@@ -318,7 +318,7 @@ class SessionPartialResponse(BaseModel):
         default=None,
         description="Non-fatal processing issues"
     )
-    patient_details: Optional[Dict[str, Any]] = Field(default=None)
+    session_details: Optional[Dict[str, Any]] = Field(default=None)
 
     class Config:
         use_enum_values = True
@@ -393,7 +393,7 @@ class ExpiredSessionResponse(BaseModel):
     model_used: Optional[ModelType] = None
     language_detected: Optional[str] = None
     audio_files_processed: Optional[int] = Field(default=None, ge=0)
-    patient_details: Optional[Dict[str, Any]] = Field(default=None)
+    session_details: Optional[Dict[str, Any]] = Field(default=None)
 
     class Config:
         use_enum_values = True
@@ -418,7 +418,7 @@ class PatchSessionRequest(BaseModel):
     """
     model_config = ConfigDict(extra="forbid")
 
-    patient_details: Optional[Dict[str, Any]] = Field(default=None)
+    session_details: Optional[Dict[str, Any]] = Field(default=None)
     user_status: Optional[UserStatus] = Field(default=None)
     processing_status: Optional[ProcessingStatus] = Field(default=None)
     additional_data: Optional[Dict[str, Any]] = Field(default=None)
