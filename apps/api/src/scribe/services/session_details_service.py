@@ -130,7 +130,7 @@ class SessionDetailsService:
             "status": self._compute_session_status(txn),
             "transfer": txn.get("transfer"),
             "flavour": txn.get("flavour"),
-            "patient_details": txn.get("patient_details") or {},
+            "session_details": txn.get("session_details") or {},
             "audio_matrix": {},
             "additional_data": additional_data,
             "client_generated_files": txn.get("client_generated_files") or [],

@@ -193,9 +193,9 @@ class ResultServiceV2:
                     doc, b_id, flavour=flavour
                 )
 
-                if transaction_data.get("patient_details"):
-                    response["data"]["patient_details"] = transaction_data.get(
-                        "patient_details"
+                if transaction_data.get("session_details"):
+                    response["data"]["session_details"] = transaction_data.get(
+                        "session_details"
                     )
 
                 status_code = self._status_to_http_code(status)
@@ -212,9 +212,9 @@ class ResultServiceV2:
         doc = self.document_repo.get_document(document_id)
         response = self._build_single_document_response(doc or {}, b_id, flavour=flavour)
 
-        if transaction_data.get("patient_details"):
-            response["data"]["patient_details"] = transaction_data.get(
-                "patient_details"
+        if transaction_data.get("session_details"):
+            response["data"]["session_details"] = transaction_data.get(
+                "session_details"
             )
 
         return response, HTTPStatus.ACCEPTED
@@ -480,9 +480,9 @@ class ResultServiceV2:
             )
             self._append_entry_to_response(ctx.response, entry, category)
 
-        if ctx.transaction.get("patient_details"):
-            ctx.response["data"]["patient_details"] = ctx.transaction.get(
-                "patient_details"
+        if ctx.transaction.get("session_details"):
+            ctx.response["data"]["session_details"] = ctx.transaction.get(
+                "session_details"
             )
 
         # status code logic:
