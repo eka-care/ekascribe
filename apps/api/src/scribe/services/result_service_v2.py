@@ -354,16 +354,11 @@ class ResultServiceV2:
         return True
 
     def __get_document_processing_status(self, ctx: "ResultContext") -> bool:
-        if (
-            (ctx.b_id != "EC_173373528300322" or ctx.transaction.get("fhir_ingested"))
-            and self._document_processing_status(
-                ctx.documents,
-                ctx.session_id,
-                ctx.transaction.get("transfer"),
-            )
-        ):
-            return True
-        return False
+        return self._document_processing_status(
+            ctx.documents,
+            ctx.session_id,
+            ctx.transaction.get("transfer"),
+        )
 
     def _build_document_entry(
         self,
@@ -534,8 +529,6 @@ class ResultServiceV2:
         # output section is deprecated is only used by few clients... we can remove based on some flavours
         if ctx.transaction.get("flavour") not in ["ekascribe-web", "extension", "android"]:
             self._populate_output_section(ctx)
-
-        # add fhir data
 
         if ctx.transaction.get("patient_details"):
             ctx.response["data"]["patient_details"] = ctx.transaction.get(

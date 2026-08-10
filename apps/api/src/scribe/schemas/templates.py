@@ -8,7 +8,7 @@ according to MedScribeAlliance Protocol Specification v0.1
 from enum import Enum
 from typing import Any, Dict, List, Optional, Union
 
-from pydantic import BaseModel, Field
+from pydantic import ConfigDict, BaseModel, Field
 
 
 class TemplateStatus(str, Enum):
@@ -33,8 +33,7 @@ class TemplateError(BaseModel):
         examples=["Could not extract medication information from audio"]
     )
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 
 class ProcessingError(BaseModel):
@@ -57,8 +56,7 @@ class ProcessingError(BaseModel):
         examples=["audio_2.webm"]
     )
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 
 class TemplateResult(BaseModel):
@@ -81,8 +79,7 @@ class TemplateResult(BaseModel):
         description="Error information if status is 'failed'"
     )
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 
 class TemplateInfo(BaseModel):
@@ -107,8 +104,7 @@ class TemplateInfo(BaseModel):
         examples=["Standard Subjective, Objective, Assessment, Plan format"]
     )
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 
 class TemplatesListResponse(BaseModel):
@@ -122,5 +118,4 @@ class TemplatesListResponse(BaseModel):
         description="List of available templates for authenticated user/EMR"
     )
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)

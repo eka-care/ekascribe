@@ -3,7 +3,7 @@
 import pytest
 
 
-def test_file_prompt_provider_langfuse_semantics(tmp_path, monkeypatch):
+def test_file_prompt_provider_variable_semantics(tmp_path, monkeypatch):
     (tmp_path / "my_agent.md").write_text(
         'You are {{role_name}}. Output JSON like {"a": 1, "b": {{count}}}.'
     )
@@ -22,7 +22,7 @@ def test_file_prompt_provider_langfuse_semantics(tmp_path, monkeypatch):
 
 
 def test_file_prompt_provider_yaml_and_versions(tmp_path):
-    d = tmp_path / "voice2rx_summary_agent"
+    d = tmp_path / "scribe_summary_agent"
     d.mkdir()
     (d / "1.yaml").write_text("prompt: v1 body\nrole: old role\n")
     (d / "2.yaml").write_text(
@@ -56,25 +56,17 @@ def test_file_prompt_provider_missing_raises(tmp_path):
         asyncio.run(FilePromptProvider(prompt_dir=str(tmp_path)).get_prompt("nope"))
 
 
-def test_seeded_prompts_resolve(monkeypatch):
-    """Every checked-in agent prompt must resolve through the file provider."""
-    from echo.prompts.file_provider import FilePromptProvider
-    import asyncio
-    from pathlib import Path
+def test_seeded_prompts_resolve():
+    """Every checked-in agent prompt (scribe/prompts/files/*.md) must load
+    and parse through scribe's file prompt loader."""
+    from scribe.prompts.prompt_files import _PROMPTS_DIR, load_parsed_prompt_from_file
 
-    prompts_dir = Path(__file__).resolve().parent.parent / "prompts"
-    provider = FilePromptProvider(prompt_dir=str(prompts_dir))
-    for name in [
-        "scribe/summary/agent",
-        "scribe/transcript/agent",
-        "scribe/translation/agent",
-        "scribe/medication/agent",
-        "scribe/template/generation/agent",
-        "scribe/template/markdown/agent",
-        "scribe/template/integration/agent",
-    ]:
-        fetched = asyncio.run(provider.get_prompt(name))
-        assert fetched.agent_prompt.task.description.strip(), name
+    files = sorted(_PROMPTS_DIR.glob("*.md"))
+    assert files, "no prompt files checked in under scribe/prompts/files"
+    for f in files:
+        parsed = load_parsed_prompt_from_file(f.stem)
+        assert parsed is not None, f"prompt failed to load/parse: {f.name}"
+
 
 
 def test_sarvam_provider_registered(monkeypatch):

@@ -160,8 +160,6 @@ class CreateSessionRequest(BaseModel):
             )
         return v
 
-    # class Config:
-    #     use_enum_values = True
 
 
 class CreateSessionResponse(BaseModel):
@@ -216,8 +214,7 @@ class CreateSessionResponse(BaseModel):
         description="Patient demographic / identifier metadata supplied at session creation"
     )
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 
 class SessionProcessingResponse(BaseModel):
@@ -243,8 +240,7 @@ class SessionProcessingResponse(BaseModel):
     )
     patient_details: Optional[Dict[str, Any]] = Field(default=None)
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 
 class SessionCompletedResponse(BaseModel):
@@ -285,8 +281,7 @@ class SessionCompletedResponse(BaseModel):
     )
     patient_details: Optional[Dict[str, Any]] = Field(default=None)
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 
 class SessionPartialResponse(BaseModel):
@@ -320,8 +315,7 @@ class SessionPartialResponse(BaseModel):
     )
     patient_details: Optional[Dict[str, Any]] = Field(default=None)
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 class EndSessionRequest(BaseModel):
     """
@@ -353,8 +347,7 @@ class EndSessionResponse(BaseModel):
     audio_files_received: int = Field(..., ge=0)
     audio_files: List[str]
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 
 class ExpiredSessionResponse(BaseModel):
@@ -395,8 +388,7 @@ class ExpiredSessionResponse(BaseModel):
     audio_files_processed: Optional[int] = Field(default=None, ge=0)
     patient_details: Optional[Dict[str, Any]] = Field(default=None)
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 
 class ProcessingStatus(str, Enum):
@@ -452,11 +444,3 @@ class ProcessTemplateResponse(BaseModel):
         description="Session-status URL to poll for the generated document",
     )
 
-
-class SessionAudioResponse(BaseModel):
-    """Response for GET /sessions/{session_id}/audio."""
-    session_id: str = Field(...)
-    status: str = Field(default="success")
-    audio_url: str = Field(..., description="Presigned URL of the combined session audio")
-    expires_in: int = Field(..., description="URL validity in seconds")
-    expires_at: int = Field(..., description="Unix epoch (seconds) when the URL expires")

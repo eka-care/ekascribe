@@ -211,7 +211,7 @@ async def upsert_config(request: Request, req: CreateConfigRequest = Body(...)):
 
         if req.request_type == "workspace":
             config_obj = WorkspaceConfig(**req.data)
-            item = {**config_obj.dict(exclude_unset=True), "user_uuid": "_", "b_id": wid}
+            item = {**config_obj.model_dump(exclude_unset=True), "user_uuid": "_", "b_id": wid}
             result = config_service.upsert_config(item, wid, "_")
             if to_remove:
                 config_service.remove_config_attributes(wid, to_remove, "_")
@@ -219,7 +219,7 @@ async def upsert_config(request: Request, req: CreateConfigRequest = Body(...)):
         elif req.request_type == "user" and user_uuid:
             req.data["user_uuid"] = user_uuid
             config_obj = UserConfig(**req.data)
-            item = {**config_obj.dict(exclude_unset=True), "b_id": wid}
+            item = {**config_obj.model_dump(exclude_unset=True), "b_id": wid}
             result = config_service.upsert_config(item, wid, user_uuid)
             if to_remove:
                 config_service.remove_config_attributes(wid, to_remove, user_uuid)
@@ -232,7 +232,7 @@ async def upsert_config(request: Request, req: CreateConfigRequest = Body(...)):
         return {"message": "Config upserted successfully", "result": result}
 
     except ValidationError as ve:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=ve.errors())
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=ve.errors())
     except HTTPException:
         raise
     except Exception as e:

@@ -20,7 +20,6 @@ from .sessions import (
     PatchSessionResponse,
     ProcessTemplateResponse,
     ProcessingStatus,
-    SessionAudioResponse,
 )
 
 from .templates import (
@@ -66,7 +65,6 @@ __all__ = [
     "PatchSessionResponse",
     "ProcessTemplateResponse",
     "ProcessingStatus",
-    "SessionAudioResponse",
 
     # Templates
     "TemplateResult",

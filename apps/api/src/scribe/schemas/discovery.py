@@ -5,9 +5,9 @@ Pydantic models for discovery endpoint according to
 MedScribeAlliance Protocol Specification v0.1
 """
 
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import ConfigDict, BaseModel, Field
 
 
 class ServiceInfo(BaseModel):
@@ -26,8 +26,7 @@ class ServiceInfo(BaseModel):
         description="Support contact email"
     )
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 
 class Endpoints(BaseModel):
@@ -46,8 +45,7 @@ class Endpoints(BaseModel):
         description="templates endpoint url"
     )
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 
 class OIDCConfig(BaseModel):
@@ -60,8 +58,7 @@ class OIDCConfig(BaseModel):
         description="Supported OAuth scopes"
     )
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 
 class AuthenticationConfig(BaseModel):
@@ -76,8 +73,7 @@ class AuthenticationConfig(BaseModel):
         description="OIDC configuration if OIDC is supported"
     )
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 
 class Capabilities(BaseModel):
@@ -117,8 +113,7 @@ class Capabilities(BaseModel):
         examples=[["aws"]]
     )
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 
 class ModelFeatures(BaseModel):
@@ -136,8 +131,7 @@ class ModelFeatures(BaseModel):
         description="Support for custom template creation"
     )
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 
 class ModelConfig(BaseModel):
@@ -171,8 +165,7 @@ class ModelConfig(BaseModel):
         description="Feature availability flags"
     )
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 
 class LanguageConfig(BaseModel):
@@ -191,8 +184,7 @@ class LanguageConfig(BaseModel):
         description="Whether automatic language detection is supported"
     )
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 
 class DiscoveryResponse(BaseModel):
@@ -238,5 +230,4 @@ class DiscoveryResponse(BaseModel):
         description="Language support configuration"
     )
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)

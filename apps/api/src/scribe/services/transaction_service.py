@@ -6,7 +6,6 @@ import os
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any
 import orjson
-from fastapi import BackgroundTasks
 from scribe.core.custom_logger import get_logger
 from scribe.repositories.transaction_orm import TransactionORM
 from scribe.services.document_service import DocumentService
@@ -26,9 +25,6 @@ from scribe.core.choices import (
     Action,
 )
 from scribe.pipeline.enqueue import enqueue_pipeline
-from scribe.services.combine_audios import (
-    background_audio_combine_task,
-)
 from scribe.services.format_adapter import TemplateFormatConverter
 from scribe.services.template_service import TemplateService
 from scribe.repositories.blob import blob_repo
@@ -153,7 +149,6 @@ class TransactionService:
         b_id: str,
         audio_files: List[str],
         chunk_info: Optional[List[dict]] = None,
-        background_tasks: Optional[BackgroundTasks] = None,
     ) -> Dict[str, Any] | None:
         logger.info(
             "TRANSACTION_SERVICE: Committing transaction",
@@ -206,7 +201,6 @@ class TransactionService:
                 },
             )
 
-        self._schedule_audio_combine(txn_id, b_id, transaction, background_tasks)
         logger.info(
             "TRANSACTION_SERVICE: Transaction committed successfully",
             txn_id=txn_id,
@@ -215,41 +209,6 @@ class TransactionService:
         )
 
         return transaction
-
-    def _schedule_audio_combine(
-        self,
-        txn_id: str,
-        b_id: str,
-        transaction: Dict[str, Any],
-        background_tasks: Optional[BackgroundTasks],
-    ) -> None:
-        audio_full_enabled = self.config_service.check_audio_full_enabled(b_id)
-        if not (
-            audio_full_enabled
-            and transaction.get("transfer") == Transfer.VADED.value
-        ):
-            return
-
-        if background_tasks is None:
-            logger.warning(
-                "TRANSACTION_SERVICE: audio combine skipped - no background tasks",
-                txn_id=txn_id,
-                b_id=b_id,
-                severity="medium",
-            )
-            return
-
-        logger.info(
-            "TRANSACTION_SERVICE: Audio combine enabled, adding background task",
-            txn_id=txn_id,
-            b_id=b_id,
-        )
-        background_tasks.add_task(
-            background_audio_combine_task,
-            txn_id=txn_id,
-            b_id=b_id,
-            source_s3_path=transaction["s3_url"],
-        )
 
     def enqueue_processing(
         self,

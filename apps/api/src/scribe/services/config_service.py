@@ -6,7 +6,6 @@ This service handles all configuration-related operations including:
 - User-level configurations
 - CRUD operations for ekascribe_config table
 """
-import os
 from typing import Dict, Any, Optional
 from scribe.core.custom_logger import get_logger
 from scribe.repositories.doc_store import ConditionalCheckFailed, DocStore
@@ -253,60 +252,6 @@ class ConfigService:
                 severity="critical",
             )
             raise
-
-    def check_audio_full_enabled(
-        self, b_id: str, user_uuid: Optional[str] = None
-    ) -> bool:
-        try:
-            config = self.get_config(b_id, user_uuid)
-            if config:
-                return config.get("audio_full", False)
-            return False
-        except Exception as e:
-            logger.error(
-                "Error checking audio_full setting",
-                b_id=b_id,
-                user_uuid=user_uuid,
-                error=str(e),
-                severity="medium",
-            )
-            return False
-
-    def check_audio_api_enabled(
-        self, b_id: str, user_uuid: Optional[str] = None
-    ) -> bool:
-        try:
-            config = self.get_config(b_id, user_uuid)
-            if config:
-                return config.get("audio_api_enabled", False)
-            return False
-        except Exception as e:
-            logger.error(
-                "Error checking audio_api_enabled setting",
-                b_id=b_id,
-                user_uuid=user_uuid,
-                error=str(e),
-                severity="medium",
-            )
-            return False
-
-    def get_audio_url_expiry_hours(
-        self, b_id: str, user_uuid: Optional[str] = None
-    ) -> int:
-        default_hours = 24
-        try:
-            config = self.get_config(b_id, user_uuid) or {}
-            hours = int(config.get("audio_url_expiry_hours", default_hours))
-            return max(1, min(hours, 168))
-        except Exception as e:
-            logger.error(
-                "Error reading audio_url_expiry_hours setting",
-                b_id=b_id,
-                user_uuid=user_uuid,
-                error=str(e),
-                severity="medium",
-            )
-            return default_hours
 
     def get_special_templates(self, b_id: str, user_uuid: Optional[str] = None) -> list:
         try:

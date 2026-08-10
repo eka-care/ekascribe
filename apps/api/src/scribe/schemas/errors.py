@@ -8,7 +8,7 @@ MedScribeAlliance Protocol Specification v0.1
 from enum import Enum
 from typing import Any, Dict, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import ConfigDict, BaseModel, Field
 
 
 class ErrorCode(str, Enum):
@@ -66,8 +66,7 @@ class ErrorDetail(BaseModel):
         description="Additional error context"
     )
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 
 class ErrorResponse(BaseModel):
@@ -81,5 +80,4 @@ class ErrorResponse(BaseModel):
         description="Error information"
     )
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)

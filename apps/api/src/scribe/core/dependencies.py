@@ -1,14 +1,13 @@
 import orjson
 from fastapi import Request, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Dict
 
 class JwtPayload(BaseModel):
     b_id: str = Field(..., alias="b-id")
     iss: str = Field(...)
 
-    class Config:
-        extra = "ignore"
+    model_config = ConfigDict(extra="ignore")
 
 async def get_validated_jwt_payload(request: Request) -> Dict:
     """

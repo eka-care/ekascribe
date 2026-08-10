@@ -18,7 +18,7 @@ _PROMPTS_DIR = Path(__file__).resolve().parent / "files"
 
 
 def _prompt_name_to_filename(prompt_name: str) -> str:
-    """Convert e.g. voice2rx/template_generation/agent -> voice2rx_template_generation_agent.md"""
+    """Convert e.g. template/authoring/agent -> template_authoring_agent.md"""
     return prompt_name.replace("/", "_") + ".md"
 
 
