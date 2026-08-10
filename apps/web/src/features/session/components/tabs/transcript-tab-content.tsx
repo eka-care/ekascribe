@@ -30,6 +30,9 @@ export function TranscriptTabContent({ sessionId }: TranscriptTabContentProps) {
   const transcriptLoading = useVoice2RxStore(
     (s) => s.sessionV2ContentById[sessionId]?.ui?.transcript_loading ?? EMPTY_TRANSCRIPT_LOADING
   );
+  const userStatus = useVoice2RxStore(
+    (s) => s.sessionV2ContentById[sessionId]?.user_status || ''
+  );
 
   const [isRetrying, setIsRetrying] = useState(false);
 
@@ -193,18 +196,21 @@ export function TranscriptTabContent({ sessionId }: TranscriptTabContentProps) {
               This session&apos;s recording didn&apos;t produce a transcript
             </p>
           </div>
-          <button
-            onClick={handleRetry}
-            disabled={isRetrying}
-            className="flex items-center gap-2 h-9 px-4 rounded-lg bg-white border border-[#D1D1D1] text-sm font-medium text-foreground cursor-pointer hover:bg-[#F5F5F5] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            {isRetrying ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <RotateCcw className="w-4 h-4" />
-            )}
-            Retry transcription
-          </button>
+          {/* Recommit only helps when audio was recorded but never committed */}
+          {userStatus === 'recording_started' && (
+            <button
+              onClick={handleRetry}
+              disabled={isRetrying}
+              className="flex items-center gap-2 h-9 px-4 rounded-lg bg-white border border-[#D1D1D1] text-sm font-medium text-foreground cursor-pointer hover:bg-[#F5F5F5] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {isRetrying ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <RotateCcw className="w-4 h-4" />
+              )}
+              Retry transcription
+            </button>
+          )}
         </div>
       </div>
     );

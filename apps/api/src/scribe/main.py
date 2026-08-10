@@ -4,7 +4,7 @@ Differences from upstream:
 - settings come from scribe_core (no JSON-blob env loader, no Secrets Manager)
 - DevAuthMiddleware reproduces the API-Gateway `jwt-payload` header contract
 - removed: telephony, s3-token, usage metering, New Relic, streaming, FHIR,
-  publish/webhooks/consent/metrics/testimonials/integrations, medical agents
+  publish/webhooks/consent/metrics/testimonials/integrations, agents
 """
 
 from __future__ import annotations
@@ -111,8 +111,12 @@ def create_app() -> FastAPI:
     from scribe.routers.scribe_agent_chat import scribe_agent_chat_router
     from scribe.routers.scribe_agent_runs import scribe_agent_router
 
-    app.include_router(scribe_agent_router, prefix="/voice/v1/scribe/agent", tags=["scribe-agent"])
-    app.include_router(scribe_agent_chat_router, prefix="/voice/v1/scribe/agent", tags=["scribe-agent"])
+    app.include_router(
+        scribe_agent_router, prefix="/voice/v1/scribe/agent", tags=["scribe-agent"]
+    )
+    app.include_router(
+        scribe_agent_chat_router, prefix="/voice/v1/scribe/agent", tags=["scribe-agent"]
+    )
 
     @app.get("/voice/ping")
     def greet():
