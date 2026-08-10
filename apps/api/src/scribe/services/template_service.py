@@ -26,7 +26,6 @@ class TemplateModel(BaseModel):
     desc: Optional[str] = None
     section_ids: List[str] = Field(default_factory=list)
     type: Optional[str] = None # default/custom/integration
-    available_tools: Optional[str] = None
     archived: Optional[bool] = None
     archived_at: Optional[str] = None
     created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
@@ -234,10 +233,6 @@ class TemplateService:
     @staticmethod
     async def create_section(section_data: SectionCreate, wid: str) -> SectionCreateResponse:
         """Create a new section"""
-        # note create all the templates in default for 7176288959780124
-        if wid == "7176288959780124":
-            wid = "DEFAULT"
-
         section = SectionModel(
             wid=wid,
             title=section_data.title,
@@ -295,9 +290,6 @@ class TemplateService:
         wid: str
     ) -> SectionUpdateResponse:
         """Update section or create custom copy if editing default"""
-        if wid == "7176288959780124":
-            wid = "DEFAULT"
-
         store = get_async_store()
 
         # Get the section
@@ -368,10 +360,6 @@ class TemplateService:
     @staticmethod
     async def create_template(template_data: TemplateCreate, wid: str) -> TemplateCreateResponse:
         """Create a new template"""
-        # note create all the templates in default for 7176288959780124
-        if wid == "7176288959780124":
-            wid = "DEFAULT"
-
         # Validate section access
         await TemplateService.validate_section_access(template_data.section_ids, wid)
 
@@ -381,7 +369,6 @@ class TemplateService:
             desc=template_data.desc,
             section_ids=template_data.section_ids,
             type= template_data.type,
-            available_tools=template_data.available_tools
         )
 
         template_dict = template.model_dump(exclude_none=True)
@@ -431,7 +418,6 @@ class TemplateService:
                     section_ids=template.get("section_ids", []),
                     default=template.get("wid") == "DEFAULT",
                     is_favorite=template.get("id") in my_template_ids,
-                    available_tools=template.get("available_tools")
                 )
 
             accessible_items = [
@@ -459,9 +445,6 @@ class TemplateService:
         template_data: TemplateUpdate,
         wid: str
     ) -> MessageResponse:
-        if wid == "7176288959780124":
-            wid = "DEFAULT"
-
         """Update an existing template"""
         store = get_async_store()
 
@@ -479,7 +462,6 @@ class TemplateService:
             title=template_data.title,
             desc=template_data.desc,
             section_ids=template_data.section_ids,
-            available_tools=template_data.available_tools
         )
 
         update_data = update_model.model_dump(exclude_none=True)

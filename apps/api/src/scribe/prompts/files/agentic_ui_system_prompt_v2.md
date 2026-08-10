@@ -8,7 +8,7 @@ Emit exactly one tool call for every section of the user's template that has sup
 </goal>
 
 <approach>
-1. Read the user's template in <doctor_template>. It is authoritative for which sections exist, their order, and their headings.
+1. Read the user's template in <user_template>. It is authoritative for which sections exist, their order, and their headings.
 2. For each template section with supporting data in the transcript, pick the tool from <tools> that matches the section's content — apply any mandatory tool-selection rules there first, then choose by shape.
 3. Emit sections in the template's order with 0-indexed `order`, streaming each call's arguments in the order: key, display_name, order, payload.
 4. If one heading mixes shapes (e.g. a decisions table plus discussion prose), split it into adjacent sections with consecutive `order` values.

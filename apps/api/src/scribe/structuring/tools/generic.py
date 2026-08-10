@@ -45,7 +45,7 @@ def _build_input_schema(payload_model: Type[BaseModel]) -> Dict[str, Any]:
             "display_name": {
                 "type": "string",
                 "minLength": 1,
-                "description": "Heading text verbatim from the doctor's template.",
+                "description": "Heading text verbatim from the user's template.",
             },
             "payload": payload_model.model_json_schema(),
             "order": {
@@ -79,8 +79,7 @@ class _GenericEmitTool(BaseTool):
 
     `description` is NOT set per catalog subclass: ToolCatalog.instantiate()
     renders it from tool_prompts.yaml at runtime (the single source of truth
-    for the LLM-facing prose). Tools used outside the catalog (e.g.
-    MeetingNoteTool) still set their own.
+    for the LLM-facing prose).
     """
 
     KIND: ClassVar[SectionKind]
@@ -158,20 +157,6 @@ class NarrativeTool(_GenericEmitTool):
     KIND = SectionKind.NARRATIVE
     PAYLOAD_MODEL = NarrativePayload
 
-class MeetingNoteTool(_GenericEmitTool):
-    name = "add_meeting_note"
-    description = (
-        "Emit ONE markdown block of the structured meeting notes, in document order. Each call appends a single "
-        "self-contained block — a heading with its prose, a paragraph, a discussion point, an action-items group, or "
-        "a decisions list — as markdown. Call this tool repeatedly to build the notes block by block, following the "
-        "structure described in the provided template. `display_name` is the block's heading (rendered as the title), "
-        "and the markdown payload is the block body — do NOT repeat the heading inside the markdown. Use inline bullets "
-        "or numbered lists within a block where the content naturally calls for them."
-    )
-    KIND = SectionKind.NARRATIVE
-    PAYLOAD_MODEL = NarrativePayload
-
-
 ALL_GENERIC_TOOLS: Dict[SectionKind, Type[_GenericEmitTool]] = {
     SectionKind.LIST: ListTool,
     SectionKind.TABLE: TableTool,
@@ -182,7 +167,7 @@ ALL_GENERIC_TOOLS: Dict[SectionKind, Type[_GenericEmitTool]] = {
 # switch for turning off tools (empty by default; names from NAME_TO_TOOL)
 DISABLED_TOOLS: frozenset = frozenset()
 
-# name-keyed registry for template-driven tool selection (available_tools).
+# name-keyed tool registry.
 NAME_TO_TOOL: Dict[str, Type[_GenericEmitTool]] = {
     cls.name: cls
     for cls in (

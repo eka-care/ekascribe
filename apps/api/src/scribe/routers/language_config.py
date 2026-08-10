@@ -40,11 +40,7 @@ header_footer_cdn_base = os.getenv("S3_HEADER_FOOTER_CDN_BASE_URL", "")
 SUPPORTED_CONFIG_DATA = {
     "data": {
         "supported_languages": SUPPORTED_LANGUAGES,
-        "supported_output_formats": [
-            {"id": "eka_emr_template", "name": "Eka EMR Format"},
-            {"id": "clinical_notes_template", "name": "Clinical Notes"},
-            {"id": "transcript_template", "name": "Transcription"},
-        ],
+        "supported_output_formats": [],
         "consultation_modes": [
             {
                 "id": "consultation",
@@ -66,24 +62,6 @@ SUPPORTED_CONFIG_DATA = {
             "model_training_consent": {"value": True, "editable": False}
         },
     }
-}
-_default_my_templates = ["9d9675c6-b29b-424a-abac-99ddd3b8909c", "2f1c9a44-7e6b-4c21-9b3a-1d2e3f4a5b6c", "19288d2f-81a9-46a6-b804-9651242a9b3e", "3a2d8b55-6f7c-4d32-8c4b-2e3f4a5b6c7d", "7d03dd95-45b2-41e1-a5d3-fba98fee0418"]
-
-# TODO: Move this to DB on business level
-HARDCODED_TEMPLATES = {
-    "174298544783657": [
-        {"id": "eka_ipd_notes_template", "name": "Eka IPD Notes Template"},
-        {"id": "sushrut_hospital_ipd_notes_template", "name": "Sushrut Hospital IPD Notes Template"},
-        {"id": "ot_notes_template", "name": "OT Notes Template"},
-    ],
-    "174351162717905": [
-        {"id": "eka_ipd_notes_template", "name": "Eka IPD Notes Template"},
-        {"id": "sushrut_hospital_ipd_notes_template", "name": "Sushrut Hospital IPD Notes Template"},
-        {"id": "ot_notes_template", "name": "OT Notes Template"},
-    ],
-    "7175811053010504": [
-        {"id": "sparsh_hospital_opd_template", "name": "Sparsh Hospital OPD Template"},
-    ],
 }
 
 def _upload_header_footer_image(
@@ -290,8 +268,6 @@ async def get_language_config(
         # and cache it for 2 hours in browser.
         if my_templates:
             templates = config_service.get_my_templates(wid, user_uuid)
-            if len(templates) == 0:
-                templates.extend(_default_my_templates)
 
             templates_details = TemplateService.get_templates_by_ids(templates)
             response = JSONResponse(
@@ -310,9 +286,6 @@ async def get_language_config(
         response_data["data"]["my_templates"] = []
         response_data["data"]["notes_ids"] = []
         response_data["data"]["print_compact"] = True
-
-        if templates := HARDCODED_TEMPLATES.get(wid):
-            response_data["data"]["supported_output_formats"].extend(templates)
 
         # merge the workspace and user configs, 
         # override by user config if same is in workspace config and user config.
@@ -348,15 +321,8 @@ async def get_language_config(
                     "editable": True,
                 })
 
-            if special_templates := config.get("special_templates"):
-                unique_formats = {item["id"]: item for item in data["supported_output_formats"]}
-                unique_formats.update({t["id"]: t for t in special_templates})
-                data["supported_output_formats"] = list(unique_formats.values())
-
             # merge my_templates with template details lookup
             my_templates = config.get("my_templates")
-            if (not my_templates or len(my_templates) == 0) and os.getenv("ENV") == "prod":
-                my_templates = _default_my_templates
 
             existing_ids = {t.get("id") for t in data["my_templates"]}
             templates_details = []

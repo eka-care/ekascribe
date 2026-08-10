@@ -11,7 +11,6 @@ from .generic import (
     NAME_TO_TOOL,
     KeyValueTool,
     ListTool,
-    MeetingNoteTool,
     NarrativeTool,
     TableTool,
 )
@@ -22,7 +21,6 @@ __all__ = [
     "TableTool",
     "KeyValueTool",
     "NarrativeTool",
-    "MeetingNoteTool",
     "ALL_GENERIC_TOOLS",
     "NAME_TO_TOOL",
     "save_scribe_state",

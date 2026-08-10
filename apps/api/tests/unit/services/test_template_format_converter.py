@@ -28,15 +28,15 @@ class TestTemplateFormatConverter:
         transaction_data = {
             "txn_id": "test-123",
             "request_templates": {
-                "visual": [{"template_id": "clinical_note_template"}],
-                "integration": [{"template_id": "eka_emr_template"}],
+                "visual": [{"template_id": "visual_template_a"}],
+                "integration": [{"template_id": "integration_template_a"}],
             }
         }
 
         result = TemplateFormatConverter.convert_to_new_format(transaction_data)
 
         assert "request_templates" in result
-        assert result["request_templates"]["visual"][0]["template_id"] == "clinical_note_template"
+        assert result["request_templates"]["visual"][0]["template_id"] == "visual_template_a"
 
     def test_convert_to_new_format_no_templates(self):
         """Test conversion when no templates provided."""
@@ -56,8 +56,8 @@ class TestTemplateFormatConverter:
         transaction_data = {
             "txn_id": "test-123",
             "request_templates": {
-                "visual": [{"template_id": "clinical_note_template", "language_output": "en-IN"}],
-                "integration": [{"template_id": "eka_emr_template", "language_output": "en-IN"}],
+                "visual": [{"template_id": "visual_template_a", "language_output": "en-IN"}],
+                "integration": [{"template_id": "integration_template_a", "language_output": "en-IN"}],
             }
         }
 
@@ -68,15 +68,15 @@ class TestTemplateFormatConverter:
         assert len(result["output_format_template"]) == 2
         # Check that both templates are present
         template_ids = [t["template_id"] for t in result["output_format_template"]]
-        assert "clinical_note_template" in template_ids
-        assert "eka_emr_template" in template_ids
+        assert "visual_template_a" in template_ids
+        assert "integration_template_a" in template_ids
 
     def test_convert_to_old_format_already_old(self):
         """Test conversion when data is already in old format."""
         transaction_data = {
             "txn_id": "test-123",
             "output_format_template": [
-                {"template_id": "eka_emr_template", "language_output": "en-IN"},
+                {"template_id": "integration_template_a", "language_output": "en-IN"},
             ]
         }
 
@@ -90,7 +90,7 @@ class TestTemplateFormatConverter:
         transaction_data = {
             "txn_id": "test-123",
             "output_format_template": [
-                {"template_id": "eka_emr_template", "language_output": "en-IN"},
+                {"template_id": "integration_template_a", "language_output": "en-IN"},
             ]
         }
 
@@ -105,7 +105,7 @@ class TestTemplateFormatConverter:
             "txn_id": "test-123",
             "request_templates": {
                 "visual": [],
-                "integration": [{"template_id": "eka_emr_template", "language_output": "en-IN"}],
+                "integration": [{"template_id": "integration_template_a", "language_output": "en-IN"}],
             }
         }
 
@@ -149,15 +149,15 @@ class TestTemplateFormatConverter:
         """Test getting only integration templates."""
         transaction_data = {
             "request_templates": {
-                "visual": [{"template_id": "clinical_note_template"}],
-                "integration": [{"template_id": "eka_emr_template"}],
+                "visual": [{"template_id": "visual_template_a"}],
+                "integration": [{"template_id": "integration_template_a"}],
             }
         }
 
         result = TemplateFormatConverter.get_integration_templates(transaction_data)
 
         assert len(result) == 1
-        assert result[0]["template_id"] == "eka_emr_template"
+        assert result[0]["template_id"] == "integration_template_a"
 
 
 

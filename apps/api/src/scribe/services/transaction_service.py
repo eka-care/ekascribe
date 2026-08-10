@@ -13,7 +13,6 @@ from scribe.services.config_service import ConfigService
 from scribe.core.exceptions import (
     TemplateProcessingException,
     TransactionNotFoundException,
-    TransactionLimitExceededException,
     DuplicateTransactionException,
 )
 from scribe.core.validation import validate_s3_urls
@@ -33,7 +32,6 @@ from scribe.core.time_utils import (
     get_current_utc_timestamp,
 )
 from scribe.core.constants import exculuded_apps
-from scribe.services.user_utils import is_user_paid
 from scribe.core.utils import convert_to_s3_protocol
 
 logger = get_logger(__name__)
@@ -63,15 +61,12 @@ class TransactionService:
             transaction_data, headers, txn_id
         )
         b_id = prepared_data["b_id"]
-        paid_user = prepared_data.pop("_paid_user", False)
         # todo : create transaction table serializer and validator to validate the init data
         logger.info(
             "TRANSACTION_SERVICE: Initializing transaction",
             txn_id=txn_id,
             b_id=b_id,
         )
-        # validate transaction limit
-        self._validate_transaction_limit(paid_user, b_id, txn_id, headers)
 
         # validate s3 urls
         validate_s3_urls(
@@ -399,7 +394,6 @@ class TransactionService:
         token_data = headers["token_data"]
         current_time = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         b_id = token_data.get("b-id") or transaction_data.get("c_id")
-        c_id = token_data.get("c-id", "")
 
         item_data = {
             **transaction_data,
@@ -421,16 +415,7 @@ class TransactionService:
                 "c-id": token_data.get("c-id", ""),
                 "idp": token_data.get("idp", ""),
             },
-            "_paid_user": is_user_paid(b_id, token_data),
         }
-
-        # !hacks (requested by product etc)
-        if b_id in [
-            "EC_175308121952375",
-            "EC_173312757004728",
-            "EC_173754209749052",
-        ] or c_id in ["C_175308121952375", "C_173312757004728", "C_173754209749052"]:
-            item_data["input_language"] = ["auto_detect"]
 
         if token_data.get("uuid"):
             item_data["uuid"] = token_data.get("uuid")
@@ -452,22 +437,6 @@ class TransactionService:
             url = item_data.get(url_field, "")
             item_data[url_field] = url.rstrip("/") if url else url
 
-        # !hack:
-        # if it's extension flavour and ouput_format_template dosen't have eka_emr_template
-        # then add eka_emr_template to output_format_template
-        if item_data.get("flavour") == "extension" or (b_id and b_id == "77088166996724"):
-            templates = item_data.get("request_templates", {}).get("integration", [])
-            if not any(t.get("template_id") == "eka_emr_template" for t in templates):
-                item_data["request_templates"]["integration"].append(
-                    {"template_id": "eka_emr_template", "template_type": "default"}
-                )
-
-            if b_id == "77088166996724":
-                item_data["codification_needed"] = True
-        # !hack
-        # this has to be removed when complete integration module/flow is implemented.
-        self._inject_configured_integration_templates(item_data, b_id)
-
         if item_data.get("patient_details"):
             patient_details = item_data.get("patient_details")
             patient_oid = patient_details.get("oid")
@@ -475,64 +444,6 @@ class TransactionService:
                 item_data["patient_oid"] = patient_oid
 
         return item_data
-
-    def _inject_configured_integration_templates(
-        self, item_data: Dict[str, Any], b_id: str
-    ) -> None:
-        uuid_val = item_data.get("uuid", "")
-        if not uuid_val:
-            return
-        cfg = self.config_service.get_config(b_id, uuid_val) or {}
-        configured = cfg.get("integrations") or []
-        if not configured:
-            return
-        
-        request_templates = item_data.setdefault("request_templates", {})
-        integration_list = request_templates.setdefault("integration", [])
-        existing_ids = {t.get("template_id") for t in integration_list}
-
-        for entry in configured:
-            tid = entry.get("id")
-            if not tid or tid in existing_ids:
-                continue
-            integration_list.append(
-                {
-                    "template_id": tid,
-                    "template_name": entry.get("name"),
-                    "template_type": "integration",
-                }
-            )
-
-    def _validate_transaction_limit(
-        self, paid_user: bool, b_id: str, txn_id: str, headers: Dict[str, Any]
-    ) -> None:
-        # do not block the paid users and api-key users from transaction limit check.
-        token_data = headers.get("token_data", {})
-        if token_data.get("idp") == "api-key":
-            return None
-
-        paid_bid = {
-            "EC_176312605461185",
-            "EC_174663241066776",
-            "77624320149397",
-            "7174714526537653",
-            "EC_176059547424959",
-            "EC_175975295455422",
-            "EC_175308121952375",
-            "EC_173373528300322",
-        }
-
-        if not paid_user and b_id not in paid_bid:
-            count = self.transaction_repo.count_today_transactions(b_id)
-            if count >= 20:
-                logger.error(
-                    "TRANSACTION_SERVICE: Transaction limit exceeded",
-                    txn_id=txn_id,
-                    b_id=b_id,
-                    count=count,
-                    severity="medium",
-                )
-                raise TransactionLimitExceededException()
 
     def publish_to_sns_for_vadding(
         self, item_data: Dict[str, Any], txn_id: str, b_id: str

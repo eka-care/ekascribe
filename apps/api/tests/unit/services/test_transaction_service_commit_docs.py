@@ -62,7 +62,7 @@ def _run_init(service, flavour):
     prepared = _transaction(flavour=flavour)
     with patch.object(
         service, "_prepare_transaction_data", return_value=prepared
-    ), patch.object(service, "_validate_transaction_limit"), patch(
+    ), patch(
         "scribe.services.transaction_service.validate_s3_urls"
     ), patch.object(
         service, "_store_document_results"

@@ -1,7 +1,7 @@
 from pydantic import BaseModel, ConfigDict, Field
 from typing import List, Optional, Dict, Any, Set
 from scribe.core.choices import VOICE2RX_MODEL_TYPE, TransactionMode, InputLanguage
-from scribe.schemas.transaction import OutputFormatTemplate, default_output_format_template
+from scribe.schemas.transaction import OutputFormatTemplate
 
 ALLOWED_IMAGE_CONTENT_TYPES: Set[str] = {"image/png", "image/jpg", "image/jpeg"}
 ALLOWED_IMAGE_UNITS: Set[str] = {"cm", "mm"}
@@ -25,17 +25,12 @@ class ImageMetadata(BaseModel):
     height: Optional[int] = None
     unit: str = "cm"
 
-class SpecialTemplate(BaseModel):
-    name: str
-    id: str
-
 class EkascribeConfigBase(BaseModel):
     auto_download: Optional[bool] = None
     scribe_enabled: Optional[bool] = None
-    special_templates: Optional[List[SpecialTemplate]] = None
     my_templates: Optional[List[str]] = None
     input_language: Optional[List[InputLanguage]] = None 
-    output_format_template: Optional[List[OutputFormatTemplate]] = Field(default_factory=default_output_format_template)
+    output_format_template: Optional[List[OutputFormatTemplate]] = Field(default_factory=list)
     model_type: Optional[VOICE2RX_MODEL_TYPE] = Field(default=VOICE2RX_MODEL_TYPE.PRO.value)
     mode: Optional[TransactionMode] = None
     

@@ -24,7 +24,6 @@ from ag_ui.core import (
 
 from scribe.routers import scribe_agent_runs as scribe_agent_runs_module
 from scribe.services import process_template_service
-from scribe.services import template_result_common
 from scribe.structuring.run_service import (
     AgUiRunService,
     ResolvedRunInputs,
@@ -103,17 +102,10 @@ def reset_agent_runs_globals():
 
 @pytest.fixture
 def mock_docs(monkeypatch):
-    """Replace the shared document_service / template_service used by the
-    process-template service and check_and_initialize_documents. Without an
-    explicit document_id, a fresh document is always created."""
+    """Replace the document_service used by the process-template service."""
     doc_service = MagicMock()
     doc_service.create_document.return_value = {"document_id": "doc_created"}
-    monkeypatch.setattr(template_result_common, "document_service", doc_service)
-    monkeypatch.setattr(
-        template_result_common,
-        "template_service",
-        MagicMock(get_template=lambda template_id: {"title": "Visual"}),
-    )
+    monkeypatch.setattr(process_template_service, "document_service", doc_service)
     return doc_service
 
 

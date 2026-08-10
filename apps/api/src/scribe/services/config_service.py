@@ -253,20 +253,6 @@ class ConfigService:
             )
             raise
 
-    def get_special_templates(self, b_id: str, user_uuid: Optional[str] = None) -> list:
-        try:
-            merged_config = self.get_merged_config(b_id, user_uuid)
-            return merged_config.get("special_templates", [])
-        except Exception as e:
-            logger.error(
-                "Error fetching special templates",
-                b_id=b_id,
-                user_uuid=user_uuid,
-                error=str(e),
-                severity="medium",
-            )
-            return []
-
     def get_my_templates(self, b_id: str, user_uuid: Optional[str] = None) -> list:
         try:
             templates = []

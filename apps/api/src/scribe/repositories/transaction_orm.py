@@ -2,7 +2,6 @@
 
 import os
 from typing import Dict, List, Optional, Any
-from datetime import datetime, timezone, time, timedelta
 from decimal import Decimal
 from scribe.core.custom_logger import get_logger
 from scribe.schemas.transaction import TransactionUpdateData
@@ -201,55 +200,6 @@ class TransactionORM(BaseORM):
                 severity="medium",
             )
             raise
-
-    def count_today_transactions(self, b_id: str) -> int:
-        """
-        Count successful transactions for a business ID today.
-
-        Args:
-            b_id: Business ID
-
-        Returns:
-            Count of transactions
-        """
-        try:
-            # Get current date in system's local timezone
-            now_local = datetime.now()
-            today = now_local.date()
-
-            # Create timezone-aware local day boundaries
-            start_of_day_local = datetime.combine(today, time.min).replace(
-                tzinfo=now_local.tzinfo
-            )
-            end_of_day_local = datetime.combine(
-                today + timedelta(days=1), time.min
-            ).replace(tzinfo=now_local.tzinfo)
-
-            # Convert to UTC for the range query
-            start_of_day_utc = start_of_day_local.astimezone(timezone.utc)
-            end_of_day_utc = end_of_day_local.astimezone(timezone.utc)
-
-            # Format timestamps
-            start_timestamp = start_of_day_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
-            end_timestamp = end_of_day_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
-
-            return self.table.count(
-                [
-                    ("b_id", "eq", b_id),
-                    ("created_at", "between", (start_timestamp, end_timestamp)),
-                    ("processing_status", "eq", VOICE2RX_PROCESSING_STATUS.SUCCESS.value),
-                ]
-            )
-
-        except Exception as e:
-            logger.error(
-                "Unexpected error counting today's transactions",
-                b_id=b_id,
-                error=str(e),
-                exc_info=True,
-                severity="medium",
-            )
-            return 0
 
     def get_transactions(
         self, uuid: str, limit: Optional[int] = None

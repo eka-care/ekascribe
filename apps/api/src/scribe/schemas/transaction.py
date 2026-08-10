@@ -10,13 +10,9 @@ class TransactionResponse(BaseModel):
     txn_id: Optional[str] = None
 
 
-def default_output_format_template():
-    return [OutputFormatTemplate()]
-
 class OutputFormatTemplate(BaseModel):
-    template_id: str = "clinical_note_template"
+    template_id: str
     language_output: LanguageOutput = LanguageOutput.EN_IN.value
-    codification_needed: bool = False
     post_proc_method_slug: Optional[List[str]] = None
     template_type: Optional[str] = "default"
     prompt: Optional[str] = None
@@ -66,7 +62,7 @@ class TransactionInitRequest(BaseModel):
     speciality: Optional[str] = None
     section: Optional[str] = None
     # Old format - kept for backward compatibility
-    output_format_template: Optional[List[OutputFormatTemplate]] = Field(default_factory=default_output_format_template)
+    output_format_template: Optional[List[OutputFormatTemplate]] = Field(default_factory=list)
     # New format - categorized templates
     request_templates: Optional[RequestTemplates] = None
     client_generated_files: Optional[List[str]] = []

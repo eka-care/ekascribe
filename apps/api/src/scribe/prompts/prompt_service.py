@@ -6,7 +6,7 @@ in-memory cache on first use (template *content* lives in the database; these
 files carry only agent system prompts). Variables use {{name}} placeholders.
 """
 
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Optional
 
 from scribe.core.custom_logger import get_logger
 
@@ -18,7 +18,6 @@ logger = get_logger(__name__)
 # agent key -> prompt file name (without .md) in scribe/prompts/files/
 AGENT_PROMPT_NAMES = {
     "agentic_ui_v2": "agentic_ui_system_prompt_v2",
-    "meeting_notes": "meeting_notes_system_prompt",
     "template_authoring": "template_authoring_agent",
 }
 

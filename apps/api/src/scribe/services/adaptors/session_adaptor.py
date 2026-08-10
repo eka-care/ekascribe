@@ -254,7 +254,6 @@ class SessionAdaptor:
                 {
                     "template_id": template_id,
                     "language_output": output_language,
-                    "codification_needed": False,
                     "template_type": template_type,
                 }
             )

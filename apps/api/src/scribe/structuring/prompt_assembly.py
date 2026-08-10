@@ -48,9 +48,9 @@ def build_scribe_agent_config_v2(
             has_guardrails=bool(parsed.guardrails),
         )
     description_parts.append(
-        "<doctor_template>\n"
+        "<user_template>\n"
         + (parsed.user_prompt or template_prompt).strip()
-        + "\n</doctor_template>"
+        + "\n</user_template>"
     )
     description_parts.append(
         "<tools>\n"
@@ -74,43 +74,4 @@ def build_scribe_agent_config_v2(
             description="\n\n".join(description_parts),
             expected_output=expected_output,
         ),
-    )
-
-#  this is getting used only for meeting notes now.
-def build_ag_ui_agent_config(
-    template_prompt: str,
-    *,
-    date: Optional[str] = None,
-    additional_instructions: Optional[str] = None,
-    prompt_key: str = "agentic_ui",
-) -> EchoAgentConfig:
-    parsed = get_prompt_service().get_parsed_agent_prompt(
-      prompt_key
-    )
-
-    role = parsed.role()
-    goal = (parsed.goal or "").strip()
-    backstory = parsed.full_backstory()
-
-    description_parts: list[str] = []
-    if parsed.task_instructions:
-        description_parts.append(parsed.task_instructions.strip())
-    description_parts.append(
-        "<doctor_template>\n" + template_prompt.strip() + "\n</doctor_template>"
-    )
-
-    epilogue: list[str] = []
-    if date:
-        epilogue.append(f"Today's date is {date}.")
-    if additional_instructions:
-        epilogue.append(additional_instructions.strip())
-    if epilogue:
-        description_parts.append("## Run context\n\n" + "\n\n".join(epilogue))
-
-    description = "\n\n".join(description_parts)
-    expected_output = (parsed.expected_output_for("markdown") or "").strip()
-
-    return EchoAgentConfig(
-        persona=PersonaConfig(role=role, goal=goal, backstory=backstory),
-        task=TaskConfig(description=description, expected_output=expected_output),
     )

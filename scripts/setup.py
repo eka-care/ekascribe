@@ -9,7 +9,7 @@ Steps (each skippable):
   3. Storage read/write/delete probe
   4. Migrations: app schema + procrastinate queue schema
   5. Queue enqueue round-trip probe
-  6. Seeds: DEFAULT sections + 3 default templates (templates/seed_data.yaml)
+  6. Seeds: 3 starter templates for the directory (templates/seed_data.yaml)
      + workspace config bound to the dev identity            [--no-seed]
   7. Model checks: prompts resolve, LLM ping, STT ping       [--skip-model-check]
   8. Serve-and-verify: boot API, hit /voice/ping + discovery [--no-serve-check]
@@ -179,13 +179,11 @@ def step_seed() -> bool:
             tpl.setdefault("wid", "DEFAULT")
             template_db.upsert_item(key_dict={"id": tpl["id"]}, update_dict=tpl)
 
+        # No default template selection — users pick from the directory.
         config_db = DocStore("ekascribe_config")
         config_db.upsert_item(
             key_dict={"b_id": s.dev_b_id, "user_uuid": "_"},
-            update_dict={
-                "my_templates": [t["id"] for t in data.get("templates", [])],
-                "model_type": "pro",
-            },
+            update_dict={"model_type": "pro"},
         )
         print(
             f"{OK} seeded {len(data.get('sections', []))} sections, "
