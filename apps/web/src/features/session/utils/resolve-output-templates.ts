@@ -1,7 +1,8 @@
 import type { TPreferenceItem } from '@/constants/types';
-import { SUPPORTED_OUTPUT_FORMATS_PROD } from '@/constants/settings';
 
-// Output template(s) a session uses: session config → user defaults → app default.
+// Output template(s) a session uses: session config → user defaults.
+// No app-level fallback: with no template selected, nothing is generated
+// after a session ends — the transcript alone remains.
 export function resolveOutputTemplates(
   sessionTemplates: TPreferenceItem[] | undefined,
   userDefaultTemplates: TPreferenceItem[] | undefined
@@ -10,5 +11,5 @@ export function resolveOutputTemplates(
 
   if (userDefaultTemplates?.length) return userDefaultTemplates;
 
-  return [SUPPORTED_OUTPUT_FORMATS_PROD[0]];
+  return [];
 }
