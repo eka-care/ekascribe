@@ -1,5 +1,8 @@
-# Scribe on-prem stack: postgres + api + web (worker via --profile worker).
-# No Redis, no AWS. Storage + queue + chunk state all live in Postgres/volume.
+# Scribe — LOCAL stack (locked to the working local setup).
+#   postgres + api + web; worker via --profile worker. No Redis, no AWS.
+#   Web is built against http://localhost:8000 / :3000 unless SELF_URL/WEB_URL
+#   are set in the shell or .env.
+#   Usage: docker compose -f deploy/docker-compose-local.yml up -d --build
 services:
   postgres:
     image: postgres:16-alpine

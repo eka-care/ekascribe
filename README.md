@@ -21,7 +21,7 @@ Native dev loop (no Docker for the app):
 
 ```bash
 uv sync --all-packages && npm install
-docker compose -f deploy/docker-compose.yml up -d postgres
+docker compose -f deploy/docker-compose-local.yml up -d postgres
 make setup          # writes .env (add keys, re-run), runs migrations + seeds
 make api            # http://localhost:8000
 make web            # http://localhost:3000
@@ -37,7 +37,7 @@ of two modes, selected by `EXECUTION_MODE` in `.env`:
 - **`worker`** — jobs are deferred to Postgres (procrastinate) and consumed by the
   `apps/worker` container. Durable, retryable, and horizontally scalable for high
   concurrency. Enable with `EXECUTION_MODE=worker` + `UVICORN_WORKERS=4`, then
-  `docker compose -f deploy/docker-compose.yml --profile worker up -d --build`.
+  `docker compose -f deploy/docker-compose-local.yml --profile worker up -d --build`.
 
 Same pipeline code runs in both modes; only the dispatch backend changes.
 
