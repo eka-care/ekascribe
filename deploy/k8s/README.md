@@ -249,3 +249,13 @@ Confirm the api came up in the expected mode:
 ```bash
 kubectl -n eka-care logs deploy/ekascribe-api | grep -i "background job runner\|api configured"
 ```
+
+Run this in order
+```
+kubectl apply -f deploy/k8s/01-configmap.yaml
+kubectl apply -f deploy/k8s/04-postgres-service.yaml -f deploy/k8s/05-postgres-statefulset.yaml
+kubectl -n eka-care rollout status statefulset/ekascribe-postgres
+kubectl apply -f deploy/k8s/06-migrate-job.yaml     # schema + seed templates (replaces setup.py step)
+kubectl -n eka-care wait --for=condition=complete job/ekascribe-migrate --timeout=300s
+kubectl apply -f deploy/k8s/10-api-deployment.yaml -f deploy/k8s/11-api-service.yaml
+```

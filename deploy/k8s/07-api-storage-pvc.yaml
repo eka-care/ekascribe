@@ -1,0 +1,17 @@
+# Recording storage for STORAGE_BACKEND=local — audio chunks and artifacts
+# under STORAGE_ROOT (/data/storage) must survive pod restarts.
+# ReadWriteOnce: fine while the api Deployment runs a single replica (which
+# inprocess local-storage mode requires anyway).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ekascribe-api-storage
+  namespace: eka-care
+  labels:
+    app.kubernetes.io/part-of: ekascribe
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi

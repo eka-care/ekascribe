@@ -11,23 +11,13 @@ data:
   # --- Deployment ---------------------------------------------------------
   ENV: "prod"
 
-  # In-cluster address of the API Service. EVERYTHING that calls the API from
-  # inside the cluster goes through this, including the pipeline's own PATCH
-  # callback (apps/api/src/voice2rx/background/pipeline.py).
-  #
-  # Do NOT "fix" this to a public hostname. It would send in-cluster traffic
-  # out and back in, and breaks outright while access is port-forward only.
-  # The browser-facing address is API_BASE_URL below -- that is the knob you
-  # want when the API gets a real hostname.
-  SELF_URL: "http://varta.bharatai.gov.in/api"
-
-  # Browser-facing base URL. Checked before SELF_URL by the discovery doc and
-  # session helpers (voice2rx/protocol/routes/discovery.py,
-  # voice2rx/utils/session_utils.py). The /voice suffix is required -- those
-  # call sites append paths straight onto it.
-  # Correct as-is for `kubectl port-forward svc/ekascribe-api 8000:8000`;
-  # change to https://api.<your-domain>/voice once an ingress exists.
-  API_BASE_URL: "http://varta.bharatai.gov.in/api/voice"
+  # Public https base of the app. Browser-facing URLs (signed blob/upload
+  # URLs, discovery doc, session URLs) are derived from it, so it MUST be the
+  # hostname the ingress serves — https, or the mic won't record. The
+  # pipeline's own PATCH callback also uses it (out through the ingress and
+  # back; matches the proven compose deployment). No API_BASE_URL needed —
+  # it falls back to SELF_URL + /voice.
+  SELF_URL: "http://varta.bharatai.gov.in"
   # The api image ships the static web UI at /app/web-static and serves it at /
   # (scribe/web_static.py). The bundle uses relative URLs, so no WEB_URL or
   # NEXT_PUBLIC_* host vars exist anymore. Unset this to run the pod API-only.
@@ -49,11 +39,14 @@ data:
   # non-durable -- a pod restart drops anything in flight.
   # Switching to EXECUTION_MODE=worker means adding a worker Deployment.
   EXECUTION_MODE: "inprocess"
-  UVICORN_WORKERS: "1"
+  # Chunk coordination lives in Postgres (audio_chunks claims), so 2 uvicorn
+  # workers are safe — matches the compose prod deployment.
+  UVICORN_WORKERS: "2"
   BACKGROUND_JOB_CONCURRENCY: "4"
 
   # --- Storage ------------------------------------------------------------
-  # Blobs go to S3; these paths are only scratch space on an emptyDir.
+  # STORAGE_BACKEND=local: recordings live on the api pod's PVC
+  # (07-api-storage-pvc.yaml) — NOT scratch space. Survives restarts.
   STORAGE_ROOT: "/data/storage"
   S3_BUCKET: "voice-records"
   # Read directly via os.getenv() by voice2rx (scribe_agent_runs.py,
@@ -71,12 +64,18 @@ data:
   # SELF_URL (discovery.py). They are inert under AUTH_MODE=dev; set them
   # explicitly if you ever switch to AUTH_MODE=jwt.
 
-  # --- Models: STT --------------------------------------------------------
-  ECHO_DEFAULT_TRANSCRIBER_PROVIDER: "sarvam"
+  # --- Models: STT — self-hosted transcribe service -----------------------
+  ECHO_DEFAULT_TRANSCRIBER_PROVIDER: "model_api"
+  MODEL_API_TRANSCRIBE_URL: "http://varta-model.bharatai.gov.in/v1"
 
-  # --- Models: LLM --------------------------------------------------------
-  ECHO_DEFAULT_LLM_PROVIDER: "anthropic"
-  ECHO_DEFAULT_LLM_MODEL: "claude-sonnet-4-20250514"
+  # --- Models: LLM — Open WebUI fronting qwen -----------------------------
+  # OPENWEBUI_API_KEY lives in 02-secret.yaml.
+  ECHO_DEFAULT_LLM_PROVIDER: "openwebui"
+  ECHO_DEFAULT_LLM_MODEL: "qwen3-27b"
+  OPENWEBUI_BASE_URL: "https://bharatai.gov.in"
+  OPENWEBUI_ENABLE_THINKING: "false"
+  ECHO_DEFAULT_LLM_TEMPERATURE: "0"
+  OPENWEBUI_VERIFY_SSL: "false"
 
   # --- Prompts ------------------------------------------------------------
   ECHO_PROMPT_PROVIDER: "file"
