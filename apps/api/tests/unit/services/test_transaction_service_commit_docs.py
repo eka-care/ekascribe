@@ -1,7 +1,8 @@
 """
 Tests for document creation around the session lifecycle:
 
-- init skips document creation entirely for flavour-excluded apps
+- init skips TEMPLATE doc creation for flavour-excluded apps but always
+  creates the transcript placeholder
 - _store_document_results always creates visual + integration + transcript
   docs (no flavour-based skipping inside it anymore)
 - commit never creates documents; it stamps commit_at on whatever
@@ -74,9 +75,17 @@ def _run_init(service, flavour):
     return store_mock
 
 
-def test_init_skips_document_creation_for_excluded_flavour(service):
+def test_init_skips_template_docs_but_creates_transcript_for_excluded_flavour(service):
     store_mock = _run_init(service, EXCLUDED_FLAVOUR)
     store_mock.assert_not_called()
+    # web/desktop sessions still get the transcript placeholder at init —
+    # the FE polls it right after end-session and the AG-UI resolver
+    # requires it to exist.
+    service.document_service.create_document.assert_called_once()
+    assert (
+        service.document_service.create_document.call_args.kwargs["template_id"]
+        == "transcript"
+    )
 
 
 def test_init_creates_documents_for_normal_flavour(service):

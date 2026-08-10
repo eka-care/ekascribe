@@ -1,14 +1,18 @@
-# Default on-prem profile: four containers, no Redis, no AWS.
-# Overlays: docker-compose.aws.yml (LocalStack / real AWS backends).
+# Scribe on-prem stack: postgres + api + web (worker via --profile worker).
+# No Redis, no AWS. Storage + queue + chunk state all live in Postgres/volume.
 services:
   postgres:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_USER: scribe
       POSTGRES_PASSWORD: scribe
       POSTGRES_DB: scribe
+    # loopback-only so the DB is never exposed off-box; native `make api/setup`
+    # connect via 127.0.0.1 (use 127.0.0.1 in DATABASE_URL — on macOS
+    # "localhost" resolves to ::1 first, which this binding does not serve).
     ports:
-      - "127.0.0.1:5432:5432"   # loopback only; native `make api/worker/setup` still works
+      - "127.0.0.1:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -21,32 +25,41 @@ services:
     build:
       context: ..
       dockerfile: deploy/Dockerfile.api
+    restart: unless-stopped
     env_file: ../.env
     environment:
       DATABASE_URL: postgresql://scribe:scribe@postgres:5432/scribe
+      ECHO_PG_HOST: postgres
       # override .env's relative ./storage so api + worker share the mounted volume
       STORAGE_ROOT: /data/storage
     volumes:
       - storage:/data/storage
       - logs:/data/logs
     ports:
-      - "8000:8000"   # fronted by infra SSL (https://bharat-backend.dev.eka.care)
+      - "8000:8000"   # fronted by infra SSL on the VM (https://bharat-backend.dev.eka.care)
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
 
   worker:
-    # Only needed for EXECUTION_MODE=worker. Start with: docker compose --profile worker up
-    # (and set EXECUTION_MODE=worker + UVICORN_WORKERS on api). Default mode
+    # Only for EXECUTION_MODE=worker: docker compose --profile worker up
+    # (and set EXECUTION_MODE=worker + UVICORN_WORKERS>1 on api). Default mode
     # (inprocess) runs the pipeline inside the api container, so this stays off.
     profiles: ["worker"]
     build:
       context: ..
       dockerfile: deploy/Dockerfile.worker
+    restart: unless-stopped
     env_file: ../.env
     environment:
       DATABASE_URL: postgresql://scribe:scribe@postgres:5432/scribe
-      # share the same audio storage as the api container
+      ECHO_PG_HOST: postgres
       STORAGE_ROOT: /data/storage
       # PATCH callbacks go to the api service, not the worker's own localhost
       SELF_URL: http://api:8000
@@ -62,14 +75,17 @@ services:
       context: ..
       dockerfile: deploy/Dockerfile.web
       args:
+        # NEXT_PUBLIC_* are inlined at BUILD time — rebuild web when these change.
         NEXT_PUBLIC_API_HOST: ${SELF_URL:-http://localhost:8000}
         NEXT_PUBLIC_WEB_HOST: ${WEB_URL:-http://localhost:3000}
+    restart: unless-stopped
     environment:
       NEXT_PUBLIC_API_HOST: ${SELF_URL:-http://localhost:8000}
     ports:
-      - "3000:3000"   # fronted by infra SSL (https://bharat-net.dev.eka.care)
+      - "3000:3000"   # fronted by infra SSL on the VM (https://bharat-net.dev.eka.care)
     depends_on:
-      - api
+      api:
+        condition: service_healthy
 
 volumes:
   pgdata:
