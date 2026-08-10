@@ -374,11 +374,11 @@ const SidebarPastSessions = ({
                       ) : (
                         <>
                           <p className="text-xs truncate leading-4 font-medium text-[#1A1A1A]">
-                            Session at {time}
+                            Session
                           </p>
-                          {hasNotesReady && (
-                            <p className="text-xs leading-4 text-[#767676]">Notes Ready</p>
-                          )}
+                          <p className="text-xs leading-4 text-[#767676]">
+                            {hasNotesReady ? `${time} · Notes Ready` : time}
+                          </p>
                         </>
                       )}
                     </div>
