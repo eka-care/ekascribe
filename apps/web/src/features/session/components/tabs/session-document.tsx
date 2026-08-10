@@ -104,6 +104,14 @@ const StreamingDocument = forwardRef<SessionDocumentHandle, StreamingProps>(
       [state, saveDocument, getMarkdown]
     );
 
+    const favouriteNote = useMemo(
+      () =>
+        state.document_id
+          ? { documentId: state.document_id, documentName: documentName || 'Note' }
+          : undefined,
+      [state.document_id, documentName]
+    );
+
     const hasSections = state.sections.length > 0;
     const hasStreamContent = hasSections || messages.length > 0 || toolCalls.length > 0;
     const isStreaming = phase === 'streaming' || phase === 'connecting';
@@ -146,6 +154,7 @@ const StreamingDocument = forwardRef<SessionDocumentHandle, StreamingProps>(
                 customExtensions={buildScribeEditorExtensions()}
                 editable={phase === 'finished'}
                 showToolbar={phase === 'finished'}
+                favouriteNote={favouriteNote}
                 onChange={handleChange}
                 onBlur={handleBlur}
                 onFocusChange={handleFocusChange}
@@ -230,6 +239,11 @@ const DocumentView = forwardRef<SessionDocumentHandle, DocumentProps>(function D
       },
     }),
     [documentId, getMarkdown, saveDocument]
+  );
+
+  const favouriteNote = useMemo(
+    () => ({ documentId, documentName: doc?.document_name || 'Note' }),
+    [documentId, doc?.document_name]
   );
 
   // Auto-stream in-progress custom docs when triggered by end-recording flow
@@ -405,6 +419,7 @@ const DocumentView = forwardRef<SessionDocumentHandle, DocumentProps>(function D
             customExtensions={buildScribeEditorExtensions()}
             editable={true}
             showToolbar={true}
+            favouriteNote={favouriteNote}
             onChange={handleChange}
             onBlur={handleBlur}
             onFocusChange={handleFocusChange}

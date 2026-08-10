@@ -1,6 +1,6 @@
 {
   "name": "@eka-care/ekascribe-ts-sdk",
-  "version": "3.0.44",
+  "version": "3.0.46",
   "description": "EkaScribe TypeScript SDK - Modern ES2020 build",
   "main": "dist/index.mjs",
   "module": "dist/index.mjs",
@@ -38,7 +38,7 @@
   ],
   "dependencies": {
     "marked": "^18.0.4",
-    "med-scribe-alliance-ts-sdk": "2.0.42"
+    "med-scribe-alliance-ts-sdk": "2.0.44"
   },
   "devDependencies": {
     "vite-bundle-analyzer": "^1.3.6"

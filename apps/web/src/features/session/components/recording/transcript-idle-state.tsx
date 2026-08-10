@@ -10,7 +10,7 @@ function TranscriptIdleState() {
             Ready to transcribe
           </h3>
           <p className="text-sm text-[#595959] max-w-[300px]">
-            Hit Start transcribing when your patient arrives. The transcript will appear here
+            Hit Start transcribing when you're ready. The transcript will appear here
             automatically.
           </p>
         </div>

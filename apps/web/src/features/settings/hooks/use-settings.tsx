@@ -15,6 +15,7 @@ import { TPreferenceItem } from '@/constants/types';
 import useGetConfigMyTemplates from '@/features/templates/hooks/use-get-config-my-templates';
 import { useGetAllTemplates } from '@/features/templates/hooks/use-get-all-templates';
 import { getStorage } from '@/platform';
+import { preserveSavedNoteDates } from '@/features/session/utils/saved-notes';
 
 export const useSettings = () => {
   const {
@@ -151,7 +152,10 @@ export const useSettings = () => {
           print_header: cachedConfigData.header,
           print_footer: cachedConfigData.footer,
           print_compact: cachedConfigData.print_compact,
-          notes_ids: cachedConfigData.notes_ids,
+          notes_ids: preserveSavedNoteDates(
+            cachedConfigData.notes_ids,
+            useVoice2RxStore.getState().appConfig.notes_ids
+          ),
         };
 
         setAppConfig(available_preferences);

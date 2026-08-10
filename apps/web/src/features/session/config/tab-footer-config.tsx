@@ -32,10 +32,6 @@ export type TabFooterConfig = {
   saveStatus?: SaveStatusState;
   buttons: FooterButton[];
   overlay?: ReactNode;
-  saveNote?: {
-    onSaveNote: () => void;
-    isNoteSaved?: boolean;
-  };
 };
 
 // --- Config builders ---
@@ -44,28 +40,23 @@ export function getDocumentFooterConfig({
   onCopy,
   onPrint,
   onSendWhatsApp,
-  onSaveNote,
   saveStatus,
   copyDisabled,
   printDisabled,
   whatsappDisabled,
   whatsappTooltip,
   whatsappDisabledTooltip,
-  isNoteSaved,
 }: {
   onCopy: () => void;
   onPrint: () => void;
-  /** When provided (WhatsApp capability active), adds a "Send via WhatsApp" button. */
+  /** When provided (WhatsApp capability active), adds a "Share" button. */
   onSendWhatsApp?: () => void;
-  /** When provided, adds a "Save note" button at the end of the toolbar. */
-  onSaveNote?: () => void;
   saveStatus: SaveStatusState;
   copyDisabled?: boolean;
   printDisabled?: boolean;
   whatsappDisabled?: boolean;
   whatsappTooltip?: string;
   whatsappDisabledTooltip?: string;
-  isNoteSaved?: boolean;
 }): TabFooterConfig {
   return {
     saveStatus,
@@ -91,7 +82,7 @@ export function getDocumentFooterConfig({
         ? [
             {
               key: 'whatsapp',
-              label: 'WhatsApp',
+              label: 'Share',
               icon: <WhatsAppIcon className="w-4 h-4 text-[#25D366]" />,
               onClick: onSendWhatsApp,
               disabled: whatsappDisabled,
@@ -102,7 +93,6 @@ export function getDocumentFooterConfig({
           ]
         : []),
     ],
-    saveNote: onSaveNote ? { onSaveNote, isNoteSaved } : undefined,
   };
 }
 

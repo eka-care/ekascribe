@@ -28,7 +28,7 @@ var r = "/.well-known/medscribealliance", i = 3600 * 1e3, a = /* @__PURE__ */ fu
 	return e.AUTHENTICATION_FAILED = "authentication_failed", e.TOKEN_EXPIRED = "token_expired", e.INVALID_API_KEY = "invalid_api_key", e.FORBIDDEN = "forbidden", e.RATE_LIMIT_EXCEEDED = "rate_limit_exceeded", e.SESSION_NOT_FOUND = "session_not_found", e.TEMPLATE_NOT_FOUND = "template_not_found", e.SESSION_EXPIRED = "session_expired", e.INVALID_REQUEST = "invalid_request", e.INVALID_AUDIO_FORMAT = "invalid_audio_format", e.CHUNK_TOO_LARGE = "chunk_too_large", e.INVALID_TEMPLATE = "invalid_template", e.MISSING_REQUIRED_FIELD = "missing_required_field", e.PROCESSING_FAILED = "processing_failed", e.AUDIO_QUALITY_POOR = "audio_quality_poor", e.AUDIO_TOO_SHORT = "audio_too_short", e.LANGUAGE_UNSUPPORTED = "language_unsupported", e.INTERNAL_ERROR = "internal_error", e.SERVICE_UNAVAILABLE = "service_unavailable", e.DISCOVERY_FAILED = "discovery_failed", e.TRANSPORT_ERROR = "transport_error", e.WORKER_ERROR = "worker_error", e.UPLOAD_FAILED = "upload_failed", e.VAD_ERROR = "vad_error", e.CHUNK_LENGTH_EXCEEDED = "chunk_length_exceeded", e.CHUNK_LIMIT_REACHED = "chunk_limit_reached", e.CHUNK_CREATION_FAILED = "chunk_creation_failed", e.WORKER_POST_FAILED = "worker_post_failed", e.SESSION_CREATION_FAILED = "session_creation_failed", e.RECORDER_INIT_FAILED = "recorder_init_failed", e.RECORDER_START_FAILED = "recorder_start_failed", e.VAD_START_FAILED = "vad_start_failed", e.STOP_FAILED = "stop_failed", e.INTERNAL_RETRY_FAILED = "internal_retry_failed", e.SESSION_END_FAILED = "session_end_failed", e.UNSUPPORTED_STORAGE_PROVIDER = "unsupported_storage_provider", e;
 }({}), _ = /* @__PURE__ */ function(e) {
 	return e[e.OK = 200] = "OK", e[e.CREATED = 201] = "CREATED", e[e.ACCEPTED = 202] = "ACCEPTED", e[e.BAD_REQUEST = 400] = "BAD_REQUEST", e[e.UNAUTHORIZED = 401] = "UNAUTHORIZED", e[e.FORBIDDEN = 403] = "FORBIDDEN", e[e.NOT_FOUND = 404] = "NOT_FOUND", e[e.GONE = 410] = "GONE", e[e.PAYLOAD_TOO_LARGE = 413] = "PAYLOAD_TOO_LARGE", e[e.UNPROCESSABLE_ENTITY = 422] = "UNPROCESSABLE_ENTITY", e[e.TOO_MANY_REQUESTS = 429] = "TOO_MANY_REQUESTS", e[e.INTERNAL_SERVER_ERROR = 500] = "INTERNAL_SERVER_ERROR", e[e.SERVICE_UNAVAILABLE = 503] = "SERVICE_UNAVAILABLE", e;
-}({}), ee = 2e3, v = class e extends Error {
+}({}), v = 2e3, y = class e extends Error {
 	constructor(t, n = g.INTERNAL_ERROR, r, i) {
 		super(t), this.name = "ScribeError", this.code = n, this.httpStatus = r, this.details = i, Error.captureStackTrace && Error.captureStackTrace(this, e);
 	}
@@ -44,46 +44,46 @@ var r = "/.well-known/medscribealliance", i = 3600 * 1e3, a = /* @__PURE__ */ fu
 			details: this.details
 		};
 	}
-}, y = class extends v {
+}, b = class extends y {
 	constructor(e, t) {
 		super(e, g.INVALID_REQUEST, _.BAD_REQUEST, t), this.name = "ValidationError";
 	}
-}, b = class extends v {
+}, x = class extends y {
 	constructor(e, t) {
 		super(e, g.DISCOVERY_FAILED, void 0, t), this.name = "DiscoveryError";
 	}
-}, x = class extends v {
+}, S = class extends y {
 	constructor(e, t) {
 		super(e, g.AUTHENTICATION_FAILED, _.UNAUTHORIZED, t), this.name = "AuthenticationError";
 	}
-}, S = class extends v {
+}, C = class extends y {
 	constructor(e, t) {
 		super(e, g.FORBIDDEN, _.FORBIDDEN, t), this.name = "ForbiddenError";
 	}
-}, C = class extends v {
+}, w = class extends y {
 	constructor(e) {
 		super(`Session '${e}' does not exist`, g.SESSION_NOT_FOUND, _.NOT_FOUND, { session_id: e }), this.name = "SessionNotFoundError";
 	}
-}, te = class extends v {
+}, ee = class extends y {
 	constructor(e, t) {
 		super(`Session '${e}' has expired`, g.SESSION_EXPIRED, _.GONE, {
 			session_id: e,
 			expired_at: t
 		}), this.name = "SessionExpiredError";
 	}
-}, w = class extends v {
+}, T = class extends y {
 	constructor(e) {
 		super(`Rate limit exceeded${e ? `. Retry after ${e} seconds` : ""}`, g.RATE_LIMIT_EXCEEDED, _.TOO_MANY_REQUESTS, e ? { retry_after_seconds: e } : void 0), this.name = "RateLimitError";
 	}
-}, T = class extends v {
+}, E = class extends y {
 	constructor(e, t) {
 		super(e, g.TRANSPORT_ERROR, void 0, t), this.name = "TransportError";
 	}
-}, ne = class extends v {
+}, D = class extends y {
 	constructor(e, t) {
 		super(e, g.WORKER_ERROR, void 0, t), this.name = "WorkerError";
 	}
-}, E = class extends v {
+}, O = class extends y {
 	constructor(e, t, n) {
 		super(e, g.UPLOAD_FAILED, void 0, n), this.name = "UploadError", this.failedFiles = t;
 	}
@@ -93,11 +93,11 @@ var r = "/.well-known/medscribealliance", i = 3600 * 1e3, a = /* @__PURE__ */ fu
 			failedFiles: this.failedFiles
 		};
 	}
-}, D = class extends v {
+}, k = class extends y {
 	constructor(e) {
 		super(`Storage provider '${e || "(none)"}' is not supported by this SDK build.`, g.UNSUPPORTED_STORAGE_PROVIDER, void 0, { provider: e }), this.name = "UnsupportedStorageProviderError", this.provider = e;
 	}
-}, O = class {
+}, A = class {
 	constructor() {
 		this.handlers = /* @__PURE__ */ new Map();
 	}
@@ -123,7 +123,7 @@ var r = "/.well-known/medscribealliance", i = 3600 * 1e3, a = /* @__PURE__ */ fu
 		let t = this.handlers.get(e);
 		return t !== void 0 && t.size > 0;
 	}
-}, re = e.object({
+}, te = e.object({
 	id: e.string().min(1, "models[].id is required"),
 	display_name: e.string().optional(),
 	languages: e.array(e.string()).optional(),
@@ -134,12 +134,12 @@ var r = "/.well-known/medscribealliance", i = 3600 * 1e3, a = /* @__PURE__ */ fu
 		speaker_diarization: e.boolean().optional(),
 		custom_templates: e.boolean().optional()
 	}).optional()
-}), ie = e.object({
+}), ne = e.object({
 	issuer: e.string(),
 	authorization_endpoint: e.string(),
 	token_endpoint: e.string(),
 	scopes_supported: e.array(e.string())
-}), ae = e.object({
+}), j = e.object({
 	protocol: e.string().min(1, "protocol is required"),
 	protocol_version: e.string().min(1, "protocol_version is required"),
 	supported_versions: e.array(e.string()).optional(),
@@ -156,7 +156,7 @@ var r = "/.well-known/medscribealliance", i = 3600 * 1e3, a = /* @__PURE__ */ fu
 	}),
 	authentication: e.object({
 		supported_methods: e.array(e.string()),
-		oidc: ie.optional()
+		oidc: ne.optional()
 	}),
 	capabilities: e.object({
 		audio_formats: e.array(e.string()).min(1, "capabilities.audio_formats must have at least one format"),
@@ -166,12 +166,12 @@ var r = "/.well-known/medscribealliance", i = 3600 * 1e3, a = /* @__PURE__ */ fu
 		client_sdk_delivery: e.boolean().optional(),
 		storage_provider: e.string().optional()
 	}),
-	models: e.array(re).optional().default([]),
+	models: e.array(te).optional().default([]),
 	languages: e.object({
 		supported: e.array(e.string()),
 		auto_detection: e.boolean().optional()
 	})
-}), k = e.object({
+}), M = e.object({
 	templates: e.array(e.string()).max(2, "templates cannot have more than 2 items"),
 	upload_type: e.string().min(1, "upload_type is required"),
 	communication_protocol: e.string().min(1, "communication_protocol is required"),
@@ -187,10 +187,10 @@ var r = "/.well-known/medscribealliance", i = 3600 * 1e3, a = /* @__PURE__ */ fu
 		mobile: e.number().optional()
 	}).optional(),
 	session_id: e.string().optional()
-}), A = e.object({
+}), N = e.object({
 	audio_files_sent: e.number().int().min(0, "audio_files_sent must be a non-negative integer"),
 	audio_files_uploaded: e.number().int().min(0, "audio_files_uploaded must be a non-negative integer")
-}), j = e.object({
+}), P = e.object({
 	user_status: e.string().optional(),
 	processing_status: e.string().optional(),
 	patient_details: e.object({
@@ -203,7 +203,7 @@ var r = "/.well-known/medscribealliance", i = 3600 * 1e3, a = /* @__PURE__ */ fu
 	language_hint: e.array(e.string()).optional(),
 	transcript_language: e.string().optional(),
 	templates: e.array(e.string()).optional()
-}), M = e.object({
+}), re = e.object({
 	session_id: e.string().min(1, "session_id is required"),
 	status: e.string(),
 	created_at: e.string(),
@@ -215,13 +215,13 @@ var r = "/.well-known/medscribealliance", i = 3600 * 1e3, a = /* @__PURE__ */ fu
 		gender: e.string().optional(),
 		mobile: e.number().optional()
 	}).nullable().optional()
-}), oe = e.object({
+}), ie = e.object({
 	session_id: e.string().min(1, "session_id is required"),
 	status: e.string(),
 	message: e.string(),
 	audio_files_received: e.number().int(),
 	audio_files: e.array(e.string())
-}), se = e.object({
+}), ae = e.object({
 	session_id: e.string().min(1, "session_id is required"),
 	status: e.string(),
 	created_at: e.string(),
@@ -252,16 +252,16 @@ var r = "/.well-known/medscribealliance", i = 3600 * 1e3, a = /* @__PURE__ */ fu
 		mobile: e.number().optional()
 	}).nullable().optional(),
 	message: e.string().optional()
-}), ce = e.object({
+}), oe = e.object({
 	session_id: e.string().min(1, "session_id is required"),
 	status: e.string(),
 	message: e.string()
-}), le = e.object({
+}), se = e.object({
 	session_id: e.string().min(1, "session_id is required"),
 	template_id: e.string(),
 	status: e.string(),
 	message: e.string()
-}), ue = e.string().min(1, "Session ID is required"), de = e.object({
+}), ce = e.string().min(1, "Session ID is required"), le = e.object({
 	templates: e.array(e.string()).min(1, "templates must contain at least one item").max(2, "templates cannot have more than 2 items"),
 	uploadType: e.string().optional(),
 	communicationProtocol: e.string().optional(),
@@ -279,39 +279,39 @@ var r = "/.well-known/medscribealliance", i = 3600 * 1e3, a = /* @__PURE__ */ fu
 	}).optional(),
 	sessionId: e.string().optional(),
 	version: e.string().optional()
-}), N = class {
+}), F = class {
 	validateDiscoveryResponse(e) {
-		this.parseWithValidationError(ae, e, "Invalid discovery response");
+		this.parseWithValidationError(j, e, "Invalid discovery response");
 	}
 	validateCreateSessionRequest(e) {
-		this.parseWithValidationError(k, e, "Invalid CreateSessionRequest");
+		this.parseWithValidationError(M, e, "Invalid CreateSessionRequest");
 	}
 	validateEndSessionRequest(e) {
-		this.parseWithValidationError(A, e, "Invalid EndSessionRequest");
+		this.parseWithValidationError(N, e, "Invalid EndSessionRequest");
 	}
 	validateCreateSessionResponse(e) {
-		this.parseWithValidationError(M, e, "Invalid CreateSessionResponse");
+		this.parseWithValidationError(re, e, "Invalid CreateSessionResponse");
 	}
 	validateEndSessionResponse(e) {
-		this.parseWithValidationError(oe, e, "Invalid EndSessionResponse");
+		this.parseWithValidationError(ie, e, "Invalid EndSessionResponse");
 	}
 	validateGetSessionStatusResponse(e) {
-		this.parseWithValidationError(se, e, "Invalid GetSessionStatusResponse");
+		this.parseWithValidationError(ae, e, "Invalid GetSessionStatusResponse");
 	}
 	validateSessionId(e) {
-		this.parseWithValidationError(ue, e, "Invalid session ID");
+		this.parseWithValidationError(ce, e, "Invalid session ID");
 	}
 	validateRecordingOptions(e) {
-		this.parseWithValidationError(de, e, "Invalid RecordingOptions");
+		this.parseWithValidationError(le, e, "Invalid RecordingOptions");
 	}
 	validatePatchSessionRequest(e) {
-		this.parseWithValidationError(j, e, "Invalid PatchSessionRequest");
+		this.parseWithValidationError(P, e, "Invalid PatchSessionRequest");
 	}
 	validatePatchSessionResponse(e) {
-		this.parseWithValidationError(ce, e, "Invalid PatchSessionResponse");
+		this.parseWithValidationError(oe, e, "Invalid PatchSessionResponse");
 	}
 	validateProcessTemplateResponse(e) {
-		this.parseWithValidationError(le, e, "Invalid ProcessTemplateResponse");
+		this.parseWithValidationError(se, e, "Invalid ProcessTemplateResponse");
 	}
 	validateAgainstDiscovery(e, t) {
 		try {
@@ -322,7 +322,7 @@ var r = "/.well-known/medscribealliance", i = 3600 * 1e3, a = /* @__PURE__ */ fu
 	}
 	parseWithValidationError(e, t, n) {
 		let r = e.safeParse(t);
-		if (!r.success) throw new y(`${n}:\n${this.formatZodIssues(r.error)}`, { zodErrors: r.error.issues });
+		if (!r.success) throw new b(`${n}:\n${this.formatZodIssues(r.error)}`, { zodErrors: r.error.issues });
 	}
 	formatZodIssues(e) {
 		return e.issues.map((e) => `  - ${e.path.length > 0 ? e.path.join(".") + ": " : ""}${e.message}`).join("\n");
@@ -330,7 +330,7 @@ var r = "/.well-known/medscribealliance", i = 3600 * 1e3, a = /* @__PURE__ */ fu
 	checkUploadType(e, t) {
 		if (!e.uploadType || t.supportedUploadMethods.length === 0) return;
 		let n = t.supportedUploadMethods;
-		if (!n.includes(e.uploadType)) throw new y(`Upload type '${e.uploadType}' is not supported by the server. Supported: [${n.join(", ")}]`, {
+		if (!n.includes(e.uploadType)) throw new b(`Upload type '${e.uploadType}' is not supported by the server. Supported: [${n.join(", ")}]`, {
 			requested: e.uploadType,
 			supported: n
 		});
@@ -338,7 +338,7 @@ var r = "/.well-known/medscribealliance", i = 3600 * 1e3, a = /* @__PURE__ */ fu
 	checkLanguageHint(e, t) {
 		if (!e.languageHint || e.languageHint.length === 0 || t.supportedLanguages.length === 0) return;
 		let n = t.supportedLanguages;
-		for (let t of e.languageHint) if (!n.includes(t)) throw new y(`Language '${t}' is not supported by the server. Supported: [${n.join(", ")}]`, {
+		for (let t of e.languageHint) if (!n.includes(t)) throw new b(`Language '${t}' is not supported by the server. Supported: [${n.join(", ")}]`, {
 			requested: t,
 			supported: n
 		});
@@ -346,7 +346,7 @@ var r = "/.well-known/medscribealliance", i = 3600 * 1e3, a = /* @__PURE__ */ fu
 	checkModel(e, t) {
 		if (!e.model || t.availableModels.length === 0) return;
 		let n = t.availableModels.map((e) => e.id);
-		if (!n.includes(e.model)) throw new y(`Model '${e.model}' is not available. Available: [${n.join(", ")}]`, {
+		if (!n.includes(e.model)) throw new b(`Model '${e.model}' is not available. Available: [${n.join(", ")}]`, {
 			requested: e.model,
 			available: n
 		});
@@ -354,26 +354,26 @@ var r = "/.well-known/medscribealliance", i = 3600 * 1e3, a = /* @__PURE__ */ fu
 };
 //#endregion
 //#region src/utils/retry.ts
-async function P(e, t = {}) {
-	let { maxRetries: n = 2, delayMs: r = ee, onRetry: i } = t, a = null;
+async function I(e, t = {}) {
+	let { maxRetries: n = 2, delayMs: r = v, onRetry: i } = t, a = null;
 	for (let t = 0; t <= n; t++) try {
 		return await e();
 	} catch (e) {
-		if (a = e instanceof Error ? e : Error(String(e)), fe(e?.httpStatus ?? e?.statusCode ?? e?.status)) throw a;
+		if (a = e instanceof Error ? e : Error(String(e)), ue(e?.httpStatus ?? e?.statusCode ?? e?.status)) throw a;
 		if (t >= n || i && i(t + 1, a) === !1) break;
-		await F(r);
+		await de(r);
 	}
 	throw a ?? /* @__PURE__ */ Error("Retry failed: unknown error");
 }
-function fe(e) {
+function ue(e) {
 	return typeof e == "number" ? e >= 400 && e < 500 && e !== 408 && e !== 429 : !1;
 }
-function F(e) {
+function de(e) {
 	return new Promise((t) => setTimeout(t, e));
 }
 //#endregion
 //#region src/transport/http-transport.ts
-var I = class {
+var L = class {
 	constructor(e) {
 		this.tokenRefreshPromise = null, this.accessToken = e.accessToken, this.flavour = e.flavour, this.debug = e.debug ?? !1, this.onUnauthorized = e.onUnauthorized;
 	}
@@ -382,9 +382,9 @@ var I = class {
 	}
 	async request(e) {
 		try {
-			return e.isUpload ? await P(() => this.executeRequest(e), this.getRetryOptions(e)) : await this.executeRequest(e);
+			return e.isUpload ? await I(() => this.executeRequest(e), this.getRetryOptions(e)) : await this.executeRequest(e);
 		} catch (t) {
-			throw t instanceof v ? t : new T(`Network error: ${t instanceof Error ? t.message : "Unknown error"}`, {
+			throw t instanceof y ? t : new E(`Network error: ${t instanceof Error ? t.message : "Unknown error"}`, {
 				url: e.url,
 				method: e.method
 			});
@@ -413,7 +413,7 @@ var I = class {
 				statusText: t.statusText
 			}), t;
 		} catch (t) {
-			throw new T(`Fetch failed: ${t instanceof Error ? t.message : "Unknown error"}`, {
+			throw new E(`Fetch failed: ${t instanceof Error ? t.message : "Unknown error"}`, {
 				url: e.url,
 				method: e.method
 			});
@@ -461,24 +461,24 @@ var I = class {
 			r = await e.json();
 		} catch {}
 		let i = r?.error?.message ?? r?.message ?? e.statusText ?? "Request failed", a = r?.error?.code ?? "http_error";
-		if (n === _.UNAUTHORIZED) throw new x(i, {
+		if (n === _.UNAUTHORIZED) throw new S(i, {
 			url: t.url,
 			...r?.error?.details
 		});
-		if (n === _.FORBIDDEN) throw new S(i, {
+		if (n === _.FORBIDDEN) throw new C(i, {
 			url: t.url,
 			...r?.error?.details
 		});
-		if (n === _.NOT_FOUND) throw new C(r?.error?.details?.session_id ?? t.url);
-		if (n === _.PAYLOAD_TOO_LARGE) throw new v(i, g.CHUNK_TOO_LARGE, n, {
+		if (n === _.NOT_FOUND) throw new w(r?.error?.details?.session_id ?? t.url);
+		if (n === _.PAYLOAD_TOO_LARGE) throw new y(i, g.CHUNK_TOO_LARGE, n, {
 			url: t.url,
 			...r?.error?.details
 		});
 		if (n === _.TOO_MANY_REQUESTS) {
 			let t = parseInt(e.headers.get("Retry-After") ?? "", 10);
-			throw new w(isNaN(t) ? void 0 : t);
+			throw new T(isNaN(t) ? void 0 : t);
 		}
-		throw new v(i, a, n, r?.error?.details);
+		throw new y(i, a, n, r?.error?.details);
 	}
 	extractHeaders(e) {
 		let t = {};
@@ -495,7 +495,7 @@ var I = class {
 			}
 		};
 	}
-}, L = class {
+}, R = class {
 	constructor(e) {
 		this.pendingRequests = /* @__PURE__ */ new Map(), this.correlationCounter = 0, this.tokenRefreshPromise = null, this.bridge = e.bridge, this.accessToken = e.accessToken, this.flavour = e.flavour, this.debug = e.debug ?? !1, this.onUnauthorized = e.onUnauthorized, this.bridge.onResponse((e) => {
 			this.handleResponse(e);
@@ -506,9 +506,9 @@ var I = class {
 	}
 	async request(e) {
 		try {
-			return e.isUpload ? await P(() => this.executeRequest(e), this.getRetryOptions(e)) : await this.executeRequest(e);
+			return e.isUpload ? await I(() => this.executeRequest(e), this.getRetryOptions(e)) : await this.executeRequest(e);
 		} catch (t) {
-			throw t instanceof v ? t : new T(`IPC error: ${t instanceof Error ? t.message : "Unknown error"}`, {
+			throw t instanceof y ? t : new E(`IPC error: ${t instanceof Error ? t.message : "Unknown error"}`, {
 				url: e.url,
 				method: e.method
 			});
@@ -516,7 +516,7 @@ var I = class {
 	}
 	async executeRequest(e) {
 		let t = await this.doIpcRequest(e);
-		if (t.error) throw new T(t.error, {
+		if (t.error) throw new E(t.error, {
 			url: e.url,
 			method: e.method
 		});
@@ -580,7 +580,7 @@ var I = class {
 	sendAndWait(e, t) {
 		return new Promise((n, r) => {
 			let i = setTimeout(() => {
-				this.pendingRequests.delete(e), r(new T("IPC request timed out after 15s", {
+				this.pendingRequests.delete(e), r(new E("IPC request timed out after 15s", {
 					correlationId: e,
 					url: t.url
 				}));
@@ -596,7 +596,7 @@ var I = class {
 			try {
 				this.bridge.send(t);
 			} catch (n) {
-				clearTimeout(i), this.pendingRequests.delete(e), r(new T(`Failed to send IPC request: ${n instanceof Error ? n.message : "Unknown error"}`, {
+				clearTimeout(i), this.pendingRequests.delete(e), r(new E(`Failed to send IPC request: ${n instanceof Error ? n.message : "Unknown error"}`, {
 					correlationId: e,
 					url: t.url
 				}));
@@ -609,24 +609,24 @@ var I = class {
 	}
 	handleErrorResponse(e, t) {
 		let n = e.status, r = e.body, i = r?.error?.message ?? r?.message ?? "Request failed", a = r?.error?.code ?? "http_error";
-		if (n === _.UNAUTHORIZED) throw new x(i, {
+		if (n === _.UNAUTHORIZED) throw new S(i, {
 			url: t.url,
 			...r?.error?.details
 		});
-		if (n === _.FORBIDDEN) throw new S(i, {
+		if (n === _.FORBIDDEN) throw new C(i, {
 			url: t.url,
 			...r?.error?.details
 		});
-		if (n === _.NOT_FOUND) throw new C(r?.error?.details?.session_id ?? t.url);
-		if (n === _.PAYLOAD_TOO_LARGE) throw new v(i, g.CHUNK_TOO_LARGE, n, {
+		if (n === _.NOT_FOUND) throw new w(r?.error?.details?.session_id ?? t.url);
+		if (n === _.PAYLOAD_TOO_LARGE) throw new y(i, g.CHUNK_TOO_LARGE, n, {
 			url: t.url,
 			...r?.error?.details
 		});
 		if (n === _.TOO_MANY_REQUESTS) {
 			let t = parseInt(e.headers?.["retry-after"] ?? "", 10);
-			throw new w(isNaN(t) ? void 0 : t);
+			throw new T(isNaN(t) ? void 0 : t);
 		}
-		throw new v(i, a, n, r?.error?.details);
+		throw new y(i, a, n, r?.error?.details);
 	}
 	generateCorrelationId() {
 		return this.correlationCounter += 1, `ipc_${Date.now()}_${this.correlationCounter}`;
@@ -645,12 +645,12 @@ var I = class {
 		};
 	}
 	destroy() {
-		for (let [e, t] of this.pendingRequests) t.reject(new T("IPC transport destroyed")), this.pendingRequests.delete(e);
+		for (let [e, t] of this.pendingRequests) t.reject(new E("IPC transport destroyed")), this.pendingRequests.delete(e);
 	}
 };
 //#endregion
 //#region src/discovery/resolved-config.ts
-function R(e) {
+function z(e) {
 	try {
 		let t = /* @__PURE__ */ new Map(), n = e.models ?? [];
 		for (let e of n) e.id && typeof e.max_session_duration_seconds == "number" && t.set(e.id, e.max_session_duration_seconds);
@@ -670,12 +670,12 @@ function R(e) {
 			clientSdkDelivery: e.capabilities.client_sdk_delivery ?? !1
 		};
 	} catch (e) {
-		throw e instanceof b ? e : new b(`Failed to resolve discovery config: ${e instanceof Error ? e.message : "Unknown error"}`);
+		throw e instanceof x ? e : new x(`Failed to resolve discovery config: ${e instanceof Error ? e.message : "Unknown error"}`);
 	}
 }
 //#endregion
 //#region src/discovery/discovery-manager.ts
-var z = class {
+var B = class {
 	constructor(e, t, n = !1) {
 		this.cachedDocument = null, this.resolvedConfig = null, this.cacheTimestamp = 0, this.cacheTtlMs = i, this.transport = e, this.validator = t, this.debug = n;
 	}
@@ -692,17 +692,17 @@ var z = class {
 				url: n
 			});
 			this.validator.validateDiscoveryResponse(i.data);
-			let a = i.data, o = R(a);
+			let a = i.data, o = z(a);
 			return this.cachedDocument = a, this.resolvedConfig = o, this.cacheTimestamp = Date.now(), this.debug && console.log("[ScribeSDK] Discovery complete:", a.service?.name ?? a.protocol), {
 				data: o,
 				httpStatus: i.status
 			};
 		} catch (t) {
-			throw t instanceof b ? t : new b(`Failed to fetch discovery document: ${t instanceof Error ? t.message : "Unknown error"}`, { baseUrl: e });
+			throw t instanceof x ? t : new x(`Failed to fetch discovery document: ${t instanceof Error ? t.message : "Unknown error"}`, { baseUrl: e });
 		}
 	}
 	getResolvedConfig() {
-		if (!this.resolvedConfig) throw new b("Discovery has not been fetched yet. Call init() first.");
+		if (!this.resolvedConfig) throw new x("Discovery has not been fetched yet. Call init() first.");
 		return this.resolvedConfig;
 	}
 	getDiscoveryDocument() {
@@ -745,7 +745,7 @@ var z = class {
 	isCacheValid() {
 		return Date.now() - this.cacheTimestamp < this.cacheTtlMs;
 	}
-}, B = class {
+}, V = class {
 	constructor(e, t, n = !1) {
 		this.currentSession = null, this.transport = e, this.validator = t, this.debug = n;
 	}
@@ -764,13 +764,13 @@ var z = class {
 				httpStatus: i.status
 			};
 		} catch (e) {
-			throw e instanceof v ? e : new v(`Failed to create session: ${e instanceof Error ? e.message : "Unknown error"}`);
+			throw e instanceof y ? e : new y(`Failed to create session: ${e instanceof Error ? e.message : "Unknown error"}`);
 		}
 	}
 	async endSession(e, t, n) {
 		try {
 			let r = n ?? this.currentSession?.session_id;
-			if (!r) throw new v("No active session to end. Provide a sessionId or start a session first.");
+			if (!r) throw new y("No active session to end. Provide a sessionId or start a session first.");
 			this.validator.validateSessionId(r), this.validator.validateEndSessionRequest(t);
 			let i = `${e}/sessions/${r}/end`;
 			this.debug && console.log("[ScribeSDK] Ending session:", r);
@@ -784,13 +784,13 @@ var z = class {
 				httpStatus: a.status
 			};
 		} catch (e) {
-			throw e instanceof v ? e : new v(`Failed to end session: ${e instanceof Error ? e.message : "Unknown error"}`);
+			throw e instanceof y ? e : new y(`Failed to end session: ${e instanceof Error ? e.message : "Unknown error"}`);
 		}
 	}
 	async getSessionStatus(e, t, n, r) {
 		try {
 			let i = t ?? this.currentSession?.session_id;
-			if (!i) throw new v("No active session. Provide a sessionId or start a session first.");
+			if (!i) throw new y("No active session. Provide a sessionId or start a session first.");
 			this.validator.validateSessionId(i);
 			let a = new URLSearchParams();
 			n && a.set("template_id", n), r && a.set("version", r);
@@ -806,13 +806,13 @@ var z = class {
 				httpStatus: c.status
 			};
 		} catch (e) {
-			throw e instanceof v ? e : new v(`Failed to get session status: ${e instanceof Error ? e.message : "Unknown error"}`);
+			throw e instanceof y ? e : new y(`Failed to get session status: ${e instanceof Error ? e.message : "Unknown error"}`);
 		}
 	}
 	async patchSession(e, t, n) {
 		try {
 			let r = n ?? this.currentSession?.session_id;
-			if (!r) throw new v("No active session. Provide a sessionId or start a session first.");
+			if (!r) throw new y("No active session. Provide a sessionId or start a session first.");
 			this.validator.validateSessionId(r), this.validator.validatePatchSessionRequest(t);
 			let i = `${e}/sessions/${r}`;
 			this.debug && console.log("[ScribeSDK] Patching session:", r, t);
@@ -826,13 +826,13 @@ var z = class {
 				httpStatus: a.status
 			};
 		} catch (e) {
-			throw e instanceof v ? e : new v(`Failed to patch session: ${e instanceof Error ? e.message : "Unknown error"}`);
+			throw e instanceof y ? e : new y(`Failed to patch session: ${e instanceof Error ? e.message : "Unknown error"}`);
 		}
 	}
 	async processTemplate(e, t, n) {
 		try {
 			let r = n ?? this.currentSession?.session_id;
-			if (!r) throw new v("No active session. Provide a sessionId or start a session first.");
+			if (!r) throw new y("No active session. Provide a sessionId or start a session first.");
 			this.validator.validateSessionId(r);
 			let i = `${e}/sessions/${r}/process/template/${encodeURIComponent(t)}`;
 			this.debug && console.log("[ScribeSDK] Processing template:", t, "for session:", r);
@@ -845,13 +845,13 @@ var z = class {
 				httpStatus: a.status
 			};
 		} catch (e) {
-			throw e instanceof v ? e : new v(`Failed to process template: ${e instanceof Error ? e.message : "Unknown error"}`);
+			throw e instanceof y ? e : new y(`Failed to process template: ${e instanceof Error ? e.message : "Unknown error"}`);
 		}
 	}
 	async pollForCompletion(e, t, n, r, i) {
 		try {
 			let a = t ?? this.currentSession?.session_id;
-			if (!a) throw new v("No active session. Provide a sessionId or start a session first.");
+			if (!a) throw new y("No active session. Provide a sessionId or start a session first.");
 			let o = n?.maxAttempts ?? 60, s = n?.intervalMs ?? 2e3, c = n?.timeoutMs, l = c !== void 0 && c > 0 ? Date.now() + c : void 0;
 			this.debug && console.log("[ScribeSDK] Polling for completion:", a, {
 				maxAttempts: o,
@@ -859,8 +859,8 @@ var z = class {
 				timeoutMs: c
 			});
 			for (let t = 1; t <= o; t++) {
-				if (n?.signal?.aborted) throw new v("Polling was aborted", "polling_aborted", void 0, { session_id: a });
-				if (l !== void 0 && Date.now() >= l) throw new v(`Polling timed out after ${c}ms for session '${a}'`, "polling_timeout", void 0, {
+				if (n?.signal?.aborted) throw new y("Polling was aborted", "polling_aborted", void 0, { session_id: a });
+				if (l !== void 0 && Date.now() >= l) throw new y(`Polling timed out after ${c}ms for session '${a}'`, "polling_timeout", void 0, {
 					session_id: a,
 					timeout_ms: c
 				});
@@ -881,12 +881,12 @@ var z = class {
 					await this.sleepWithAbort(e, n?.signal);
 				}
 			}
-			throw new v(`Polling timed out after ${o} attempts for session '${a}'`, "polling_timeout", void 0, {
+			throw new y(`Polling timed out after ${o} attempts for session '${a}'`, "polling_timeout", void 0, {
 				session_id: a,
 				max_attempts: o
 			});
 		} catch (e) {
-			throw e instanceof v ? e : new v(`Failed to poll session: ${e instanceof Error ? e.message : "Unknown error"}`);
+			throw e instanceof y ? e : new y(`Failed to poll session: ${e instanceof Error ? e.message : "Unknown error"}`);
 		}
 	}
 	getCurrentSession() {
@@ -904,22 +904,22 @@ var z = class {
 	sleepWithAbort(e, t) {
 		return t ? new Promise((n, r) => {
 			if (t.aborted) {
-				r(new v("Polling was aborted", "polling_aborted"));
+				r(new y("Polling was aborted", "polling_aborted"));
 				return;
 			}
 			let i = setTimeout(n, e);
 			t.addEventListener("abort", () => {
-				clearTimeout(i), r(new v("Polling was aborted", "polling_aborted"));
+				clearTimeout(i), r(new y("Polling was aborted", "polling_aborted"));
 			}, { once: !0 });
 		}) : this.sleep(e);
 	}
-}, V = 1024, H = 16e3;
-V / H, H / V;
-var pe = {
+}, H = 1024, U = 16e3;
+H / U, U / H;
+var fe = {
 	m4a: "audio/m4a",
 	wav: "audio/wav",
 	mp3: "audio/mpeg"
-}, me = class {
+}, pe = class {
 	constructor(e, t) {
 		this.vadPast = [], this.lastClipIndex = 0, this.silDurationAcc = 0, this.micVad = null, this.micStream = null, this.isLoading = !0, this.isRecording = !1, this.noSpeechStartTime = null, this.lastWarningTime = null;
 		let n = e.samplingRate;
@@ -1051,7 +1051,7 @@ var pe = {
 		} catch {}
 		this.micStream = null;
 	}
-}, he = class {
+}, me = class {
 	constructor(e, t) {
 		this.currentSampleLength = 0, this.currentFrameLength = 0, this.samplingRate = e, this.incrementalAllocationSize = Math.floor(e * t), this.buffer = new Float32Array(this.incrementalAllocationSize);
 	}
@@ -1101,7 +1101,7 @@ var pe = {
 	formatTimestamp(e) {
 		return `${Math.floor(e / 60).toString().padStart(2, "0")}:${(e % 60).toFixed(6).padStart(9, "0")}`;
 	}
-}, ge = class {
+}, he = class {
 	constructor() {
 		this.chunks = [], this.successfulUploads = [], this.totalRawSamples = 0, this.totalRawFrames = 0, this.totalInsertedSamples = 0, this.totalInsertedFrames = 0;
 	}
@@ -1200,7 +1200,7 @@ var pe = {
 };
 //#endregion
 //#region src/audio/mp3-encoder.ts
-function _e(e, t = H, r = 128) {
+function ge(e, t = U, r = 128) {
 	try {
 		let i = new n.Mp3Encoder(1, t, r), a = new Int16Array(e.length);
 		for (let t = 0; t < e.length; t++) {
@@ -1211,7 +1211,7 @@ function _e(e, t = H, r = 128) {
 		s && s.length > 0 && o.push(s);
 		let c = i.flush();
 		return c && c.length > 0 && o.push(c), o.length === 0 ? null : {
-			blob: new Blob(o, { type: pe.mp3 }),
+			blob: new Blob(o, { type: fe.mp3 }),
 			chunks: o
 		};
 	} catch (e) {
@@ -1220,22 +1220,22 @@ function _e(e, t = H, r = 128) {
 }
 //#endregion
 //#region src/storage/aws-s3-provider.ts
-var ve = e.object({
+var _e = e.object({
 	uploadData: e.object({
 		url: e.string().min(1, "uploadData.url is required"),
 		fields: e.record(e.string(), e.string())
 	}),
 	folderPath: e.string().optional(),
 	txn_id: e.string().optional()
-}), ye = "key", U = "${filename}", W = "Content-Type", be = "audio/mp3", G = class {
+}), ve = "key", ye = "${filename}", W = "Content-Type", be = "audio/mp3", G = class {
 	constructor() {
 		this.name = "aws";
 	}
 	prepareUpload({ fileName: e, blob: t, upload: n }) {
-		let r = ve.safeParse(n);
-		if (!r.success) throw new E(`Invalid AWS upload payload in session response: ${r.error.message}`, [e]);
+		let r = _e.safeParse(n);
+		if (!r.success) throw new O(`Invalid AWS upload payload in session response: ${r.error.message}`, [e]);
 		let { uploadData: i } = r.data, a = {};
-		for (let [t, n] of Object.entries(i.fields)) a[t] = t === ye ? n.split(U).join(e) : n;
+		for (let [t, n] of Object.entries(i.fields)) a[t] = t === ve ? n.split(ye).join(e) : n;
 		if (!(W in a)) {
 			let e = t?.type;
 			a[W] = e && e.startsWith("audio/") ? e : be;
@@ -1259,7 +1259,7 @@ function xe(e) {
 }
 function J(e) {
 	let t = K[q(e)];
-	if (!t) throw new D(e);
+	if (!t) throw new k(e);
 	return t();
 }
 //#endregion
@@ -1299,7 +1299,7 @@ var Se = class {
 		this.uploadPayload = e, this.storageProviderName = t, this.uploadHeaders = n, this.refreshUploadUrl = r ?? null, J(t);
 	}
 	compressAndUpload(e, t, n) {
-		let r = e.length / H;
+		let r = e.length / U;
 		if (r > 27) {
 			this.fileManager.markFailure(n, new Blob(), `Chunk exceeds maximum length: ${r.toFixed(1)}s > 25s`), this.callbackRegistry.dispatch("onError", {
 				type: m.VALIDATION_ERROR,
@@ -1437,7 +1437,7 @@ var Se = class {
 	async doMainThreadUpload(e, t, n) {
 		let r = null;
 		try {
-			let i = _e(e);
+			let i = ge(e);
 			if (!i) {
 				this.fileManager.markFailure(n, new Blob(), "MP3 encoding failed"), this.callbackRegistry.dispatch("onUploadEvent", {
 					type: f.FAILED,
@@ -1503,7 +1503,7 @@ var Se = class {
 	}
 }, X = class {
 	constructor(e, t, n, r) {
-		this._isPaused = !1, this.initialized = !1, this.chunkLimitReached = !1, this.chunkLimitOverridden = !1, this.callbackRegistry = e, this.bufferManager = new he(H, 25), this.fileManager = new ge();
+		this._isPaused = !1, this.initialized = !1, this.chunkLimitReached = !1, this.chunkLimitOverridden = !1, this.callbackRegistry = e, this.bufferManager = new me(U, 25), this.fileManager = new he();
 		let i = {
 			prefChunkLength: n?.prefChunkLength ?? 10,
 			despChunkLength: n?.despChunkLength ?? 20,
@@ -1514,7 +1514,7 @@ var Se = class {
 			shortSilenceThreshold: n?.shortSilenceThreshold,
 			longSilenceThreshold: n?.longSilenceThreshold
 		};
-		this.vadClient = new me(i, e), this.workerManager = new Se(e, this.fileManager, t, r), this.wireVadCallbacks();
+		this.vadClient = new pe(i, e), this.workerManager = new Se(e, this.fileManager, t, r), this.wireVadCallbacks();
 	}
 	initialize(e, t) {
 		if (!t.upload || typeof t.upload != "object") throw Error("Upload payload is required for chunked recording");
@@ -1535,17 +1535,26 @@ var Se = class {
 		return this._isPaused;
 	}
 	async stop() {
+		this._isPaused = !1;
 		try {
-			return this._isPaused = !1, this.vadClient.destroy(), this.flushRemainingAudio(), await this.workerManager.waitForAllUploads(), this.fileManager.markPendingAsFailed(), {
-				failedUploads: this.fileManager.getFailedUploads(),
-				totalFiles: this.fileManager.getChunkCount()
-			};
+			this.vadClient.destroy();
 		} catch (e) {
-			return console.error("[ScribeSDK] Error stopping chunked recorder:", e), this.fileManager.markPendingAsFailed(), {
-				failedUploads: this.fileManager.getFailedUploads(),
-				totalFiles: this.fileManager.getChunkCount()
-			};
+			console.error("[ScribeSDK] Error destroying VAD during stop:", e);
 		}
+		try {
+			this.flushRemainingAudio();
+		} catch (e) {
+			console.error("[ScribeSDK] Error flushing remaining audio:", e);
+		}
+		try {
+			await this.workerManager.waitForAllUploads();
+		} catch (e) {
+			console.error("[ScribeSDK] Error waiting for uploads:", e);
+		}
+		return this.fileManager.markPendingAsFailed(), {
+			failedUploads: this.fileManager.getFailedUploads(),
+			totalFiles: this.fileManager.getChunkCount()
+		};
 	}
 	reset() {
 		this._isPaused = !1, this.chunkLimitReached = !1, this.chunkLimitOverridden = !1, this.vadClient.reset(), this.fileManager.resetInstance(), this.bufferManager.resetInstance(), this.workerManager.destroy(), this.initialized = !1;
@@ -1650,7 +1659,16 @@ var Se = class {
 			totalFiles: 0
 		};
 		try {
-			let e = await this.stopMediaRecorder(), t = `1.${this.getFileExtension()}`;
+			let e;
+			try {
+				e = await this.stopMediaRecorder();
+			} catch (t) {
+				if (this.audioChunks.length > 0) {
+					let t = this.mediaRecorder?.mimeType || "audio/webm";
+					e = new Blob(this.audioChunks, { type: t });
+				} else throw t;
+			}
+			let t = `1.${this.getFileExtension()}`;
 			try {
 				return await Y(this.transport, {
 					fileName: t,
@@ -1684,11 +1702,6 @@ var Se = class {
 					totalFiles: 1
 				};
 			}
-		} catch (e) {
-			return console.error("[ScribeSDK] Error stopping single recorder:", e), {
-				failedUploads: [],
-				totalFiles: 0
-			};
 		} finally {
 			this.releaseMicStream();
 		}
@@ -1744,7 +1757,7 @@ var Se = class {
 		this.recorder = null, this.activeSession = null, this.activeBaseUrl = "", this.activeUploadUrlRefresher = null, this._isRecording = !1, this._isStarting = !1, this._startGeneration = 0, this.retryContext = null, this.callbackRegistry = e, this.sessionManager = t, this.discoveryManager = n, this.transport = r, this.config = i ?? {};
 	}
 	async start(e, t, n) {
-		if (this._isRecording || this._isStarting) throw new v("Recording is already in progress. Stop the current recording first.");
+		if (this._isRecording || this._isStarting) throw new y("Recording is already in progress. Stop the current recording first.");
 		this._isStarting = !0;
 		let r = ++this._startGeneration;
 		this.retryContext = null, this.activeBaseUrl = e;
@@ -1768,7 +1781,7 @@ var Se = class {
 			} catch (e) {
 				throw r === this._startGeneration && this.dispatchStartError(m.TRANSPORT_ERROR, g.SESSION_CREATION_FAILED, e), e;
 			}
-			if (r !== this._startGeneration) throw new v("Recording start was superseded by a concurrent operation.");
+			if (r !== this._startGeneration) throw new y("Recording start was superseded by a concurrent operation.");
 			this.activeSession = a;
 			let c;
 			try {
@@ -1812,7 +1825,7 @@ var Se = class {
 				try {
 					l.reset();
 				} catch {}
-				throw new v("Recording start was superseded by a concurrent operation.");
+				throw new y("Recording start was superseded by a concurrent operation.");
 			}
 			return this._isRecording = !0, this.callbackRegistry.dispatch("onRecordingStateChange", {
 				type: u.STARTED,
@@ -1826,7 +1839,7 @@ var Se = class {
 		}
 	}
 	async startWithExistingSession(e, t, n, r) {
-		if (this._isRecording || this._isStarting) throw new v("Recording is already in progress. Stop the current recording first.");
+		if (this._isRecording || this._isStarting) throw new y("Recording is already in progress. Stop the current recording first.");
 		this._isStarting = !0;
 		let i = ++this._startGeneration;
 		this.retryContext = null, this.activeBaseUrl = e;
@@ -1870,7 +1883,7 @@ var Se = class {
 				try {
 					s.reset();
 				} catch {}
-				throw new v("Recording start was superseded by a concurrent operation.");
+				throw new y("Recording start was superseded by a concurrent operation.");
 			}
 			return this._isRecording = !0, this.callbackRegistry.dispatch("onRecordingStateChange", {
 				type: u.STARTED,
@@ -1904,15 +1917,19 @@ var Se = class {
 			},
 			httpStatus: void 0
 		};
-		let e = !1, t;
+		let e = !1, t, n = {
+			failedUploads: [],
+			totalFiles: 0,
+			sessionEnded: !1
+		};
 		try {
-			let n = await this.recorder.stop();
+			let r = await this.recorder.stop();
 			this.preserveRetryContext(), this._isRecording = !1;
-			let r = n.failedUploads;
-			if (r.length > 0) try {
-				r = (await this.retryFailedUploads()).data.stillFailed;
+			let i = r.failedUploads;
+			if (i.length > 0) try {
+				i = (await this.retryFailedUploads()).data.stillFailed;
 			} catch (e) {
-				console.error("[ScribeSDK] Internal retry pass failed:", e), this.callbackRegistry.dispatch("onError", {
+				console.error("[ScribeSDK] Internal retry pass failed:", e), e instanceof O && (i = e.failedFiles), this.callbackRegistry.dispatch("onError", {
 					type: m.TRANSPORT_ERROR,
 					timestamp: (/* @__PURE__ */ new Date()).toISOString(),
 					error: {
@@ -1921,49 +1938,32 @@ var Se = class {
 					}
 				});
 			}
-			let i = {
-				failedUploads: r,
-				totalFiles: n.totalFiles,
-				sessionEnded: !1
-			};
-			if (r.length === 0 && this.activeSession) {
-				let r = await this.finalizeSession(n.totalFiles, n.totalFiles);
-				r && (i.sessionEnded = !0, i.endSessionResponse = r.data, t = r.httpStatus, e = !0);
+			if (n.failedUploads = i, n.totalFiles = r.totalFiles, i.length === 0 && this.activeSession) {
+				let i = await this.finalizeSession(r.totalFiles, r.totalFiles);
+				n.sessionEnded = !0, n.endSessionResponse = i.data, t = i.httpStatus, e = !0;
 			}
-			return this.callbackRegistry.dispatch("onRecordingStateChange", {
-				type: u.ENDED,
-				timestamp: (/* @__PURE__ */ new Date()).toISOString(),
-				data: i
-			}), this.config.debug && console.log("[ScribeSDK] Recording stopped:", {
-				totalFiles: i.totalFiles,
-				failedUploads: i.failedUploads.length,
-				sessionEnded: i.sessionEnded
+			return this.config.debug && console.log("[ScribeSDK] Recording stopped:", {
+				totalFiles: n.totalFiles,
+				failedUploads: n.failedUploads.length,
+				sessionEnded: n.sessionEnded
 			}), {
-				data: i,
+				data: n,
 				httpStatus: t
 			};
-		} catch (e) {
-			return console.error("[ScribeSDK] Error stopping recording:", e), this.callbackRegistry.dispatch("onError", {
-				type: m.TRANSPORT_ERROR,
-				timestamp: (/* @__PURE__ */ new Date()).toISOString(),
-				error: {
-					code: g.STOP_FAILED,
-					message: e instanceof Error ? e.message : "Failed to stop recording"
-				}
-			}), {
-				data: {
-					failedUploads: [],
-					totalFiles: 0,
-					sessionEnded: !1
-				},
-				httpStatus: void 0
-			};
 		} finally {
-			e ? this.cleanupRecordingState() : this.partialCleanupAfterFailedFinalize();
+			if (this.recorder && !this.retryContext) try {
+				this.preserveRetryContext();
+			} catch {}
+			this.callbackRegistry.dispatch("onRecordingStateChange", {
+				type: u.ENDED,
+				timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+				data: n
+			}), e ? this.cleanupRecordingState() : this.partialCleanupAfterFailedFinalize();
 		}
 	}
 	async finalizeSession(e, t) {
-		if (this.activeSession) try {
+		if (!this.activeSession) throw new y("No active session to finalize", g.SESSION_END_FAILED);
+		try {
 			let n = await this.sessionManager.endSession(this.activeBaseUrl, {
 				audio_files_sent: e,
 				audio_files_uploaded: t
@@ -1974,15 +1974,14 @@ var Se = class {
 				data: n.data
 			}), n;
 		} catch (e) {
-			console.error("[ScribeSDK] Failed to end session:", e), this.callbackRegistry.dispatch("onError", {
+			throw console.error("[ScribeSDK] Failed to end session:", e), this.callbackRegistry.dispatch("onError", {
 				type: m.TRANSPORT_ERROR,
 				timestamp: (/* @__PURE__ */ new Date()).toISOString(),
 				error: {
 					code: g.SESSION_END_FAILED,
 					message: e instanceof Error ? e.message : "Failed to end session"
 				}
-			});
-			return;
+			}), e;
 		}
 	}
 	forceStop() {
@@ -2026,7 +2025,7 @@ var Se = class {
 		this.activeSession && this.activeSession.session_id === e && (this.activeSession = null, this.activeBaseUrl = "", this.activeUploadUrlRefresher = null, this.retryContext = null);
 	}
 	async retryFailedUploads() {
-		if (this._isRecording) throw new v("Cannot retry uploads while recording is active.");
+		if (this._isRecording) throw new y("Cannot retry uploads while recording is active.");
 		if (!this.retryContext || this.retryContext.failedChunks.length === 0) return {
 			data: {
 				retried: 0,
@@ -2068,11 +2067,12 @@ var Se = class {
 				}
 			}), this.config.debug && console.log(`[ScribeSDK] Retry failed: ${o.fileName}`, e);
 		}
-		return r.length === 0 ? this.retryContext = null : this.retryContext.failedChunks = t.filter((e) => r.includes(e.fileName)), this.config.debug && console.log(`[ScribeSDK] Retry complete: ${i}/${n} succeeded`), {
+		if (r.length === 0 ? this.retryContext = null : this.retryContext.failedChunks = t.filter((e) => r.includes(e.fileName)), this.config.debug && console.log(`[ScribeSDK] Retry complete: ${i}/${n} succeeded`), r.length > 0) throw new O(`${r.length} upload(s) still failed after retry`, r);
+		return {
 			data: {
 				retried: n,
 				succeeded: i,
-				stillFailed: r
+				stillFailed: []
 			},
 			httpStatus: void 0
 		};
@@ -2149,7 +2149,7 @@ var Se = class {
 			autoDiscovery: !0,
 			mode: l.DIRECT,
 			...e
-		}, this.callbackRegistry = new O(), this.validator = new N(), this.transport = this.createTransport(), this.discoveryManager = new z(this.transport, this.validator, this.config.debug), this.sessionManager = new B(this.transport, this.validator, this.config.debug), this.recordingManager = new Q(this.callbackRegistry, this.sessionManager, this.discoveryManager, this.transport, {
+		}, this.callbackRegistry = new A(), this.validator = new F(), this.transport = this.createTransport(), this.discoveryManager = new B(this.transport, this.validator, this.config.debug), this.sessionManager = new V(this.transport, this.validator, this.config.debug), this.recordingManager = new Q(this.callbackRegistry, this.sessionManager, this.discoveryManager, this.transport, {
 			debug: this.config.debug,
 			flavour: this.config.flavour,
 			workerConfig: this.resolveWorkerConfig()
@@ -2177,7 +2177,7 @@ var Se = class {
 			try {
 				this.discoveryManager.getResolvedConfig();
 			} catch (e) {
-				if (e instanceof y) throw e;
+				if (e instanceof b) throw e;
 			}
 			return this.recordingManager.start(t, e, this.config.accessToken);
 		});
@@ -2216,9 +2216,9 @@ var Se = class {
 	}
 	async uploadAudioFile(e, t, n) {
 		return this.wrapResult(async () => {
-			if (!e || e.size === 0) throw new y("A non-empty audio file is required");
-			if (!t || !t.trim()) throw new y("fileName is required");
-			if (!n || typeof n != "object") throw new y("upload (upload_url payload) is required");
+			if (!e || e.size === 0) throw new b("A non-empty audio file is required");
+			if (!t || !t.trim()) throw new b("fileName is required");
+			if (!n || typeof n != "object") throw new b("upload (upload_url payload) is required");
 			let r = await Y(this.transport, {
 				fileName: t,
 				blob: e,
@@ -2333,7 +2333,7 @@ var Se = class {
 		}
 	}
 	toScribeError(e) {
-		return e instanceof v ? e : new v(e instanceof Error ? e.message : "Unknown error");
+		return e instanceof y ? e : new y(e instanceof Error ? e.message : "Unknown error");
 	}
 	createTransport() {
 		let e = () => this.callbackRegistry.hasHandlers("onTokenRequired") ? new Promise((e) => {
@@ -2345,8 +2345,8 @@ var Se = class {
 			} });
 		}) : Promise.resolve(void 0);
 		if (this.config.mode === l.IPC) {
-			if (!this.config.ipcTransport) throw new y("ipcTransport (IpcBridge) is required when mode is \"ipc\"");
-			return new L({
+			if (!this.config.ipcTransport) throw new b("ipcTransport (IpcBridge) is required when mode is \"ipc\"");
+			return new R({
 				bridge: this.config.ipcTransport,
 				accessToken: this.config.accessToken,
 				flavour: this.config.flavour,
@@ -2354,7 +2354,7 @@ var Se = class {
 				onUnauthorized: e
 			});
 		}
-		return new I({
+		return new L({
 			accessToken: this.config.accessToken,
 			flavour: this.config.flavour,
 			debug: this.config.debug,
@@ -2383,7 +2383,7 @@ var Se = class {
 		}
 	}
 	validateConfig(e) {
-		if (!e.baseUrl) throw new y("baseUrl is required");
+		if (!e.baseUrl) throw new b("baseUrl is required");
 	}
 }, $ = "worker.bundle.js";
 function we() {
@@ -2401,4 +2401,4 @@ async function Te(e) {
 	return URL.createObjectURL(i);
 }
 //#endregion
-export { d as AudioEventType, x as AuthenticationError, G as AwsS3StorageProvider, O as CallbackRegistry, c as CommunicationProtocol, h as DiscardReason, b as DiscoveryError, z as DiscoveryManager, g as ErrorCode, m as ErrorEventType, S as ForbiddenError, _ as HttpStatus, I as HttpTransport, L as IpcTransport, w as RateLimitError, Q as RecordingManager, u as RecordingState, Ce as ScribeClient, v as ScribeError, p as SessionEventType, te as SessionExpiredError, B as SessionManager, C as SessionNotFoundError, a as SessionStatus, o as TemplateStatus, T as TransportError, l as TransportMode, D as UnsupportedStorageProviderError, E as UploadError, f as UploadEventType, s as UploadType, y as ValidationError, N as Validator, ne as WorkerError, Te as createWorkerBlobUrl, J as getStorageProvider, we as getWorkerUrl, xe as isStorageProviderSupported };
+export { d as AudioEventType, S as AuthenticationError, G as AwsS3StorageProvider, A as CallbackRegistry, c as CommunicationProtocol, h as DiscardReason, x as DiscoveryError, B as DiscoveryManager, g as ErrorCode, m as ErrorEventType, C as ForbiddenError, _ as HttpStatus, L as HttpTransport, R as IpcTransport, T as RateLimitError, Q as RecordingManager, u as RecordingState, Ce as ScribeClient, y as ScribeError, p as SessionEventType, ee as SessionExpiredError, V as SessionManager, w as SessionNotFoundError, a as SessionStatus, o as TemplateStatus, E as TransportError, l as TransportMode, k as UnsupportedStorageProviderError, O as UploadError, f as UploadEventType, s as UploadType, b as ValidationError, F as Validator, D as WorkerError, Te as createWorkerBlobUrl, J as getStorageProvider, we as getWorkerUrl, xe as isStorageProviderSupported };

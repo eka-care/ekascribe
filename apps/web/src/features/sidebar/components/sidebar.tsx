@@ -465,8 +465,8 @@ const CustomSidebar = () => {
 
           {/* Bottom tab bar */}
           <div
-            className={`flex items-start px-2 pb-3 ${
-              isCollapsed ? 'flex-col gap-1 border-t border-[#D1D1D1] pt-2' : 'gap-2 pt-4'
+            className={`flex items-start border-t border-[#D1D1D1] px-2 pb-3 ${
+              isCollapsed ? 'flex-col gap-1 pt-2' : 'gap-2 pt-3'
             }`}
           >
             {/* Profile */}

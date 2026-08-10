@@ -1193,9 +1193,9 @@ export declare class RecordingManager {
 	stop(): Promise<ApiCallResult<EndRecordingResult>>;
 	/**
 	 * End the session, dispatch onSessionEvent, and return the response.
-	 * Called from stop() (auto-finalize) and finalizeAfterExternalEndSession()
-	 * (consumer-driven). Returns undefined and dispatches onError on failure.
-	 * Caller is responsible for cleanup.
+	 * Called from stop() after all uploads succeed.
+	 * Throws on failure (after dispatching onError) — caller is responsible
+	 * for cleanup.
 	 */
 	private finalizeSession;
 	/**

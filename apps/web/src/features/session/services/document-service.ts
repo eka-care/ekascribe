@@ -633,7 +633,7 @@ function buildDocumentHtml(
       <span class="print-brand-date">${printedOn}</span>
     </div>`;
   const defaultFooterHtml = `<div class="print-footer-frame print-brand-footer">
-      <span>Generated with scribe</span>
+      <span>Powered by @eka.care</span>
       <span>${printedOn}</span>
     </div>`;
 
