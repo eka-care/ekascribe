@@ -18,7 +18,7 @@ def test_imports_work():
 
 def test_mock_helpers():
     """Test that our test helper functions work."""
-    from tests.unit.utils.test_helpers import (
+    from tests.unit.core.test_helpers import (
         create_mock_response,
         create_mock_db_response,
         create_valid_jwt_header

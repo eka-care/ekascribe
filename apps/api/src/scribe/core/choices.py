@@ -20,8 +20,6 @@ class Transfer(str, Enum):
     VADED = "vaded"
     NON_VADED = "non-vaded"
 
-    class Config:
-        use_enum_values = True
 
 
 class Status(str, Enum):
@@ -39,8 +37,6 @@ class UserStatus(str, Enum):
     STOPPED = "stopped"
     CANCELLED = "cancelled"
 
-    class Config:
-        use_enum_values = True
 
 class VadStatus(str, Enum):
     START = "START"
@@ -178,8 +174,6 @@ class InputLanguage(str, Enum):
     VE = "ve"
     NR = "nr"
 
-    class Config:
-        use_enum_values = True
 
 SUPPORTED_LANGUAGES = [
     # --- original contract (unchanged) ---
@@ -320,8 +314,6 @@ class LanguageOutput(str, Enum):
     FR = "fr"
     EN_IN = "en-IN"
 
-    class Config:
-        use_enum_values = True
 
 
 class VOICE2RX_STATUS(Enum):
@@ -333,15 +325,11 @@ class VOICE2RX_STATUS(Enum):
     IN_PROGRESS = "in-progress"
     REQUEST_FAILURE = "request_failure"
 
-    class Config:
-        use_enum_values = True
 
 class VOICE2RX_MODEL_TYPE(Enum):
     PRO = "pro"
     LITE = "lite"
 
-    class Config:
-        use_enum_values = True
 
 
 class VOICE2RX_TEMPLATE_STATUS(Enum):
@@ -349,8 +337,6 @@ class VOICE2RX_TEMPLATE_STATUS(Enum):
     PARTIAL_SUCCESS = "partial_success"
     FAILURE = "failure"
 
-    class Config:
-        use_enum_values = True
 
 class VOICE2RX_PROCESSING_STATUS(Enum):
     SUCCESS = "success"
@@ -359,8 +345,6 @@ class VOICE2RX_PROCESSING_STATUS(Enum):
     REQUEST_FAILURE = "request_failure"
     CANCELLED = "cancelled"
 
-    class Config:
-        use_enum_values = True
 
 
 NON_TEMPLATE_DOCUMENT_ID = "__non_tmp_doc"
@@ -373,8 +357,6 @@ class DocumentType(str, Enum):
     NOTES = "notes"
     INTEGRATION = "integration"
 
-    class Config:
-        use_enum_values = True
 
 
 def validate_enum_value(value, enum_class):

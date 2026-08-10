@@ -103,7 +103,6 @@ def extract_headers(request: Request) -> Dict[str, str]:
 )
 async def create_session(
     request: Request,
-    background_tasks: BackgroundTasks,
     session_request: CreateSessionRequest,
     version: Optional[str] = Query(
         default=None,
@@ -345,7 +344,6 @@ async def get_session_status(
 )
 async def end_session(
     request: Request,
-    background_tasks: BackgroundTasks,
     session_id: str = Path(...),
     session_request: Optional[EndSessionRequest] = Body(default=None),
 ):
@@ -430,7 +428,6 @@ async def end_session(
             b_id,
             audio_files,
             chunk_info=None,
-            background_tasks=background_tasks,
         )
 
         # send to SQS for processing

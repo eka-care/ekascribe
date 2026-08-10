@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from typing import List, Optional, Dict, Any, Set
 from scribe.core.choices import VOICE2RX_MODEL_TYPE, TransactionMode, InputLanguage
 from scribe.schemas.transaction import OutputFormatTemplate, default_output_format_template
@@ -55,8 +55,7 @@ class EkascribeConfigBase(BaseModel):
     # microphone_permission_check?: boolean;
     # consult_language?: string[];
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 class EkascribeConfigCreate(EkascribeConfigBase):
     pass
@@ -64,8 +63,7 @@ class EkascribeConfigCreate(EkascribeConfigBase):
 class EkascribeConfig(EkascribeConfigBase):
     b_id: str
     user_uuid: Optional[str] = "_"
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 # config requests validatings models.
 
@@ -92,14 +90,6 @@ class WorkspaceConfig(BaseModel):
     notes_ids: Optional[List[NotesId]] = None
     print_compact: Optional[bool] = None
 
-    # session audio delivery: when audio_api_enabled the v2rx.completed webhook
-    # omits the presigned URL and clients use GET /voice/v1/sessions/{id}/audio
-    audio_api_enabled: Optional[bool] = None
-    audio_url_expiry_hours: Optional[int] = Field(
-        default=None, ge=1, le=168,
-        description="Presigned audio URL expiry in hours (default 24, max 7 days)",
-    )
-    
     # Echo SDK Agent Configuration
     use_echo_agent: Optional[bool] = Field(
         default=True,
@@ -110,8 +100,7 @@ class WorkspaceConfig(BaseModel):
         description="Echo SDK agent configuration overrides"
     )
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 class UserConfig(BaseModel):
     user_uuid: str
@@ -143,5 +132,4 @@ class UserConfig(BaseModel):
     header: Optional[ImageMetadata] = None
     footer: Optional[ImageMetadata] = None
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)

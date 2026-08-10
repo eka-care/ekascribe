@@ -1,6 +1,6 @@
 # voice2rx-be/voice2rx/api/schemas/template_schema.py
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from typing import List, Optional
 from enum import Enum
 from datetime import datetime
@@ -62,7 +62,8 @@ class TemplateCreate(BaseModel):
     type: str = "" # template type: default/custom/integration
     available_tools: Optional[str] = _AVAILABLE_TOOLS_FIELD
 
-    @validator("available_tools")
+    @field_validator("available_tools")
+    @classmethod
     def _validate_available_tools(cls, v):
         return _validate_available_tools_value(v)
 
@@ -72,7 +73,8 @@ class TemplateUpdate(BaseModel):
     section_ids: Optional[List[str]] = None
     available_tools: Optional[str] = _AVAILABLE_TOOLS_FIELD
 
-    @validator("available_tools")
+    @field_validator("available_tools")
+    @classmethod
     def _validate_available_tools(cls, v):
         return _validate_available_tools_value(v)
 
@@ -130,8 +132,9 @@ class AiCreateTemplateRequest(BaseModel):
     media_type: Optional[str] = Field(None, description="MIME type, e.g. image/jpeg, application/pdf, .docx, text/csv")
     file_name: Optional[str] = Field(None, description="Original filename")
 
-    @validator("content")
-    def _require_some_input(cls, v, values):
+    @field_validator("content")
+    @classmethod
+    def _require_some_input(cls, v):
         # full cross-field check lives in the service; this just trims.
         return v.strip() if isinstance(v, str) else v
 
@@ -149,7 +152,8 @@ class TemplateRequestData(BaseModel):
     # this is used to convert the given transcript or stored transcript to any other langueage.
     target_language: Optional[str] = Field(None, description="Target language for translation")
 
-    @validator("target_language")
+    @field_validator("target_language")
+    @classmethod
     def validate_target_language(cls, v):
         if v is None:
             return v

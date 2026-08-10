@@ -5,13 +5,8 @@ FastAPI endpoints for audio file uploads according to
 MedScribeAlliance Protocol Specification v0.1
 
 Endpoints:
-- POST /sessions/{session_id}/audio - Upload audio (chunked/single)
-- GET /sessions/{session_id}/audio - Presigned URL of the combined session audio
-- GET /sessions/{session_id}/audio/credentials - Get S3 credentials for streaming
+- POST /sessions/{session_id}/audio/{file_name} - Upload audio (chunked/single)
 """
-
-import os
-import time
 
 from fastapi import (
     APIRouter,
@@ -28,11 +23,8 @@ import orjson
 from scribe.core.custom_logger import get_logger
 
 from scribe.core.http import RequestHandler, ResponseFormatter
-from scribe.core.exceptions import ResourceNotFoundException, Voice2RxException
-from scribe.schemas import ErrorResponse, SessionAudioResponse, UploadType
+from scribe.schemas import ErrorResponse, UploadType
 from scribe.services.adaptors import AudioAdaptor
-from scribe.services.config_service import ConfigService
-from scribe.repositories.blob import storage_client_for_bucket
 from scribe.services.transaction_service import TransactionService
 
 logger = get_logger(__name__)
@@ -41,111 +33,6 @@ audio_router = APIRouter()
 
 transaction_service = TransactionService()
 audio_adaptor = AudioAdaptor()
-config_service = ConfigService()
-
-
-def extract_headers(request: Request) -> dict:
-    """Extract required headers from request"""
-    headers = {}
-    jwt_payload = request.headers.get("jwt-payload", "{}")
-    try:
-        import json
-        payload = json.loads(jwt_payload)
-        headers["b_id"] = payload.get("b-id", "")
-        headers["uuid"] = payload.get("uuid", "")
-    except Exception as _:
-        headers["b_id"] = ""
-        headers["uuid"] = ""
-    return headers
-
-
-@audio_router.get(
-    "/sessions/{session_id}/audio",
-    responses={
-        200: {"model": SessionAudioResponse, "description": "Presigned URL of the combined session audio"},
-        403: {"model": ErrorResponse, "description": "Audio access not enabled for this business"},
-        404: {"model": ErrorResponse, "description": "Session or audio not found"},
-    },
-    tags=["audio"],
-    summary="Get Session Audio",
-    description="Returns a presigned URL for the combined recorded audio of a session",
-)
-def get_session_audio(
-    request: Request,
-    session_id: str = Path(...),
-):
-    b_id = ""
-    try:
-        headers = RequestHandler.extract_headers(request, session_id)
-        b_id = headers.get("token_data", {}).get("b-id", "")
-
-        transaction = transaction_service.get_transaction(session_id, b_id)
-        if not transaction:
-            raise ResourceNotFoundException(
-                f"Session '{session_id}' does not exist",
-                txn_id=session_id,
-                b_id=b_id,
-            )
-
-        if not config_service.check_audio_full_enabled(b_id):
-            raise Voice2RxException(
-                message="Audio access is not enabled for this business",
-                code="audio_not_enabled",
-                status_code=403,
-                details={"session_id": session_id, "b_id": b_id},
-            )
-
-        bucket_name = os.getenv("S3_COMBINED_AUDIO_BUCKET", "voice-records-audio")
-        audio_key = f"{b_id}/{session_id}_combined.mp3"
-        storage_client = storage_client_for_bucket(bucket_name=bucket_name)
-
-        if not storage_client.object_exists(audio_key):
-            raise Voice2RxException(
-                message="Session audio is not available yet, it's getting ready in background",
-                code="audio_not_available",
-                status_code=404,
-                details={"session_id": session_id, "b_id": b_id},
-            )
-
-        expires_in = config_service.get_audio_url_expiry_hours(b_id) * 3600
-        audio_url = storage_client.generate_presigned_get_url(
-            audio_key, expires_in=expires_in
-        )
-        if not audio_url:
-            raise Voice2RxException(
-                message="Failed to generate audio URL",
-                code="audio_url_generation_failed",
-                status_code=500,
-                details={"session_id": session_id, "b_id": b_id},
-            )
-
-        logger.info(
-            "Session audio URL generated",
-            session_id=session_id,
-            b_id=b_id,
-            expires_in=expires_in,
-            severity="medium",
-        )
-        response = SessionAudioResponse(
-            session_id=session_id,
-            audio_url=audio_url,
-            expires_in=expires_in,
-            expires_at=int(time.time()) + expires_in,
-        )
-        return ResponseFormatter.json_response(
-            response.model_dump(), status.HTTP_200_OK
-        )
-
-    except Exception as e:
-        logger.error(
-            "Error fetching session audio",
-            session_id=session_id,
-            b_id=b_id,
-            error=str(e),
-            exc_info=True,
-            severity="critical",
-        )
-        return ResponseFormatter.from_exception(e, session_id, b_id)
 
 
 @audio_router.post(

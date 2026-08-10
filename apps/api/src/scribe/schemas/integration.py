@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import List
 
-from pydantic import BaseModel, Field
+from pydantic import ConfigDict, BaseModel, Field
 
 
 class IntegrationCategory(str, Enum):
@@ -34,8 +34,7 @@ class Integration(BaseModel):
     link_status: LinkStatus
     tags: List[str] = Field(default_factory=list)
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 
 class IntegrationsData(BaseModel):

@@ -123,5 +123,5 @@ class TestConfigNotesIdsAndPrintCompact:
             },
         )
 
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
         mock_config_service.upsert_config.assert_not_called()

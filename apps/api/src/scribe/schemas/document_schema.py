@@ -1,5 +1,5 @@
 from typing import Dict, List, Optional, Any
-from pydantic import AliasChoices, BaseModel, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 from scribe.core.choices import NON_TEMPLATE_DOCUMENT_ID, DocumentType
 
 
@@ -62,6 +62,4 @@ class CreateDocumentRequest(BaseModel):
     )
     tiptap_json: Optional[Dict[str, Any]] = None
 
-    class Config:
-        use_enum_values = True
-        populate_by_name = True
+    model_config = ConfigDict(use_enum_values=True, validate_by_name=True)

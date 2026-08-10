@@ -1,6 +1,6 @@
 from typing import Any, Dict, Optional, List, Union
 
-from pydantic import BaseModel, Field,model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from scribe.core.choices import VOICE2RX_MODEL_TYPE, VOICE2RX_PROCESSING_STATUS, VOICE2RX_STATUS, VOICE2RX_TEMPLATE_STATUS, ASRService, InputLanguage, LanguageOutput, TransactionMode, Transfer, UserStatus
 
 
@@ -23,8 +23,7 @@ class OutputFormatTemplate(BaseModel):
     template_name: Optional[str] = None
     response_type: Optional[str] = None
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
     
 
 class RequestTemplates(BaseModel):
@@ -32,8 +31,7 @@ class RequestTemplates(BaseModel):
     visual: List[Dict[str, Any]] = Field(default_factory=list)
     integration: List[Dict[str, Any]] = Field(default_factory=list)
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 
 class AttachmentItem(BaseModel):
@@ -79,8 +77,7 @@ class TransactionInitRequest(BaseModel):
     context: Optional[TransactionContext] = None
     encounter_id: Optional[str] = None
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 
 class ErrorFormat(BaseModel):
@@ -88,14 +85,12 @@ class ErrorFormat(BaseModel):
     code: Optional[str] = None
     msg: Optional[str] = None
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 class ProcessingError(BaseModel):
     error: Optional[ErrorFormat] = None
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 class OutputTemplateResult(BaseModel):
     status: VOICE2RX_TEMPLATE_STATUS
@@ -129,8 +124,7 @@ class TransactionUpdateData(BaseModel):
     commit_at: Optional[str] = None
     processed_at: Optional[str] = None
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
     @model_validator(mode="before")
     def before_validate(self, data: Dict[str, Any]) -> Dict[str, Any]:
@@ -156,6 +150,4 @@ class ResultUpdateBody(BaseModel):
     document_id: str = Field(..., alias="document-id")
     data: str
     
-    class Config:
-        allow_population_by_field_name = True
-        use_enum_values = True
+    model_config = ConfigDict(validate_by_name=True, use_enum_values=True)
