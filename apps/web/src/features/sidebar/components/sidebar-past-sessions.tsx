@@ -377,7 +377,11 @@ const SidebarPastSessions = ({
                             Session
                           </p>
                           <p className="text-xs leading-4 text-[#767676]">
+<<<<<<< Updated upstream
                             {hasNotesReady ? `${time} · Notes Ready` : time}
+=======
+                            {hasNotesReady ? 'Notes Ready' : '+ Title'}
+>>>>>>> Stashed changes
                           </p>
                         </>
                       )}

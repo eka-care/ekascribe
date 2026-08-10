@@ -626,7 +626,7 @@ function buildDocumentHtml(
       <div class="print-brand-left">
         <svg width="30" height="30" viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="scribe-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#215FFF"/><stop offset="1" stop-color="#4535B0"/></linearGradient></defs><rect width="28" height="28" rx="7" fill="url(#scribe-g)"/><g stroke="#fff" stroke-width="2.2" stroke-linecap="round"><line x1="8" y1="11" x2="8" y2="17"/><line x1="12" y1="8" x2="12" y2="20"/><line x1="16" y1="10" x2="16" y2="18"/><line x1="20" y1="12" x2="20" y2="16"/></g></svg>
         <div class="print-brand-text">
-          <span class="print-brand-name">scribe</span>
+          <span class="print-brand-name">Varta</span>
           <span class="print-brand-tagline">Session notes</span>
         </div>
       </div>
