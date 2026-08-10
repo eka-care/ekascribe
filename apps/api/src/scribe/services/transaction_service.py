@@ -77,6 +77,12 @@ class TransactionService:
 
         if prepared_data.get("flavour") not in exculuded_apps:
             self._store_document_results(txn_id, prepared_data)
+        else:
+            # web/desktop sessions still need the transcript placeholder up
+            # front: the FE polls transcript status right after end-session and
+            # the AG-UI resolver expects the document to exist (its content
+            # arrives via the pipeline's transcript_status=success callback).
+            self._create_transcript_placeholder(txn_id, prepared_data)
 
         # insert the transaction data into the transaction db.
         result = self.transaction_repo.create_transaction(prepared_data)
@@ -573,24 +579,7 @@ class TransactionService:
                     )
 
             # create transcript document entry with in-progress status
-            try:
-                self.document_service.create_document(
-                    session_id=txn_id,
-                    template_id="transcript",
-                    uuid_val=user_uuid,
-                    wid=b_id,
-                    doc_type=DocumentType.TRANSCRIPT,
-                    status="in-progress",
-                    prompt_path=transaction_data.get("prompt_s3_url", None),
-                    init_doc=True
-                )
-            except Exception as doc_err:
-                logger.error(
-                    "TRANSACTION_SERVICE: Error creating transcript document entry",
-                    txn_id=txn_id,
-                    error=str(doc_err),
-                    severity="medium",
-                )
+            self._create_transcript_placeholder(txn_id, transaction_data)
 
         except Exception as e:
             logger.error(
@@ -601,4 +590,29 @@ class TransactionService:
                 severity="critical",
             )
             raise TemplateProcessingException(str(e), txn_id)
+
+    def _create_transcript_placeholder(
+        self, txn_id: str, transaction_data: Dict[str, Any]
+    ) -> None:
+        """Create the in-progress transcript document for a new session; the
+        pipeline's transcript_status=success callback writes its content and
+        flips it to success."""
+        try:
+            self.document_service.create_document(
+                session_id=txn_id,
+                template_id="transcript",
+                uuid_val=transaction_data.get("uuid", ""),
+                wid=transaction_data.get("b_id", ""),
+                doc_type=DocumentType.TRANSCRIPT,
+                status="in-progress",
+                prompt_path=transaction_data.get("prompt_s3_url", None),
+                init_doc=True,
+            )
+        except Exception as doc_err:
+            logger.error(
+                "TRANSACTION_SERVICE: Error creating transcript document entry",
+                txn_id=txn_id,
+                error=str(doc_err),
+                severity="medium",
+            )
 

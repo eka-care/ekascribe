@@ -33,7 +33,6 @@ dependencies = [
     "google-genai>=1.0",
     # documents / publish (feature-flagged, code retained)
     "markdown>=3.6",
-    "weasyprint>=62.3",
     "python-docx>=1.1.2",
     "striprtf>=0.0.26",
     "google-api-python-client>=2.160",

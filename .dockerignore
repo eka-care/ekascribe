@@ -1,0 +1,20 @@
+# keep the docker build context lean — compose builds use context: .. (repo root)
+.git
+.venv
+**/__pycache__
+**/*.pyc
+.pytest_cache
+**/.pytest_cache
+.ruff_cache
+node_modules
+**/node_modules
+apps/web/.next
+apps/web/out
+/storage
+/logs
+/_to_delete
+.env
+.DS_Store
+**/.DS_Store
+deploy/certs
+*.log
