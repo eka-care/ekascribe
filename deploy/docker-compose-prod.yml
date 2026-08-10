@@ -46,6 +46,7 @@ services:
       SELF_URL: ${SELF_URL:-https://bharat-backend.dev.eka.care}
       WEB_URL: ${WEB_URL:-https://bharat-net.dev.eka.care}
       STORAGE_ROOT: /data/storage
+      UVICORN_WORKERS: ${UVICORN_WORKERS:-2}
     volumes:
       - storage:/data/storage
       - logs:/data/logs
@@ -62,9 +63,11 @@ services:
       start_period: 15s
 
   worker:
-    # Only for EXECUTION_MODE=worker: docker compose --profile worker up
-    # (and set EXECUTION_MODE=worker + UVICORN_WORKERS>1 on api). Default mode
-    # (inprocess) runs the pipeline inside the api container, so this stays off.
+    # Multi-container pipeline: set EXECUTION_MODE=worker in .env, then
+    #   docker compose -f deploy/docker-compose-prod.yml --profile worker up -d --scale worker=2
+    # Chunk claims live in Postgres (audio_chunks), so workers share sessions
+    # safely. Default mode (inprocess) runs the pipeline inside the api
+    # container, so this stays off.
     profiles: ["worker"]
     build:
       context: ..

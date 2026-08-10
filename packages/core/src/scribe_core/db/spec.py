@@ -38,6 +38,13 @@ _SPECS: List[TableSpec] = [
         indexes=(("b_id", "created_at"), ("uuid", "created_at"), ("patient_oid", "created_at")),
     ),
     TableSpec(
+        logical_name="audio_chunks",
+        pg_name="audio_chunks",
+        pk=("txn_id", "filename"),
+        columns=("status", "claimed_at", "updated_at"),
+        indexes=(("txn_id", "status"),),
+    ),
+    TableSpec(
         logical_name="ekascribe_document",
         pg_name="ekascribe_document",
         pk=("document_id",),

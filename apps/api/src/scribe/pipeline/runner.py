@@ -8,9 +8,14 @@ procrastinate task decorators.
 
 Durability note: jobs live only in this process. A crash mid-run loses the
 in-flight job (fire-and-forget). For at-least-once durability + retries across
-restarts, use EXECUTION_MODE=worker (Postgres/procrastinate). Intended for
-single-process deployments — run uvicorn with --workers 1 in this mode so a
-job is always visible to the process that scheduled it.
+restarts, use EXECUTION_MODE=worker (Postgres/procrastinate).
+
+Multiple uvicorn workers ARE safe in this mode: chunk coordination lives in
+the audio_chunks Postgres table (claims via conditional updates), so
+concurrent processes never duplicate STT work, and process_session's
+commit-time sweep re-dispatches anything a crashed process dropped. For
+multi-CONTAINER scale-out, prefer EXECUTION_MODE=worker so jobs are durable
+in the queue as well.
 """
 
 from __future__ import annotations

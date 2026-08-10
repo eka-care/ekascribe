@@ -6,11 +6,16 @@ these same functions. Follow-up jobs are scheduled through ``dispatch`` so they
 route to whichever backend is active.
 
   transcribe_chunk  — per-chunk STT while the session is live (from audio upload)
-  vad_session       — VAD-chunk a batch upload (replaces the SNS chunker lambda)
-  process_session   — commit-time: transcribe missing chunks, stitch, write the
+  vad_session       — VAD-chunk a batch upload, then fan out per-chunk STT
+  process_session   — commit-time: wait for chunk jobs (Postgres chunk state),
+                      transcribe stragglers, stitch (single winner), write the
                       transcript artifact, PATCH transcript_status=success
   finalize_session  — poll session documents; when generation settles, PATCH
                       processing_status=success
+
+Chunk coordination lives in the ``audio_chunks`` Postgres table (see
+chunk_state.py): workers claim chunks via conditional updates, so any number
+of uvicorn workers / worker containers can process one session together.
 
 The PATCH goes over HTTP to the API (SELF_URL), preserving the ds-service
 callback contract (documents, webhooks, AG-UI, polling semantics unchanged).
@@ -28,11 +33,18 @@ from scribe_core.logging import get_logger
 from scribe_core.settings import get_settings
 from scribe_core.storage import get_blob_store, parse_blob_url
 
+from scribe.pipeline import chunk_state
 from scribe.pipeline.dispatch import dispatch
 
 logger = get_logger(__name__)
 
 AUDIO_EXTS = (".m4a", ".mp3", ".wav", ".webm", ".ogg", ".mp4", ".aac")
+
+# process_session: how long to wait for in-flight chunk jobs before
+# transcribing stragglers inline (attempts x 5s), and how long a losing
+# process re-checks a stitch owned by another worker (attempts x 10s).
+MAX_CHUNK_WAIT_ATTEMPTS = 36
+MAX_STITCH_WAIT_ATTEMPTS = 60
 _CHUNK_RE = re.compile(r"^(\d+)\.[A-Za-z0-9]+$")
 
 _MIME = {
@@ -112,10 +124,21 @@ def _transcribe_chunk_sync(bucket: str, chunk_key: str, language: Optional[str])
 
 # --- pipeline jobs (queue-agnostic) ------------------------------------------
 def transcribe_chunk(txn_id: str, b_id: str, s3_url: str, filename: str) -> None:
-    """Early STT for one uploaded chunk. Idempotent (skips if transcript exists)."""
+    """STT for one uploaded chunk. Claims the chunk in Postgres first so
+    concurrent workers never transcribe the same chunk twice; the blob-level
+    transcript artifact keeps the work idempotent on top."""
     bucket, prefix = parse_blob_url(s3_url)
     chunk_key = f"{prefix.rstrip('/')}/{filename}"
-    _transcribe_chunk_sync(bucket, chunk_key, language=None)
+    chunk_state.register_chunk(txn_id, filename, b_id, chunk_key)
+    if not chunk_state.claim_chunk(txn_id, filename):
+        logger.info("chunk skipped (done or claimed elsewhere)", txn_id=txn_id, chunk=filename)
+        return
+    try:
+        _transcribe_chunk_sync(bucket, chunk_key, language=None)
+    except Exception as e:  # noqa: BLE001 — record, then let retry policy run
+        chunk_state.mark_failed(txn_id, filename, str(e))
+        raise
+    chunk_state.mark_done(txn_id, filename, _transcript_key_for_chunk(chunk_key))
     logger.info("chunk transcribed", txn_id=txn_id, chunk=filename)
 
 
@@ -143,6 +166,16 @@ def vad_session(message: Dict[str, Any]) -> None:
                 b_id=b_id,
             )
         )
+
+    # fan out per-chunk STT now instead of leaving it all to commit time
+    s_bucket, s_prefix = parse_blob_url(s3_url)
+    for _, chunk_key in _chunk_files(s_bucket, s_prefix):
+        filename = chunk_key.split("/")[-1]
+        chunk_state.register_chunk(txn_id, filename, b_id, chunk_key)
+        dispatch(
+            "transcribe_chunk",
+            {"txn_id": txn_id, "b_id": b_id, "s3_url": s3_url, "filename": filename},
+        )
     logger.info("vad_session complete", txn_id=txn_id, files=len(audio_files))
 
 
@@ -159,10 +192,59 @@ def process_session(message: Dict[str, Any]) -> None:
     if not chunks:
         logger.warning("process_session: no audio chunks found", txn_id=txn_id, s3_url=s3_url)
 
+    filenames = [chunk_key.split("/")[-1] for _, chunk_key in chunks]
+    for (_, chunk_key), filename in zip(chunks, filenames):
+        chunk_state.register_chunk(txn_id, filename, b_id, chunk_key)
+
+    # Wait for in-flight chunk jobs (bounded), re-dispatching any that are
+    # claimable — claims make duplicate dispatches free.
+    attempt = int(message.get("attempt", 0))
+    remaining = chunk_state.not_done_chunks(txn_id, filenames)
+    if remaining and attempt < MAX_CHUNK_WAIT_ATTEMPTS:
+        for filename in remaining:
+            dispatch(
+                "transcribe_chunk",
+                {"txn_id": txn_id, "b_id": b_id, "s3_url": s3_url, "filename": filename},
+            )
+        follow_up = dict(message)
+        follow_up["attempt"] = attempt + 1
+        dispatch("process_session", {"message": follow_up}, delay_seconds=5)
+        logger.info(
+            "process_session waiting on chunks",
+            txn_id=txn_id,
+            remaining=len(remaining),
+            attempt=attempt,
+        )
+        return
+
+    # Single-winner stitch: exactly one process assembles + PATCHes.
+    chunk_state.register_chunk(txn_id, chunk_state.STITCH_SENTINEL, b_id)
+    if not chunk_state.claim_chunk(txn_id, chunk_state.STITCH_SENTINEL):
+        from scribe_core.db import get_table
+
+        sentinel = get_table(chunk_state.TABLE).get_item(
+            {"txn_id": txn_id, "filename": chunk_state.STITCH_SENTINEL}
+        ) or {}
+        if sentinel.get("status") == chunk_state.STATUS_DONE:
+            logger.info("stitch already completed by another worker", txn_id=txn_id)
+            return
+        # a live worker owns the stitch — re-check later in case it dies
+        # (its stale claim then becomes stealable)
+        stitch_attempt = int(message.get("stitch_attempt", 0))
+        if stitch_attempt < MAX_STITCH_WAIT_ATTEMPTS:
+            follow_up = dict(message)
+            follow_up["stitch_attempt"] = stitch_attempt + 1
+            dispatch("process_session", {"message": follow_up}, delay_seconds=10)
+            logger.info("stitch owned by another worker; re-checking", txn_id=txn_id)
+        return
+
     parts: List[str] = []
     detected_lang: Optional[str] = None
     for _, chunk_key in chunks:
+        # idempotent: fast-path reads the existing transcript artifact; any
+        # straggler chunk (attempts exhausted) is transcribed inline here.
         result = _transcribe_chunk_sync(bucket, chunk_key, language)
+        chunk_state.mark_done(txn_id, chunk_key.split("/")[-1], _transcript_key_for_chunk(chunk_key))
         if result.get("text"):
             parts.append(result["text"].strip())
         detected_lang = detected_lang or result.get("language_detected")
@@ -189,6 +271,7 @@ def process_session(message: Dict[str, Any]) -> None:
     # Same callback contract the ds-service used — the API fans out template
     # structuring in background from this PATCH.
     _patch_transaction(txn_id, {"transcript_status": "success"})
+    chunk_state.mark_done(txn_id, chunk_state.STITCH_SENTINEL)
 
     dispatch("finalize_session", {"txn_id": txn_id, "b_id": b_id, "attempt": 0})
 
