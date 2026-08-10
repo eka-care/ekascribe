@@ -61,11 +61,8 @@ export function useSessionTabs(sessionId: string) {
   useEffect(() => {
     if (phase === SESSION_PHASE.PROCESSING && prevPhaseRef.current !== SESSION_PHASE.PROCESSING) {
       setPendingTabs((prev) => prev.filter((t) => !t.id.startsWith('pending-processing-')));
-      const templates =
-        outputFormatTemplates.length > 0
-          ? outputFormatTemplates
-          : [{ id: 'default', name: 'Notes' }];
-      templates.forEach((t) => addPendingTab(`pending-processing-${t.id}`, t.name));
+      // No template selected → nothing gets generated; the transcript stays.
+      outputFormatTemplates.forEach((t) => addPendingTab(`pending-processing-${t.id}`, t.name));
     }
 
     if (phase === SESSION_PHASE.ERROR && prevPhaseRef.current === SESSION_PHASE.PROCESSING) {
@@ -84,13 +81,9 @@ export function useSessionTabs(sessionId: string) {
 
       if (successCustomDoc) {
         setActiveTab(successCustomDoc.document_id);
-      } else if (customDocs.length === 0) {
-        const templates =
-          outputFormatTemplates.length > 0
-            ? outputFormatTemplates
-            : [{ id: 'default', name: 'Notes' }];
+      } else if (customDocs.length === 0 && outputFormatTemplates.length > 0) {
         const now = Date.now();
-        const newStreamTabs: TSessionTab[] = templates.map((t) => ({
+        const newStreamTabs: TSessionTab[] = outputFormatTemplates.map((t) => ({
           id: `stream:${t.id}:${now}`,
           label: t.name,
           closable: true,
