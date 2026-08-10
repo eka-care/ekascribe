@@ -13,8 +13,6 @@ logger = get_logger(__name__)
 
 _TOOL_PROMPTS_PATH = Path(__file__).parent / "tool_prompts.yaml"
 
-NARRATIVE_TOOL_NAME = "add_narrative"
-
 
 class RouteAway(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -71,30 +69,6 @@ class ToolSpec:
     prompt: ToolPromptEntry
 
 
-def _parse_tokens(available_tools: str) -> List[str]:
-    return [t.strip().lower() for t in available_tools.split(",") if t.strip()]
-
-
-def validate_available_tools(value: Optional[str]) -> Optional[str]:
-    if value is None:
-        return None
-    stripped = value.strip()
-    if stripped == "":
-        return ""
-    if stripped.lower() == "all":
-        return "all"
-    tokens = _parse_tokens(stripped)
-    unknown = [t for t in tokens if t not in NAME_TO_TOOL and t not in DISABLED_TOOLS]
-    if unknown:
-        raise ValueError(
-            f"Unknown tools in available_tools: {unknown}. "
-            f"Valid values: 'all', '' (narrative only), or a comma-separated "
-            f"subset of {list(NAME_TO_TOOL)}."
-        )
-    requested = set(tokens)
-    return ",".join(name for name in NAME_TO_TOOL if name in requested)
-
-
 class ToolCatalog:
 
     def __init__(self, config: Optional[ToolPromptsConfig] = None) -> None:
@@ -107,24 +81,9 @@ class ToolCatalog:
             prompt=self._config.tools[name],
         )
 
-    def resolve(self, available_tools: Optional[str]) -> List[ToolSpec]:
-        if available_tools is None or available_tools.strip().lower() == "all":
-            return [self._spec(name) for name in NAME_TO_TOOL]
-
-        tokens = _parse_tokens(available_tools)
-        unknown = [
-            t for t in tokens if t not in NAME_TO_TOOL and t not in DISABLED_TOOLS
-        ]
-        if unknown:
-            logger.warning(
-                "available_tools contains unknown tool names; ignoring them",
-                unknown=unknown,
-                available_tools=available_tools,
-                severity="medium",
-            )
-        enabled = {t for t in tokens if t in NAME_TO_TOOL}
-        enabled.add(NARRATIVE_TOOL_NAME)
-        return [self._spec(name) for name in NAME_TO_TOOL if name in enabled]
+    def all_specs(self) -> List[ToolSpec]:
+        """Every registered emit tool — the full default toolset."""
+        return [self._spec(name) for name in NAME_TO_TOOL]
 
     def render_tools_available(self, specs: List[ToolSpec]) -> str:
         """Render the {{tools_available}} prompt block for the enabled set."""

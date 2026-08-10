@@ -247,9 +247,6 @@ async def run_input_resolver(
         date=date_str,
         llm_config=_get_default_llm_config(),
         resolved_context=resolved_context,
-        available_tools=template_data.get("available_tools"),
-        c_id=transaction.get("c_id", ""),
-        doctor_uuid=transaction.get("uuid", ""),
     )
 
 # active resolver. Production points at run_input_resolver;

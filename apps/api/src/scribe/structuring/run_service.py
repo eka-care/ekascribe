@@ -26,9 +26,8 @@ from scribe.services.context import ResolvedContext, build_conversation_context
 from scribe.services import document_tiptap_service
 from scribe.services.document_service import DocumentService
 
-from .prompt_assembly import build_ag_ui_agent_config, build_scribe_agent_config_v2
+from .prompt_assembly import build_scribe_agent_config_v2
 from .state import ScribeState
-from .tools import MeetingNoteTool
 from .tools.catalog import get_tool_catalog, load_tool_prompts
 
 # fail fast: a missing/invalid tool_prompts.yaml should break at import
@@ -53,7 +52,6 @@ def _dump_final_prompt_for_debug(echo_config, tools, inputs) -> None:
             f"# template_id={inputs.template_id}\n"
             f"# llm_model={os.getenv('ECHO_DEFAULT_LLM_MODEL') or os.getenv('ECHO_LLM_MODEL')}\n"
             f"# llm_provider={os.getenv('ECHO_DEFAULT_LLM_PROVIDER') or os.getenv('ECHO_DEFAULT_PROVIDER')}\n"
-            f"# available_tools={inputs.available_tools!r}\n"
             f"# registered_tools={[t.name for t in tools]}\n\n"
         )
         body = (
@@ -95,9 +93,6 @@ class ResolvedRunInputs:
     date: Optional[str] = None
     llm_config: Optional[LLMConfig] = None  # override for tests/canary
     resolved_context: Optional[ResolvedContext] = None
-    available_tools: Optional[str] = None
-    c_id: str = ""
-    doctor_uuid: str = ""
 
 
 ComponentsFactory = Callable[
@@ -109,7 +104,9 @@ def build_scribe_run_components(
     inputs: ResolvedRunInputs,
 ) -> Tuple[AgUiAgent, ConversationContext, ScribeState]:
     """Default components factory — builds the agent, context, and state
-    for one run with the template-selected emit tools registered."""
+    for one run with the full emit toolset registered. Every run gets every
+    tool; the template's instructions decide which sections (and therefore
+    which tools) actually fire."""
     state = ScribeState(
         template_id=inputs.template_id,
         txn_id=inputs.txn_id,
@@ -117,30 +114,19 @@ def build_scribe_run_components(
         transcript=inputs.transcript,
     )
 
-    is_meeting_notes = inputs.template_id.endswith("_meeting_notes")
-
-    if is_meeting_notes:
-        echo_config = build_ag_ui_agent_config(
-            template_prompt=inputs.template_prompt,
-            date=inputs.date,
-            prompt_key="meeting_notes",
-        )
-        tools = [MeetingNoteTool()]
-    else:
-        catalog = get_tool_catalog()
-        tool_specs = catalog.resolve(inputs.available_tools)
-        echo_config = build_scribe_agent_config_v2(
-            template_prompt=inputs.template_prompt,
-            tool_specs=tool_specs,
-            date=inputs.date,
-        )
-        tools = catalog.instantiate(tool_specs)
-        logger.info(
-            "scribe run tools resolved",
-            template_id=inputs.template_id,
-            available_tools=inputs.available_tools,
-            tool_names=[t.name for t in tools],
-        )
+    catalog = get_tool_catalog()
+    tool_specs = catalog.all_specs()
+    echo_config = build_scribe_agent_config_v2(
+        template_prompt=inputs.template_prompt,
+        tool_specs=tool_specs,
+        date=inputs.date,
+    )
+    tools = catalog.instantiate(tool_specs)
+    logger.info(
+        "scribe run tools resolved",
+        template_id=inputs.template_id,
+        tool_names=[t.name for t in tools],
+    )
 
     llm_config = inputs.llm_config or LLMAgentConfig.from_env().to_llm_config()
 

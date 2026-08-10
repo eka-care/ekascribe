@@ -43,19 +43,6 @@ POLL_INTERVAL_SECONDS = 0.5
 PROCESSING_TIMEOUT_SECONDS = 120
 PRESIGNED_URL_EXPIRY_SECONDS = 3600
 
-INTEGRATION_TEMPLATE_IDS: list = []
-
-# Built-in output document ids and their content type. These are the only
-# non-user templates the pipeline writes; everything else is a user template.
-# TODO(rename): ids carry legacy names until the B2/B3 vocabulary pass.
-LEGACY_OUTPUT_TYPE = {
-    "clinical_note_template": "markdown",
-    "clinical_notes_template": "markdown",
-    "transcript_template": "text",
-}
-
-LEGACY_TEMPLATE_IDS = ["clinical_note_template", "transcript_template"]
-
 
 @dataclass
 class ResultContext:
@@ -416,12 +403,10 @@ class ResultServiceV2:
         template_results_entry = copy.deepcopy(entry)
         template_results_entry["type"] = document_meta_info.get("response_type", "json")
 
-        if template_type_val == "integration" or template_id in INTEGRATION_TEMPLATE_IDS:
+        if template_type_val == "integration":
             return template_results_entry, "integration"
-        elif template_id not in LEGACY_TEMPLATE_IDS:
-            return template_results_entry, "custom"
 
-        return template_results_entry, "legacy"
+        return template_results_entry, "custom"
 
     def _append_entry_to_response(
         self, response: Dict[str, Any], entry: Dict[str, Any], category: str
@@ -429,36 +414,6 @@ class ResultServiceV2:
         """Append a document entry to the appropriate section of the response."""
         if category in ("transcript", "integration", "custom"):
             response["data"]["template_results"][category].append(entry)
-
-    def _populate_output_section(self, ctx: "ResultContext") -> None:
-        template_results = ctx.response.get("data", {}).get("template_results", {})
-        combined_entries = (
-            template_results.get("integration", [])
-            + template_results.get("custom", [])
-        )
-        flavour = ctx.transaction.get("flavour", "default")
-
-        for entry in combined_entries:
-            template_id = entry.get("template_id", "")
-            meta_info = ctx.documents_meta_info.get(template_id, {})
-
-            output_type = self._resolve_content_type(template_id, meta_info, flavour)
-
-            output_entry = {
-                "template_id": template_id,
-                "value": entry.get("value", ""),
-                "type": output_type,
-                "name": meta_info.get("template_name", "") or template_id,
-                "status": entry.get("status", "in-progress"),
-                "errors": entry.get("errors", []),
-                "warnings": entry.get("warnings", []),
-            }
-            ctx.response["data"]["output"].append(output_entry)
-
-        priority_map = {"eka_emr_template": 0, "eka_emr_w_codes_template": 1}
-        ctx.response["data"]["output"].sort(
-            key=lambda x: priority_map.get(x.get("template_id", ""), 2)
-        )
 
     def _build_empty_response(
         self,
@@ -524,11 +479,6 @@ class ResultServiceV2:
                 flavour=ctx.transaction.get("flavour", "default"),
             )
             self._append_entry_to_response(ctx.response, entry, category)
-
-        # populate output section from integration + custom template_results
-        # output section is deprecated is only used by few clients... we can remove based on some flavours
-        if ctx.transaction.get("flavour") not in ["ekascribe-web", "extension", "android"]:
-            self._populate_output_section(ctx)
 
         if ctx.transaction.get("patient_details"):
             ctx.response["data"]["patient_details"] = ctx.transaction.get(
@@ -605,16 +555,6 @@ class ResultServiceV2:
             if not template_id:
                 continue
 
-            if template_id in LEGACY_OUTPUT_TYPE:
-                out_type = LEGACY_OUTPUT_TYPE[template_id]
-                document_meta_info[document_id] = {
-                    "template_type": out_type,
-                    "response_type": out_type,
-                    "document_name": doc.get("document_name", "") or template_id,
-                    "template_name": template_id_to_name_map.get(template_id, "") or template_id,
-                }
-                continue
-
             if doc.get("type") == DocumentType.INTEGRATION:
                 document_meta_info[document_id] = {
                     "template_type": "integration",
@@ -635,30 +575,6 @@ class ResultServiceV2:
             }
 
         return document_meta_info
-
-    def _resolve_content_type(
-        self,
-        template_id: str,
-        template_map_info: Dict[str, str],
-        flavour: str,
-    ) -> str:
-        """Resolve the content type for output section (same logic as V1)."""
-        # Built-in output docs have a fixed content type
-        output_type = LEGACY_OUTPUT_TYPE.get(template_id, "")
-
-        template_type_val = template_map_info.get("template_type", "custom")
-
-        if template_type_val == "custom":
-            content_type = "custom"
-            if flavour == "extension":
-                response_type = template_map_info.get("response_type", "custom")
-                if response_type == "json":
-                    content_type = "custom"
-                else:
-                    content_type = response_type
-            return content_type
-
-        return output_type or template_map_info.get("response_type", "json") or "json"
 
     def _read_document_content(self, doc: Dict[str, Any]) -> str:
         """Read document content from S3."""

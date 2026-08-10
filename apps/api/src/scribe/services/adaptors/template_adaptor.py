@@ -1,11 +1,12 @@
 """
 Template Adaptor
 
-Bridges MedScribeAlliance protocol template listing to Voice2Rx
-template management system.
+Bridges the MedScribeAlliance protocol template listing to the backend
+template directory. Templates come exclusively from the database — the
+seeded directory templates (wid=DEFAULT) plus the workspace's own.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 from scribe.core.custom_logger import get_logger
 
@@ -16,15 +17,7 @@ logger = get_logger(__name__)
 
 
 class TemplateAdaptor:
-    """
-    Adaptor for converting backend templates to protocol template format.
-    
-    Maps Voice2Rx templates to standard protocol template IDs:
-    - eka_emr_template → soap
-    - medication_template → medications
-    - transcript_template → transcript
-    - Custom templates → Pass through with original ID
-    """
+    """Adaptor for converting backend templates to protocol template format."""
     
     def __init__(self, template_service: Optional[TemplateService] = None):
         """
@@ -34,36 +27,6 @@ class TemplateAdaptor:
             template_service: Backend template service
         """
         self.template_service = template_service or TemplateService()
-        
-        # keeping these template as standard templates just for example
-        # there is not any concept to standard templates in the protocol
-        self.standard_templates = {
-            "eka_emr_template": TemplateInfo(
-                id="eka_emr_template",
-                name="Eka EMR Template",
-                description="EKa EMR integration template"
-            ),
-            "clinikk_template": TemplateInfo(
-                id="clinikk_template",
-                name="Clinikk Template",
-                description="Clinikk integration template"
-            ),
-            "transcript_template": TemplateInfo(
-                id="transcript_template",
-                name="Full Transcript",
-                description="Complete voice-to-text transcription"
-            ),
-            "nic_template": TemplateInfo(
-                id="nic_template",
-                name="NIC Template",
-                description="Nic clinet integration template"
-            ),
-            "clinical_notes_template": TemplateInfo(
-                id="clinical_notes_template",
-                name="Clinical Notes",
-                description="Clinical notes integration template"
-            ),
-        }
     
     async def get_available_templates(
         self,
@@ -84,11 +47,8 @@ class TemplateAdaptor:
             Protocol templates list response
         """
         templates_list = []
-        
-        # Add standard templates (always available)
-        templates_list.extend(self.standard_templates.values())
-        
-        # Fetch custom templates from backend
+
+        # Fetch templates from backend
         try:
             custom_templates = await self._fetch_custom_templates(b_id, headers)
             templates_list.extend(custom_templates)
@@ -133,10 +93,7 @@ class TemplateAdaptor:
             backend_templates = backend_templates + default_templates
             
             for template in backend_templates:
-                # Skip standard templates (already added)
                 template_id = template.get("id", "")
-                if template_id in self.standard_templates:
-                    continue
                 
                 # Convert to protocol format
                 custom_templates.append(TemplateInfo(

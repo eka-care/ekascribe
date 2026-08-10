@@ -68,9 +68,8 @@ def create_sample_transaction_request():
         "s3_url": "s3://test-bucket/test-folder/",  # Added required s3_url for vaded transfer
         "output_format_template": [
             {
-                "template_id": "eka_emr_template",
+                "template_id": "integration_template_a",
                 "language_output": "en-IN",  # Changed from "en_in" to valid enum value
-                "codification_needed": False
             }
         ],
         "model_type": "pro"

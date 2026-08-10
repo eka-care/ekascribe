@@ -117,11 +117,11 @@ def sample_s3_file_data():
     """Sample S3 file data for testing."""
     return {
         "structured_outputs": {
-            "eka_emr_template": "base64encodeddata",
+            "integration_template_a": "base64encodeddata",
             "transcript_template": "base64encodeddata"
         },
         "meta_information": {
-            "eka_emr_template": {
+            "integration_template_a": {
                 "name": "EMR Template",
                 "type": "json"
             }

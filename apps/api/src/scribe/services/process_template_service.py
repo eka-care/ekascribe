@@ -18,12 +18,13 @@ from scribe.core.exceptions import (
 )
 from scribe.schemas import ProcessTemplateResponse
 from scribe.services import document_tiptap_service
-from scribe.services import template_result_common
+from scribe.services.document_service import DocumentService
 from scribe.services.transaction_service import TransactionService
 
 logger = get_logger(__name__)
 
 transaction_service = TransactionService()
+document_service = DocumentService()
 
 class ProcessProtocol(str, Enum):
     AG_UI = "ag-ui"
@@ -150,7 +151,7 @@ async def process_session_template(
 
         transaction_data = transaction_service.get_transaction(session_id, b_id)
         if document_id:
-            document = template_result_common.document_service.get_document(document_id)
+            document = document_service.get_document(document_id)
             if (document is None
                 or document.get("archived")
                 or document.get("session_id") != session_id

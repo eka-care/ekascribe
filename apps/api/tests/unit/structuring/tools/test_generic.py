@@ -7,7 +7,6 @@ from scribe.structuring.state import ScribeState
 from scribe.structuring.tools.generic import (
     KeyValueTool,
     ListTool,
-    MeetingNoteTool,
     NarrativeTool,
     TableTool,
 )
@@ -139,23 +138,6 @@ async def test_add_narrative():
     assert result.startswith("ok")
     assert state.sections[0].kind == SectionKind.NARRATIVE
     assert state.sections[0].payload["markdown"] == md
-
-
-@pytest.mark.asyncio
-async def test_meeting_note_tool_is_narrative_kind():
-    state = ScribeState()
-    tool = MeetingNoteTool()
-
-    result = await tool.run(
-        key="context",
-        display_name="Context",
-        payload={"markdown": "Quarterly planning session, all leads present."},
-        order=0,
-        tool_context=_ctx(state),
-    )
-
-    assert result.startswith("ok")
-    assert state.sections[0].kind == SectionKind.NARRATIVE
 
 
 @pytest.mark.asyncio

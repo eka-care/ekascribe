@@ -30,7 +30,6 @@ class RequestHandler:
             "flavour": "",
             "version": "",
             "sdk_version": "",
-            "paid_user": False,
             "amazon_trace_id": "",
         }
 
@@ -61,17 +60,6 @@ class RequestHandler:
                     "Extracted JWT payload from headers",
                     txn_id=txn_id,
                 )
-
-                # Extract paid user status
-                claims = jwt_data.get("cc", {})
-                try:
-                    if isinstance(claims, dict):
-                        headers["paid_user"] = claims.get("esc", 0) == 1
-                    else:
-                        claims = orjson.loads(claims)
-                        headers["paid_user"] = claims.get("esc", 0) == 1
-                except Exception as e:
-                    logger.error(f"Error processing 'cc' header: {str(e)}", severity="critical")
 
             elif key_lower == "flavour":
                 headers["flavour"] = value

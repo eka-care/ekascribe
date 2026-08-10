@@ -1,8 +1,6 @@
-"""Tests for template-driven tool selection in build_scribe_run_components."""
+"""Tests for build_scribe_run_components: every run gets the full toolset."""
 
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 from scribe.prompts.prompt_parser import ParsedAgentPrompt
 from scribe.structuring.run_service import (
@@ -28,7 +26,7 @@ def _inputs(**overrides) -> ResolvedRunInputs:
 
 def _fake_parsed() -> ParsedAgentPrompt:
     return ParsedAgentPrompt(
-        identity="a clinical scribe agent.",
+        identity="a session scribe agent.",
         goal="Emit one call per section.",
         approach="Read template, pick tool.",
         guardrails="Only template sections.",
@@ -46,53 +44,30 @@ def _patched_prompt_service():
     ), svc
 
 
-@pytest.mark.parametrize("available_tools", [None, "all"])
-def test_all_tools_registered_for_none_or_all(available_tools):
+def test_every_run_registers_the_full_toolset():
     patcher, _ = _patched_prompt_service()
     with patcher:
-        agent, _, _ = build_scribe_run_components(
-            _inputs(available_tools=available_tools)
-        )
+        agent, _, _ = build_scribe_run_components(_inputs())
     assert [t.name for t in agent.tools] == list(NAME_TO_TOOL)
 
 
-def test_empty_string_registers_narrative_only():
-    patcher, _ = _patched_prompt_service()
-    with patcher:
-        agent, _, _ = build_scribe_run_components(_inputs(available_tools=""))
-    assert [t.name for t in agent.tools] == ["add_narrative"]
-
-
-def test_subset_registers_named_tools_plus_narrative():
-    patcher, _ = _patched_prompt_service()
-    with patcher:
-        agent, _, _ = build_scribe_run_components(
-            _inputs(available_tools="add_list,add_table")
-        )
-    assert set(t.name for t in agent.tools) == {
-        "add_list",
-        "add_table",
-        "add_narrative",
-    }
-
-
-def test_non_meeting_notes_uses_v2_prompt_key():
+def test_uses_v2_prompt_key():
     patcher, svc = _patched_prompt_service()
     with patcher:
-        build_scribe_run_components(_inputs(available_tools="add_list"))
+        build_scribe_run_components(_inputs())
     assert svc.get_parsed_agent_prompt.call_args.args == ("agentic_ui_v2",)
 
 
-def test_meeting_notes_path_untouched():
-    """*_meeting_notes templates keep the legacy prompt key and single tool,
-    ignoring available_tools entirely."""
+def test_meeting_notes_template_gets_same_generic_flow():
+    """No special-casing by template id — a meeting-notes template runs the
+    same generic prompt + full toolset as any other template."""
     patcher, svc = _patched_prompt_service()
     with patcher:
         agent, _, _ = build_scribe_run_components(
-            _inputs(template_id="team_meeting_notes", available_tools="add_list")
+            _inputs(template_id="team_meeting_notes")
         )
-    assert [t.name for t in agent.tools] == ["add_meeting_note"]
-    assert svc.get_parsed_agent_prompt.call_args.args == ("meeting_notes",)
+    assert [t.name for t in agent.tools] == list(NAME_TO_TOOL)
+    assert svc.get_parsed_agent_prompt.call_args.args == ("agentic_ui_v2",)
 
 
 def test_state_and_context_carry_run_identifiers():

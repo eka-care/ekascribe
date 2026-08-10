@@ -1,17 +1,8 @@
-# voice2rx-be/voice2rx/api/schemas/template_schema.py
-
 from pydantic import BaseModel, Field, field_validator
 from typing import List, Optional
 from enum import Enum
 from datetime import datetime
 
-
-def _validate_available_tools_value(v):
-    from scribe.structuring.tools.catalog import (
-        validate_available_tools,
-    )
-
-    return validate_available_tools(v)
 
 class FormatEnum(str, Enum):
     PARAGRAPH = "P"
@@ -41,42 +32,17 @@ class SectionResponse(BaseModel):
 class SectionsListResponse(BaseModel):
     items: List[SectionResponse]
 
-# available_tools semantics: None/absent or "all" → every AG-UI emit tool
-# (legacy behavior); "" → narrative only; else comma-separated tool names.
-_AVAILABLE_TOOLS_FIELD = Field(
-    None,
-    description=(
-        "AG-UI emit tools enabled for this template: 'all' or absent = every "
-        "tool, '' = narrative only, else comma-separated tool names "
-        "(e.g. 'add_list,add_table'). Ignored by *_meeting_notes "
-        "templates."
-    ),
-)
-
-
 # Template Schemas
 class TemplateCreate(BaseModel):
     title: str
     desc: str = ""
     section_ids: List[str]
     type: str = "" # template type: default/custom/integration
-    available_tools: Optional[str] = _AVAILABLE_TOOLS_FIELD
-
-    @field_validator("available_tools")
-    @classmethod
-    def _validate_available_tools(cls, v):
-        return _validate_available_tools_value(v)
 
 class TemplateUpdate(BaseModel):
     title: Optional[str] = None
     desc: Optional[str] = None
     section_ids: Optional[List[str]] = None
-    available_tools: Optional[str] = _AVAILABLE_TOOLS_FIELD
-
-    @field_validator("available_tools")
-    @classmethod
-    def _validate_available_tools(cls, v):
-        return _validate_available_tools_value(v)
 
 class TemplateResponse(BaseModel):
     id: str
@@ -85,7 +51,6 @@ class TemplateResponse(BaseModel):
     section_ids: List[str]
     default: bool
     is_favorite: bool
-    available_tools: Optional[str] = None
 
 class TemplatesListResponse(BaseModel):
     items: List[TemplateResponse]
@@ -115,7 +80,6 @@ class TemplateUpdateModel(BaseModel):
     title: Optional[str] = None
     desc: Optional[str] = None
     section_ids: Optional[List[str]] = None
-    available_tools: Optional[str] = None
     updated_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
 class AiCreateTemplateRequest(BaseModel):
     """Input for AI-authoring a reusable template.

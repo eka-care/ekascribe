@@ -177,7 +177,6 @@ def _seed_happy_path(
     s3_url="s3://m-prod-voice-record/sessions/txn_99",
     template_desc="Doctor template body",
     template_section_ids=None,
-    template_available_tools=None,
 ):
     fake_doc_service.docs[document_id] = {
         "document_id": document_id,
@@ -216,8 +215,6 @@ def _seed_happy_path(
             "desc": template_desc,
             "section_ids": template_section_ids or [],
         }
-        if template_available_tools is not None:
-            template["available_tools"] = template_available_tools
         fake_template_service.templates[template_id] = template
 
 
@@ -262,35 +259,6 @@ async def test_happy_path_returns_full_resolved_inputs(
     assert inputs.template_prompt == "Doctor template body"
     assert inputs.date == datetime.now().strftime("%Y-%m-%d")
     assert inputs.llm_config is fake_llm_config
-    # template without available_tools → None → catalog resolves to all tools
-    assert inputs.available_tools is None
-
-
-@pytest.mark.asyncio
-async def test_template_available_tools_lands_on_resolved_inputs(
-    fake_doc_service,
-    fake_txn_repo,
-    fake_s3,
-    fake_template_service,
-    fake_template_result_repo,
-    fake_llm_config,
-):
-    _seed_happy_path(
-        fake_doc_service,
-        fake_txn_repo,
-        fake_s3,
-        fake_template_service,
-        template_available_tools="add_list,add_table",
-    )
-
-    inputs = await mod.run_input_resolver(
-        template_id="default_prescription_print_v1",
-        session_id="txn_99",
-        b_id="EC_test",
-        jwt_uuid="user-uuid",
-    )
-
-    assert inputs.available_tools == "add_list,add_table"
 
 
 @pytest.mark.asyncio

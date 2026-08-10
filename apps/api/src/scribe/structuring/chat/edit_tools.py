@@ -7,7 +7,7 @@ server-side and mutate ``ChatState.document_markdown`` via
 markdown to the FE. The tools return a short status string so the agent
 can chain edits and confirm what it changed.
 
-The "component" the doctor asks for (a table, a list, a key-value block,
+The "component" the user asks for (a table, a list, a key-value block,
 prose) is expressed as markdown inside the ``markdown`` arg — the LLM
 chooses the shape. There is no separate typed schema under Path C.
 """
@@ -60,7 +60,7 @@ class ReplaceSectionTool(BaseTool):
     name = "replace_section"
     description = (
         "Replace the entire body of an existing section, identified by its "
-        "heading. Use when the doctor asks to rewrite, update, correct, or "
+        "heading. Use when the user asks to rewrite, update, correct, or "
         "restructure a section that already exists. The heading is kept; only "
         "the body is swapped."
     )
@@ -98,7 +98,7 @@ class ReplaceSectionTool(BaseTool):
 class AddSectionTool(BaseTool):
     name = "add_section"
     description = (
-        "Add a brand-new section to the note. Use when the doctor asks to add "
+        "Add a brand-new section to the note. Use when the user asks to add "
         "content that does not belong in an existing section. Optionally place "
         "it right after an existing section via after_heading; otherwise it is "
         "appended at the end."
@@ -148,7 +148,7 @@ class RemoveSectionTool(BaseTool):
     name = "remove_section"
     description = (
         "Delete an existing section, identified by its heading. Use only when "
-        "the doctor explicitly asks to remove or delete a section."
+        "the user explicitly asks to remove or delete a section."
     )
 
     @property
