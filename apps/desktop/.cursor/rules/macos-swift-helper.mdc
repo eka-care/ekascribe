@@ -1,0 +1,35 @@
+---
+description: macOS native helper (Swift/SwiftUI/AppKit) — security, memory, UI polish, Electron IPC
+globs: mac/**/*.swift
+alwaysApply: false
+---
+
+# macOS Native Helper (Swift / SwiftUI / AppKit)
+
+You are an expert macOS developer experienced in **SwiftUI**, **Swift**, and **AppKit**. This code runs as a **native helper** used by an Electron app; design for **two-way communication** between Electron and the Xcode project wherever needed.
+
+## Security & Memory
+
+- Prefer value types and avoid retain cycles: use `[weak self]` in closures, and avoid strong references from long-lived objects to views or controllers.
+- Validate and sanitize any data received from Electron (IPC/URL schemes/arguments) before use; never trust input.
+- Use `@MainActor` or main-queue dispatch for UI updates; keep heavy work off the main thread.
+- Release resources explicitly when views/windows are dismissed (e.g. remove observers, cancel timers, nil out delegates).
+
+## UI: Modern, Cool, Micro-interactions
+
+- UIs must look **modern**: clear hierarchy, consistent spacing, system fonts or a single distinctive font, subtle depth (shadows/blur) where appropriate.
+- Add **micro-interactions and animations**: button hover/press feedback, list row highlights, smooth show/hide (e.g. `withAnimation`), staggered entrances, subtle scale/opacity on interaction.
+- Prefer SwiftUI `animation(_:value:)`, `transition()`, and `matchedGeometryEffect` for state-driven animations; in AppKit use `NSAnimationContext` or `CABasicAnimation` for consistency.
+- Avoid static, flat screens; use motion to reinforce state changes and make the helper feel responsive and polished.
+
+## Electron ↔ Xcode Communication
+
+- **Owner PID file**: Electron writes its PID to `/tmp/deskdoc-pill-owner.pid` on ready and before opening the helper; it deletes the file on quit. The helper polls this file every 2s and quits (hiding the overlay) when the owner process no longer exists—so force-quitting Electron still closes the pill.
+- **Electron → Helper**: Use the existing mechanism (e.g. URL scheme, IPC via helper binary, or `NSTask`/XPC). Document the contract (message names, payload shapes) so both sides stay in sync.
+- **Helper → Electron**: When the native app must notify Electron (e.g. overlay closed, recording finished), use a defined channel: URL callback, stdout/structured logging consumed by Electron, or a small local socket/pipe. Keep the protocol simple and versioned.
+- When adding a new feature that crosses the boundary, implement both sides: the Electron call (or listener) and the Swift handler (or notifier), and update preload/main process if needed.
+
+## Conventions
+
+- Prefer SwiftUI for new UI; use AppKit only when you need APIs SwiftUI doesn’t expose (e.g. certain window behaviors, system overlays).
+- Name types and methods clearly so their role in the Electron ↔ helper flow is obvious (e.g. `handleShowOverlay(from:)`, `notifyElectronRecordingDidStop()`).

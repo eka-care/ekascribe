@@ -1,0 +1,4 @@
+[submodule "external/ekascribe-web"]
+	path = external/ekascribe-web
+	url = https://github.com/eka-care/ekascribe-web.git
+	branch = electron-app

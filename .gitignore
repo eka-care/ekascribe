@@ -18,3 +18,13 @@ logs/
 !apps/api/src/logs/**
 *.egg-info/
 .next/
+
+# desktop app
+apps/desktop/node_modules/
+apps/desktop/.vite/
+apps/desktop/out/
+apps/desktop/dist/
+apps/desktop/runtime/
+apps/desktop/mac/build/
+apps/desktop/certs/
+apps/desktop/*.log

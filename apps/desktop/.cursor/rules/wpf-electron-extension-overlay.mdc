@@ -1,0 +1,65 @@
+---
+description: WPF (Windows) extension app conventions for DeskDocEka overlay + Electron bridge
+globs: windows/EkaDeskDocHelper/EkaDeskDocHelper/**/*.cs,*.csproj,*.xaml
+alwaysApply: false
+---
+# WPF Windows Extension (Overlay + Electron Bridge)
+
+You are a senior Windows/WPF engineer. Produce **clean, testable, bug-free** C# with a maintainable architecture. This Windows app is an **OS-integrated companion** to an Electron app: **all business logic and recording live in Electron**; WPF is for **OS hooks + overlay UI + state reflection**.
+
+## Architecture (non-negotiable)
+
+- **MVVM**: View = XAML only; ViewModel = UI state + commands; Services = OS integration + IPC.
+- **Strict separation**:
+  - **Electron owns**: recording pipeline, rules/decisions, persistence, analytics.
+  - **WPF owns**: global hotkeys, microphone-usage detection, overlay window, shell integration, IPC transport.
+- **Single source of truth**: treat Electron as authoritative for recording state; WPF reflects it and only sends **intent** events.
+- **State machine**: overlay + recording must be modeled as explicit states with transitions (no boolean soup).
+
+## IPC contract (WPF <-> Electron)
+
+- Prefer **Named Pipes** for local IPC (Windows-native, fast, secure).
+- Define a **versioned message schema** (DTOs) and keep it stable; WPF never “interprets” business meaning beyond UI mapping.
+- Messages:
+  - **WPF → Electron intents**: `ShowOverlayRequested(source)`, `StartRecordingRequested`, `StopRecordingRequested`, `DismissOverlayRequested`, `HotkeyPressed(binding)`.
+  - **Electron → WPF state**: `OverlayStateChanged`, `RecordingStateChanged`, `ErrorOccurred(userMessage, technicalCode)`.
+- Reliability:
+  - Auto-reconnect with exponential backoff.
+  - Heartbeat/ping; show “Disconnected” UI state instead of silently failing.
+  - All IPC handlers are async, cancellation-aware, and never block UI thread.
+
+## OS integration requirements
+
+- **Microphone-in-use detection**: use **WASAPI session notifications** (Audio Session Manager) and treat it as a signal to *ask* Electron whether to prompt.
+  - Debounce/throttle (avoid overlay spam during rapid app/device changes).
+  - Consider default + communications device changes.
+- **Global shortcuts**:
+  - Prefer `RegisterHotKey` for system-wide hotkeys.
+  - Use low-level hooks only when necessary; always unhook/dispose deterministically.
+- **Overlay window**:
+  - Borderless, topmost, click-through optional, per-monitor DPI aware.
+  - Never steals focus unless explicitly required (use `ShowActivated=false` patterns).
+  - Must handle multi-monitor, task-switching, fullscreen apps, and DPI scaling.
+
+## Threading + correctness
+
+- No `.Result` / `.Wait()` on tasks. No deadlocks.
+- UI updates only via Dispatcher; background work via Task/async.
+- Avoid timer races: use a single scheduler/service for debouncing overlay triggers.
+- Every OS handle / registration must be paired with disposal (hotkeys, COM, event subscriptions).
+
+## Code standards
+
+- **No `any` equivalent**: avoid `dynamic`; use typed DTOs and interfaces.
+- Avoid service locators; use DI (e.g., `Microsoft.Extensions.DependencyInjection`) with clear lifetimes.
+- Logging: structured logs for IPC + OS events; never swallow exceptions.
+- Tests:
+  - Unit test ViewModels + state machine + IPC message mapping.
+  - OS-integration services behind interfaces; use fakes in tests.
+
+## “Good” patterns to prefer
+
+- `IOverlayService`, `IMicrophoneUsageMonitor`, `IGlobalHotkeyService`, `IElectronBridgeClient`
+- `OverlayState` / `RecordingState` enums or discriminated-union style records + transition methods
+- DTOs in `WindowsApp/Contracts/` and mapped to ViewModels in a single place
+
