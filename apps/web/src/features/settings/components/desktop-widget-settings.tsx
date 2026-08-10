@@ -5,7 +5,7 @@ import { AlertTriangle, ArrowRight, MessageSquare, MonitorCog } from 'lucide-rea
 import { useCallback, useEffect, useRef, useState } from 'react';
 import PreferenceCard from '@/features/settings/components/preference-card';
 import SingleSelectInput from '@/shared-components/input/single-select-input';
-import WhatsAppIcon from '@/features/integrations/components/whatsapp-icon';
+import WhatsAppIcon from '@/shared-components/whatsapp-icon';
 import { useDesktopSettings, useWhatsApp } from '@/platform';
 
 export type NotificationPrefs = {

@@ -4,7 +4,6 @@ import {
   CustomTooltipContent,
   CustomTooltipTrigger,
 } from '@/shared-components/custom-tooltip';
-import { Info } from 'lucide-react';
 
 const AudioQualitySummary = ({ sessionId }: { sessionId: string }) => {
   const audioMatrix = useVoice2RxStore(
@@ -18,71 +17,68 @@ const AudioQualitySummary = ({ sessionId }: { sessionId: string }) => {
 
   if (isNaN(qualityScore) || qualityScore < 0 || qualityScore > 10) return null;
 
-  const getQualityLabel = (score: number): string => {
-    if (score >= 8) return 'Good';
-    if (score >= 6) return 'Average';
-    return 'Bad';
-  };
-
-  const getBgColor = (score: number): string => {
-    if (score >= 8) return 'bg-green-10';
-    if (score >= 6) return 'bg-yellow-11';
-    return 'bg-destructive';
-  };
-
-  const getTooltipText = (score: number) => {
-    if (score >= 8) {
+  const getQualityConfig = (score: number) => {
+    if (score >= 8)
       return {
-        header:
-          'Audio quality is good. Please continue using your current setup to ensure consistent, high quality output.',
-        points: [],
+        label: 'Good audio quality',
+        dotColor: 'bg-[#008055]',
+        badgeBg: 'bg-[#ECFCF4]',
+        textColor: 'text-[#008055]',
+        tooltip: {
+          header:
+            'Audio quality is good. Please continue using your current setup to ensure consistent, high quality output.',
+          points: [],
+        },
       };
-    }
-    if (score >= 6) {
+    if (score >= 6)
       return {
-        header: 'Audio quality is fine but can be improved for better results:',
+        label: 'Average audio quality',
+        dotColor: 'bg-[#E26506]',
+        badgeBg: 'bg-[#FFFAEB]',
+        textColor: 'text-[#E26506]',
+        tooltip: {
+          header: 'Audio quality is fine but can be improved for better results:',
+          points: [
+            'Try speaking louder or moving closer to the microphone.',
+            'Reduce background noise or echo in your surroundings.',
+            'Use a good quality microphone.',
+            'Try to maintain a consistent distance from the microphone.',
+          ],
+        },
+      };
+    return {
+      label: 'Poor audio quality',
+      dotColor: 'bg-[#B71C1C]',
+      badgeBg: 'bg-[#FFEBED]',
+      textColor: 'text-[#B71C1C]',
+      tooltip: {
+        header: 'Tips to Improve Audio Quality:',
         points: [
           'Try speaking louder or moving closer to the microphone.',
           'Reduce background noise or echo in your surroundings.',
           'Use a good quality microphone.',
           'Try to maintain a consistent distance from the microphone.',
         ],
-      };
-    }
-    return {
-      header: 'Tips to Improve Audio Quality:',
-      points: [
-        'Try speaking louder or moving closer to the microphone.',
-        'Reduce background noise or echo in your surroundings.',
-        'Use a good quality microphone.',
-        'Try to maintain a consistent distance from the microphone.',
-      ],
+      },
     };
   };
 
-  const qualityLabel = getQualityLabel(qualityScore);
-  const tooltip = getTooltipText(qualityScore);
+  const config = getQualityConfig(qualityScore);
 
   return (
     <CustomTooltip>
-      <div className="flex items-center text-xs w-fit text-secondary-foreground gap-2">
-        <div className={`w-2 h-2 rounded-full ${getBgColor(qualityScore)}`} />
-        <span>
-          Audio Quality –{' '}
-          <span className="font-semibold">
-            {qualityLabel} ({qualityScore.toFixed(2)})
-          </span>
-        </span>
-        <CustomTooltipTrigger>
-          <Info className="w-3 h-3 cursor-pointer" />
-        </CustomTooltipTrigger>
-      </div>
+      <CustomTooltipTrigger asChild>
+        <div className={`flex items-center gap-1 h-7 p-2 rounded-lg border border-[#D1D1D1] ${config.badgeBg} text-xs font-medium ${config.textColor} w-fit cursor-default`}>
+          <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${config.dotColor}`} />
+          <span>{config.label}</span>
+        </div>
+      </CustomTooltipTrigger>
       <CustomTooltipContent className="max-w-[380px]" collisionPadding={8}>
         <div className="flex flex-col space-y-2">
-          <p>{tooltip.header}</p>
-          {tooltip.points.length > 0 && (
+          <p>{config.tooltip.header}</p>
+          {config.tooltip.points.length > 0 && (
             <ul className="list-disc pl-3 w-full">
-              {tooltip.points.map((point, index) => (
+              {config.tooltip.points.map((point, index) => (
                 <li key={index}>{point}</li>
               ))}
             </ul>

@@ -28,14 +28,6 @@ import { SectionBlock } from './section-block';
 import { TypedTableCell } from './typed-table-cell';
 import { TypedTableHeader } from './typed-table-header';
 import { KVItem, KVList } from './kv-list';
-import { MedicationTable } from './medication/medication-table';
-import { MedicationRow } from './medication/medication-row';
-import { VitalTable } from './vital/vital-table';
-import { VitalRow } from './vital/vital-row';
-import { LabResultTable } from './lab-result/lab-result-table';
-import { LabResultRow } from './lab-result/lab-result-row';
-import { ProcedureTable } from './procedure/procedure-table';
-import { ProcedureRow } from './procedure/procedure-row';
 
 export function buildScribeEditorExtensions(): Extensions {
   return [
@@ -61,13 +53,5 @@ export function buildScribeEditorExtensions(): Extensions {
     SectionBlock,
     KVList,
     KVItem,
-    MedicationTable,
-    MedicationRow,
-    VitalTable,
-    VitalRow,
-    LabResultTable,
-    LabResultRow,
-    ProcedureTable,
-    ProcedureRow,
   ];
 }

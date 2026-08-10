@@ -11,7 +11,7 @@ import useVoice2RxStore from '@/store/store';
 import { tracker } from '@/analytics';
 import { useBeforeUnload } from '@/features/session/hooks/use-before-unload';
 import { useKeyboardShortcuts } from '@/features/session/hooks/use-keyboard-shortcuts';
-import { useHostRecordingBridge } from '@/features/session/hooks/use-host-recording-bridge';
+import { useHostRecordingBridge } from '@/features/session/hooks/recording/use-host-recording-bridge';
 import { useSidebarDrag } from '@/shared-hooks/use-sidebar-drag';
 import { initEkaScribe, EKA_SCRIBE_DEFAULT_CONFIG } from '@/features/session/services/sdk-provider';
 import { getStorage, getHost } from '@/platform';
@@ -19,7 +19,7 @@ import { MIXPANEL_EVENT_NAME } from '@/constants/enums';
 
 initEkaScribe(EKA_SCRIBE_DEFAULT_CONFIG);
 
-const noSidebarRoutes = ['/ekascribe', '/pricing', '/onboarding', '/mic-permission', '/settings/print'];
+const noSidebarRoutes = ['/ekascribe', '/onboarding', '/mic-permission'];
 
 const ScreenContainer = ({ children }: { children: React.ReactNode }) => {
   useBeforeUnload();

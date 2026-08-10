@@ -614,6 +614,33 @@
   display: none;
 }
 
+.block-dnd-ghost {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.3) transparent;
+}
+
+@supports selector(::-webkit-scrollbar) {
+  .block-dnd-ghost {
+    scrollbar-width: auto;
+    scrollbar-color: auto;
+  }
+
+  .block-dnd-ghost::-webkit-scrollbar {
+    width: 6px;
+    height: 0;
+    display: block;
+  }
+
+  .block-dnd-ghost::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 3px;
+  }
+
+  .block-dnd-ghost::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
 .onboarding-select-class {
   height: fit-content !important;
 }
@@ -790,4 +817,9 @@
   .bg-background {
     background: white !important;
   }
+}
+/* Tailwind v4 defaults `border` to currentColor — keep all dialog borders on the token */
+[data-slot='dialog-content'],
+[data-slot='alert-dialog-content'] {
+  border-color: var(--color-border);
 }

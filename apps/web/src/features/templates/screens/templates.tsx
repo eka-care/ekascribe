@@ -4,7 +4,7 @@ import TemplateHeader from '@/features/templates/components/template-header';
 import TemplateCard from '@/features/templates/components/template-card';
 import { TEMPLATE_HEADER_CONFIG_STATE } from '@/features/templates/config/template-header-config';
 import { useGetAllTemplates } from '@/features/templates/hooks/use-get-all-templates';
-import { CustomInput, Tabs, TabsContent, TabsList, TabsTrigger } from '@ui/src';
+import { CustomInput } from '@ui/src';
 import { useMemo, useState, useCallback } from 'react';
 import { TEMPLATE_TABS } from '@/constants/enums';
 import { AlertCircle, Search } from 'lucide-react';
@@ -13,6 +13,11 @@ import TemplatesLoadingSkeleton from '@/app/template/(main)/loading';
 import { useSearchParams } from 'next/navigation';
 import useVoice2RxStore from '@/store/store';
 import AiGenerateTemplateDialog from '@/features/templates/components/dialog/ai-generate-template-dialog';
+
+const TEMPLATE_TAB_ITEMS = [
+  { value: TEMPLATE_TABS.MY_LIBRARY, label: 'Active' },
+  { value: TEMPLATE_TABS.TEMPLATE_DIRECTORY, label: 'All templates' },
+];
 
 const Templates = () => {
   const { data: allTemplates, loading: isTemplatesLoading } = useGetAllTemplates();
@@ -53,61 +58,57 @@ const Templates = () => {
 
   const renderTemplates = () => {
     return (
-      <div className="p-4 sm:p-6 lg:p-8">
-        <Tabs
-          value={activeTab}
-          onValueChange={(value) => setActiveTab(value as TEMPLATE_TABS)}
-          className="w-full border-border space-y-3 sticky"
-        >
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between w-full gap-3 sm:gap-4">
-            <TabsList className="grid w-full sm:w-fit grid-cols-2 text-muted-foreground">
-              <TabsTrigger
-                className="text-muted-foreground data-[state=active]:text-foreground cursor-pointer text-xs sm:text-sm"
-                value={TEMPLATE_TABS.MY_LIBRARY}
-              >
-                My Library
-              </TabsTrigger>
-              <TabsTrigger
-                className="text-muted-foreground data-[state=active]:text-foreground cursor-pointer text-xs sm:text-sm"
-                value={TEMPLATE_TABS.TEMPLATE_DIRECTORY}
-              >
-                Template Directory
-              </TabsTrigger>
-            </TabsList>
-            <div className="w-full sm:w-fit">
+      <div className="p-4 sm:p-6">
+        <div className="w-full space-y-3">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center w-full gap-3 sm:gap-4">
+            <div className="flex flex-1 items-end w-full border-b border-[#D1D1D1]">
+              {TEMPLATE_TAB_ITEMS.map((tab) => (
+                <button
+                  key={tab.value}
+                  onClick={() => setActiveTab(tab.value)}
+                  className={`px-4 pt-2 pb-3 min-w-14 text-sm font-semibold text-center whitespace-nowrap cursor-pointer transition-colors ${
+                    activeTab === tab.value
+                      ? 'text-foreground border-b-2 border-primary -mb-px'
+                      : 'text-muted-foreground'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+            <div className="w-60 shrink-0">
               <CustomInput
-                placeholder="Search templates..."
+                placeholder="Search templates"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                leftComponent={<Search className="text-foreground w-4 h-4" />}
-                className="border-border bg-card text-foreground pl-9 w-full sm:w-fit"
+                leftComponent={<Search className="text-muted-foreground w-4 h-4" />}
+                className="h-8 rounded-lg border-border bg-white pl-8 text-xs font-medium placeholder:text-muted-foreground"
               />
             </div>
           </div>
-          <TabsContent value={activeTab}>
-            <div className="grid gap-3 sm:gap-4 lg:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 overflow-y-auto">
-              {displayedTemplates.length > 0 ? (
-                displayedTemplates.map((template) => (
-                  <TemplateCard key={template.id} template={template} />
-                ))
-              ) : (
-                <div className="col-span-full">
-                  <AlertComponent
-                    type="warning"
-                    message="No templates found"
-                    Icon={() => <AlertCircle className="w-4 h-4" />}
-                  />
-                </div>
-              )}
-            </div>
-          </TabsContent>
-        </Tabs>
+
+          <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 overflow-y-auto">
+            {displayedTemplates.length > 0 ? (
+              displayedTemplates.map((template) => (
+                <TemplateCard key={template.id} template={template} />
+              ))
+            ) : (
+              <div className="col-span-full">
+                <AlertComponent
+                  type="warning"
+                  message="No templates found"
+                  Icon={() => <AlertCircle className="w-4 h-4" />}
+                />
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     );
   };
 
   return (
-    <div className="h-full w-full">
+    <div className="min-h-full w-full bg-[#F5F8FF]">
       <TemplateHeader
         configKey={TEMPLATE_HEADER_CONFIG_STATE.DEFAULT}
         onAiGenerate={handleAiGenerate}

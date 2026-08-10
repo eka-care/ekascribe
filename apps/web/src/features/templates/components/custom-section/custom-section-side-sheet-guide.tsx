@@ -1,4 +1,4 @@
-import { Button, Card, CardContent } from '@ui/src';
+import { Card, CardContent } from '@ui/src';
 
 const templateCreationTips = [
   'Start with a brief consultation overview.',
@@ -35,15 +35,6 @@ const CustomSectionSideSheetGuide = () => {
               <li key={tip}>{tip}</li>
             ))}
           </ul>
-        </div>
-
-        <div className="space-y-1.5">
-          <h3 className="font-semibold text-sm leading-5">
-            Read our documentation on creating and managing templates.
-          </h3>
-          <Button variant="outline" className="cursor-pointer w-full sm:w-auto">
-            View Template Creation Guide
-          </Button>
         </div>
       </CardContent>
     </Card>

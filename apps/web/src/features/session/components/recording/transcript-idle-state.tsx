@@ -10,7 +10,7 @@ function TranscriptIdleState() {
             Ready to transcribe
           </h3>
           <p className="text-sm text-[#595959] max-w-[300px]">
-            Hit Start transcribing when your patient arrives. The transcript will appear here
+            Hit Start transcribing when you're ready. The transcript will appear here
             automatically.
           </p>
         </div>
@@ -33,7 +33,7 @@ function TranscriptIdleState() {
           <div className="flex flex-col gap-2">
             <span className="text-sm font-medium text-[#1A1A1A] hidden sm:flex">Add context</span>
             <span className="text-xs text-[#767676]">
-              Link past sessions or attach relevant files before you record.
+              Add any background details or instructions before you record.
             </span>
           </div>
         </div>

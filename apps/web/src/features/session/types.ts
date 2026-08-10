@@ -29,13 +29,14 @@ export type NormalizedDocument = {
   status: string;
   errors: SessionV2Error[];
   warnings: SessionV2Error[];
-  publish: Record<string, unknown>;
   edit_url: string | null;
   get_url: string | null;
   content: string | null;
   lang?: string;
   last_saved_at?: number;
 };
+
+export type PastePosition = 'top' | 'bottom';
 
 export type SessionV2UiState = {
   loading: boolean;
@@ -47,6 +48,7 @@ export type SessionV2UiState = {
   is_template_processing: boolean;
   transcript_loading: Record<string, boolean>;
   pending_paste_scroll_doc_id: string | null;
+  pending_reload_doc_id: string | null;
 };
 
 export type SessionV2Content = {

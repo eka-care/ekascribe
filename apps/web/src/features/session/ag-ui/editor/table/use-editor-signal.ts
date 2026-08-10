@@ -3,7 +3,16 @@
 import { useEffect, useReducer, useRef } from 'react';
 import type { Editor } from '@tiptap/core';
 
-export function useEditorSignal<T>(editor: Editor, read: () => T): T {
+type EditorEvent = 'transaction' | 'update';
+
+const ON_TRANSACTION: EditorEvent[] = ['transaction'];
+const ON_TRANSACTION_OR_UPDATE: EditorEvent[] = ['transaction', 'update'];
+
+export function useEditorSignal<T>(
+  editor: Editor,
+  read: () => T,
+  events: EditorEvent[] = ON_TRANSACTION
+): T {
   const [, forceRender] = useReducer((count: number) => count + 1, 0);
 
   const readRef = useRef(read);
@@ -18,15 +27,15 @@ export function useEditorSignal<T>(editor: Editor, read: () => T): T {
       if (Object.is(readRef.current(), renderedRef.current)) return;
       forceRender();
     };
-    editor.on('transaction', handler);
+    events.forEach((event) => editor.on(event, handler));
     return () => {
-      editor.off('transaction', handler);
+      events.forEach((event) => editor.off(event, handler));
     };
-  }, [editor]);
+  }, [editor, events]);
 
   return value;
 }
 
 export function useEditorEditable(editor: Editor): boolean {
-  return useEditorSignal(editor, () => editor.isEditable);
+  return useEditorSignal(editor, () => editor.isEditable, ON_TRANSACTION_OR_UPDATE);
 }

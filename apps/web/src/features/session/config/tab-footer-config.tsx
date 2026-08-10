@@ -1,15 +1,13 @@
 import { type ReactNode } from 'react';
 import {
   Copy,
-  Layers,
-  Paperclip,
   Play,
   Printer,
   RotateCcwIcon,
   Square,
   Trash2,
 } from 'lucide-react';
-import WhatsAppIcon from '@/features/integrations/components/whatsapp-icon';
+import WhatsAppIcon from '@/shared-components/whatsapp-icon';
 
 // --- Types ---
 
@@ -23,6 +21,8 @@ export type FooterButton = {
   className?: string;
   isCopyAction?: boolean;
   disabledTooltip?: string;
+  /** Hover tooltip shown while the button is enabled */
+  tooltip?: string;
   buttonStyle?: 'action' | 'link';
 };
 
@@ -32,84 +32,31 @@ export type TabFooterConfig = {
   saveStatus?: SaveStatusState;
   buttons: FooterButton[];
   overlay?: ReactNode;
-  saveNote?: {
-    onSaveNote: () => void;
-    isNoteSaved?: boolean;
-  };
-  reviewPublish?: {
-    onReviewPublish: () => void;
-    disabled?: boolean;
-    isPublished?: boolean;
-  };
 };
 
 // --- Config builders ---
-
-export function getContextFooterConfig({
-  onLinkPastSessions,
-  onAddAttachments,
-  isPatientSelected,
-  saveStatus,
-  overlay,
-}: {
-  onLinkPastSessions: () => void;
-  onAddAttachments: () => void;
-  isPatientSelected: boolean;
-  saveStatus: SaveStatusState;
-  overlay?: ReactNode;
-}): TabFooterConfig {
-  return {
-    saveStatus,
-    buttons: [
-      {
-        key: 'link',
-        label: 'Link past sessions',
-        icon: <Layers className="w-4 h-4 text-primary" />,
-        onClick: onLinkPastSessions,
-        disabled: !isPatientSelected,
-        disabledTooltip: 'Add a patient to this session first',
-        buttonStyle: 'link',
-      },
-      {
-        key: 'attach',
-        label: 'Add attachments',
-        icon: <Paperclip className="w-4 h-4 text-primary" />,
-        onClick: onAddAttachments,
-        buttonStyle: 'link',
-      },
-    ],
-    overlay,
-  };
-}
 
 export function getDocumentFooterConfig({
   onCopy,
   onPrint,
   onSendWhatsApp,
-  onSaveNote,
-  onReviewPublish,
   saveStatus,
   copyDisabled,
   printDisabled,
   whatsappDisabled,
-  publishDisabled,
-  isPublished,
-  isNoteSaved,
+  whatsappTooltip,
+  whatsappDisabledTooltip,
 }: {
   onCopy: () => void;
   onPrint: () => void;
-  /** When provided (WhatsApp capability active), adds a "Send via WhatsApp" button. */
+  /** When provided (WhatsApp capability active), adds a "Share" button. */
   onSendWhatsApp?: () => void;
-  /** When provided, adds a "Save note" button at the end of the toolbar. */
-  onSaveNote?: () => void;
-  onReviewPublish: () => void;
   saveStatus: SaveStatusState;
   copyDisabled?: boolean;
   printDisabled?: boolean;
   whatsappDisabled?: boolean;
-  publishDisabled?: boolean;
-  isPublished?: boolean;
-  isNoteSaved?: boolean;
+  whatsappTooltip?: string;
+  whatsappDisabledTooltip?: string;
 }): TabFooterConfig {
   return {
     saveStatus,
@@ -135,21 +82,17 @@ export function getDocumentFooterConfig({
         ? [
             {
               key: 'whatsapp',
-              label: 'WhatsApp',
+              label: 'Share',
               icon: <WhatsAppIcon className="w-4 h-4 text-[#25D366]" />,
               onClick: onSendWhatsApp,
               disabled: whatsappDisabled,
+              tooltip: whatsappTooltip,
+              disabledTooltip: whatsappDisabledTooltip,
               className: 'text-primary bg-white border border-[#D1D1D1] hover:bg-[#F5F5F5]',
             } as FooterButton,
           ]
         : []),
     ],
-    saveNote: onSaveNote ? { onSaveNote, isNoteSaved } : undefined,
-    reviewPublish: {
-      onReviewPublish,
-      disabled: publishDisabled,
-      isPublished,
-    },
   };
 }
 

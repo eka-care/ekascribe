@@ -59,24 +59,6 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: iam role for the secrets manager
-        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502
-        with:
-          role-to-assume: arn:aws:iam::607765814920:role/github-secrets-role
-          role-session-name: secret-role
-          aws-region: ${{ secrets.DEV_AWS_Region }}
-
-      - name: Read secrets from AWS Secrets Manager into environment variables
-        uses: abhilash1in/aws-secrets-manager-action@v2.1.0
-        with:
-          secrets: |
-            dev/scribe-web/all
-          parse-json: false
-
-      - name: Export secrets as build env vars
-        run: |
-          echo "$DEV_SCRIBE_WEB_ALL" | jq -r 'to_entries[] | "\(.key)=\(.value)"' >> $GITHUB_ENV
-
       - name: iam role for the github runner
         uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502
         with:
@@ -119,15 +101,6 @@ jobs:
             --progress=plain \
             --build-arg BASE_IMAGE=${BASE_IMAGE} \
             --build-arg NEXT_PUBLIC_ENV=${NEXT_PUBLIC_ENV} \
-            --build-arg NEXT_PUBLIC_FIREBASE_API_KEY=${NEXT_PUBLIC_FIREBASE_API_KEY} \
-            --build-arg NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN} \
-            --build-arg NEXT_PUBLIC_FIREBASE_PROJECT_ID=${NEXT_PUBLIC_FIREBASE_PROJECT_ID} \
-            --build-arg NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=${NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET} \
-            --build-arg NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=${NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID} \
-            --build-arg NEXT_PUBLIC_FIREBASE_APP_ID=${NEXT_PUBLIC_FIREBASE_APP_ID} \
-            --build-arg NEXT_PUBLIC_MIX_PANEL_KEY=${NEXT_PUBLIC_MIX_PANEL_KEY} \
-            --build-arg NEXT_PUBLIC_CRISP_WEBSITE_ID=${NEXT_PUBLIC_CRISP_WEBSITE_ID} \
-            --build-arg NEXT_PUBLIC_SENTRY_DSN=${NEXT_PUBLIC_SENTRY_DSN} \
             --cache-from=type=registry,ref=${ECR_REPO_URL}/${ECR_REPOSITORY}:buildcache-ekascribe-web \
             --cache-to=type=registry,ref=${ECR_REPO_URL}/${ECR_REPOSITORY}:buildcache-ekascribe-web,mode=max \
             -t ${ECR_REPO_URL}/${ECR_REPOSITORY}:${IMAGE_TAG} \

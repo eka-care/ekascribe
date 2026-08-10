@@ -14,8 +14,8 @@ import { MODEL_TYPE } from '@/constants/enums';
 import { TPreferenceItem } from '@/constants/types';
 import useGetConfigMyTemplates from '@/features/templates/hooks/use-get-config-my-templates';
 import { useGetAllTemplates } from '@/features/templates/hooks/use-get-all-templates';
-import { subscribeToPrintConfigUpdates } from '@/features/settings/print-settings/utils/print-config-broadcast';
 import { getStorage } from '@/platform';
+import { preserveSavedNoteDates } from '@/features/session/utils/saved-notes';
 
 export const useSettings = () => {
   const {
@@ -36,7 +36,6 @@ export const useSettings = () => {
   const {
     data: cachedConfigData,
     isLoading: isLoadingConfig,
-    refetch: refetchEkascribeConfig,
   } = useGetEkascribeConfig();
 
   const { isLoading: isLoadingUserSelectedTemplatesList } = useGetConfigMyTemplates();
@@ -91,7 +90,7 @@ export const useSettings = () => {
       input_languages: [defaultLanguage],
       output_language: 'en-IN',
       output_format_template: [SUPPORTED_OUTPUT_FORMATS[0]],
-      consultation_mode: CONSULTATION_MODES[0].id,
+      consultation_mode: 'dictation',
       use_audio_cues: false,
       auto_download: false,
       model_type: MODEL_TYPE.PRO,
@@ -153,7 +152,10 @@ export const useSettings = () => {
           print_header: cachedConfigData.header,
           print_footer: cachedConfigData.footer,
           print_compact: cachedConfigData.print_compact,
-          notes_ids: cachedConfigData.notes_ids,
+          notes_ids: preserveSavedNoteDates(
+            cachedConfigData.notes_ids,
+            useVoice2RxStore.getState().appConfig.notes_ids
+          ),
         };
 
         setAppConfig(available_preferences);
@@ -182,8 +184,7 @@ export const useSettings = () => {
             input_languages: validatedLanguages,
             output_language: '',
             output_format_template: validatedOutputFormats,
-            consultation_mode:
-              previousSelectedPreferences?.consultation_mode ?? CONSULTATION_MODES[0].id,
+            consultation_mode: 'dictation',
             use_audio_cues: previousSelectedPreferences?.use_audio_cues ?? false,
             auto_download: previousSelectedPreferences?.auto_download ?? false,
             model_type: previousSelectedPreferences?.model_type ?? MODEL_TYPE.PRO,
@@ -234,12 +235,6 @@ export const useSettings = () => {
       setRefreshLoggedInUserDetailsPromise(null);
     };
   }, []);
-
-  useEffect(() => {
-    return subscribeToPrintConfigUpdates(() => {
-      refetchEkascribeConfig();
-    });
-  }, [refetchEkascribeConfig]);
 
   return {
     appConfig,

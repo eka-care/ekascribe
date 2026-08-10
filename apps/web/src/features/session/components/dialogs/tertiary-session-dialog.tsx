@@ -8,8 +8,8 @@ import WarningAlert from '@/shared-components/alert/warning-alert';
 import useVoice2RxStore from '@/store/store';
 import { tracker } from '@/analytics';
 import { MIXPANEL_EVENT_NAME, MIXPANEL_EVENT_TYPE } from '@/constants/enums';
-import { useProcessTranscript } from '../../hooks/use-process-transcript';
-import { useProcessAudio } from '../../hooks/use-process-audio';
+import { useProcessTranscript } from '../../hooks/recording/use-process-transcript';
+import { useProcessAudio } from '../../hooks/recording/use-process-audio';
 
 type TStep = 'transcript' | 'voice';
 

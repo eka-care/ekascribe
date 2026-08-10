@@ -1,27 +1,6 @@
-const env = (process.env.NEXT_PUBLIC_ENV || 'PROD') as 'DEV' | 'PROD';
-
-export enum Environment {
-  PROD = 'PROD',
-  DEV = 'DEV',
-}
-
-export type ExtraMinifiedPatientFields = 'dob' | 'gen' | 'abha' | 'u_ate' | 'is_age';
-
-export const globalTrinitySDKConfig = {
-  env: env === 'PROD' ? Environment.PROD : Environment.DEV,
-  workspaceId: process.env.NEXT_PUBLIC_TRINITY_WORKSPACE_ID || '',
-  extraMinifiedPatientFields: ['gen', 'dob', 'is_age'] as ExtraMinifiedPatientFields[],
-};
-
 export const FLAVOUR = 'ekascribe-web';
 
 import { HOSTS } from '@/config/hosts';
-
-export const medicalRecordSDKConfig = {
-  environment: 'prod' as import('@eka-care/medical-records-ts-sdk').SDKEnvironment,
-  baseUrl: HOSTS.EKA_HOST,
-  vaultBaseUrl: HOSTS.VAULT_HOST,
-};
 
 // On-prem: login/switch URLs are env-driven (NEXT_PUBLIC_LOGIN_URL etc.).
 export const LOGOUT_PROD_URL = HOSTS.LOGIN_URL;

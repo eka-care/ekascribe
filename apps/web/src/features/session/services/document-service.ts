@@ -5,13 +5,12 @@ import { getSDK } from './sdk-provider';
 import useVoice2RxStore from '@/store/store';
 import { formatDate } from '@/utils/format-date-time';
 import { getPlatform } from '@/platform';
-import { MedicalRecordsClient } from '@eka-care/medical-records-ts-sdk';
-import { medicalRecordSDKConfig } from '@/constants/constant';
 import type { NormalizedDocument } from '../types';
 import { tracker } from '@/analytics';
 
 function getCompactPrintSetting(): boolean {
-  return Boolean(useVoice2RxStore.getState().appConfig.print_compact);
+  // return Boolean(useVoice2RxStore.getState().appConfig.print_compact);
+  return false;
 }
 
 // --- Decode / Encode ---
@@ -169,7 +168,11 @@ export async function saveDocumentJson(
     );
     return response.status_code < 400;
   } catch (error) {
-    tracker.error(error, { domain: 'api', component: 's3', extra: { action: 'save_document_json', session_id: sessionId, doc_id: docId } });
+    tracker.error(error, {
+      domain: 'api',
+      component: 's3',
+      extra: { action: 'save_document_json', session_id: sessionId, doc_id: docId },
+    });
     return false;
   }
 }
@@ -243,7 +246,6 @@ export async function addNote(
       status: 'success',
       errors: [],
       warnings: [],
-      publish: {},
       get_url: null,
       edit_url: (response.data.presigned_url as string) || null,
       content: null,
@@ -329,65 +331,6 @@ export async function renameDocument(
   }
 }
 
-export async function publishDoc(sessionId: string, documentId: string): Promise<boolean> {
-  try {
-    const response = await with401Retry(
-      () => sdkService.publishDocument({ session_id: sessionId, document_id: documentId }),
-      'publish document'
-    );
-
-    if (response.status_code >= 400) return false;
-
-    useVoice2RxStore.getState().setSessionV2Document(sessionId, documentId, {
-      publish: {
-        emr_webhook: {
-          status: 'success',
-          updated_at: Math.floor(Date.now() / 1000),
-        },
-      },
-    });
-    return true;
-  } catch (error) {
-    console.error('publishDoc error:', error);
-    return false;
-  }
-}
-
-export async function unpublishDoc(sessionId: string, documentId: string): Promise<boolean> {
-  try {
-    const response = await with401Retry(
-      () =>
-        sdkService.updateDocument({
-          document_id: documentId,
-          session_id: sessionId,
-          publish: {
-            emr_webhook: {
-              error: null,
-              updated_at: Math.floor(Date.now() / 1000),
-              status: 'unpublished',
-            },
-          },
-        }),
-      'unpublish document'
-    );
-
-    if (response.status_code >= 400) return false;
-
-    useVoice2RxStore.getState().setSessionV2Document(sessionId, documentId, {
-      publish: {
-        emr_webhook: {
-          status: 'unpublished',
-          updated_at: Math.floor(Date.now() / 1000),
-        },
-      },
-    });
-    return true;
-  } catch (error) {
-    console.error('unpublishDoc error:', error);
-    return false;
-  }
-}
-
 // --- Doctor header/footer ---
 
 type DoctorHeaderFooter = {
@@ -399,25 +342,6 @@ type DoctorHeaderFooter = {
   footerHeight?: string;
   headerTopMargin?: string;
 };
-
-export async function fetchDoctorHeaderFooter(doctorOid: string): Promise<DoctorHeaderFooter> {
-  try {
-    const resp = await with401Retry(
-      () => sdkService.getDoctorHeaderFooter({ doctor_oid: doctorOid }),
-      'get doctor header footer'
-    );
-    if (!resp.data) return {};
-    return {
-      headerImage: resp.data.header_img || undefined,
-      footerImage: resp.data.footer_img || undefined,
-      headerHeight: resp.data.header_height || undefined,
-      footerHeight: resp.data.footer_height || undefined,
-      headerTopMargin: resp.data.header_top_margin || undefined,
-    };
-  } catch {
-    return {};
-  }
-}
 
 type V2PrintSection =
   | {
@@ -501,263 +425,53 @@ function sanitizeContentForPrint(html: string, compact: boolean): string {
 
   const cleanText = (s: string | null | undefined) => (s ?? '').replace(/\s+/g, ' ').trim();
 
-  const buildTableFromGrid = (headers: string[], rowsData: string[][]) => {
-    const table = doc.createElement('table');
+  const sectionTitle = (sectionEl: Element) =>
+    cleanText(sectionEl.querySelector('header [data-section-title]')?.textContent);
 
-    const thead = doc.createElement('thead');
-    const headRow = doc.createElement('tr');
-    headers.forEach((label) => {
-      const th = doc.createElement('th');
-      th.textContent = label;
-      headRow.appendChild(th);
-    });
-    thead.appendChild(headRow);
-    table.appendChild(thead);
+  // Every compact section renders the same shape: the section title inline and
+  // bold, then " | "-separated entries. An entry with a label prints
+  // "<b>label</b>: detail"; a label-less entry (LIST, NARRATIVE) is plain text.
+  const buildCompactLine = (headerText: string, entries: { label?: string; detail: string }[]) => {
+    const p = doc.createElement('p');
+    p.className = 'compact-line';
 
-    const tbody = doc.createElement('tbody');
-    rowsData.forEach((cells) => {
-      const tr = doc.createElement('tr');
-      cells.forEach((text) => {
-        const td = doc.createElement('td');
-        td.textContent = text;
-        tr.appendChild(td);
-      });
-      tbody.appendChild(tr);
-    });
-    table.appendChild(tbody);
+    if (headerText) {
+      const headerStrong = doc.createElement('strong');
+      headerStrong.textContent = `${headerText}: `;
+      p.appendChild(headerStrong);
+    }
 
-    return table;
-  };
-
-  const gridCells = (parent: Element | null | undefined, tagged: string) => {
-    if (!parent) return [];
-    const byAttr = Array.from(parent.querySelectorAll(`:scope > [${tagged}]`));
-    return byAttr.length > 0 ? byAttr : Array.from(parent.children).slice(0, -1);
-  };
-
-  const extractGrid = (tableEl: Element, rowSelector: string, bodyClass: string) => {
-    const bodyEl = tableEl.querySelector(bodyClass);
-    const headerGrid = bodyEl?.previousElementSibling;
-
-    const headers = gridCells(headerGrid, 'data-col-header-cell').map((cell) =>
-      cleanText(
-        cell.querySelector('input')?.getAttribute('value') ??
-          cell.querySelector('[data-print-value]')?.getAttribute('data-print-value') ??
-          cell.textContent
-      )
-    );
-
-    const rowsData = Array.from(tableEl.querySelectorAll(rowSelector)).map((row) =>
-      gridCells(row, 'data-col-cell').map((cell) =>
-        cleanText(
-          cell.querySelector('input')?.getAttribute('value') ??
-            cell.querySelector('[data-print-value]')?.getAttribute('data-print-value')
-        )
-      )
-    );
-
-    return { headers, rowsData };
-  };
-
-  doc.querySelectorAll('.medication-table').forEach((medTable) => {
-    const { headers, rowsData } = extractGrid(medTable, '.medication-row', '.medication-table-body');
-    medTable.replaceWith(buildTableFromGrid(headers, rowsData));
-  });
-
-  if (compact) {
-    doc.querySelectorAll('.scribe-section[data-kind="MEDICATION_TABLE"] header').forEach((header) => {
-      header.remove();
-    });
-  }
-
-  const VITAL_COLUMNS = ['Vital', 'Value', 'Unit', 'Normal Range', 'Notes'];
-
-  const extractVitalRows = (vitalTable: Element) =>
-    Array.from(vitalTable.querySelectorAll('.vital-row')).map((row) => {
-      const card = row.children[0];
-      const cardDivs = card ? Array.from(card.children).filter((c) => c.tagName === 'DIV') : [];
-      const [nameRangeDiv, valueUnitDiv, notesDiv] = cardDivs;
-
-      const spans = nameRangeDiv ? Array.from(nameRangeDiv.querySelectorAll('span')) : [];
-      return {
-        vitalName: cleanText(spans[0]?.textContent),
-        normalRange: cleanText(spans[1]?.textContent?.replace(/^Normal:\s*/, '')),
-        value: cleanText(valueUnitDiv?.querySelector('input')?.getAttribute('value')),
-        unit: cleanText(valueUnitDiv?.querySelector('span')?.textContent),
-        notes: cleanText(notesDiv?.querySelector('input')?.getAttribute('value')),
-      };
-    });
-
-  if (compact) {
-    doc.querySelectorAll('.scribe-section[data-kind="VITAL_TABLE"]').forEach((sectionEl) => {
-      const vitalTable = sectionEl.querySelector('.vital-table');
-      if (!vitalTable) return;
-      const rows = extractVitalRows(vitalTable).filter((r) => r.vitalName || r.value);
-      if (rows.length === 0) return;
-
-      const headerText = cleanText(sectionEl.querySelector('header input[type="text"]')?.getAttribute('value'));
-
-      const p = doc.createElement('p');
-      p.className = 'compact-line';
-      if (headerText) {
-        const headerStrong = doc.createElement('strong');
-        headerStrong.textContent = `${headerText}: `;
-        p.appendChild(headerStrong);
+    entries.forEach((entry, i) => {
+      if (i > 0) p.appendChild(doc.createTextNode(' | '));
+      if (entry.label) {
+        const labelStrong = doc.createElement('strong');
+        labelStrong.textContent = entry.label;
+        p.appendChild(labelStrong);
+        if (entry.detail) p.appendChild(doc.createTextNode(`: ${entry.detail}`));
+      } else if (entry.detail) {
+        p.appendChild(doc.createTextNode(entry.detail));
       }
-      rows.forEach((r, i) => {
-        if (i > 0) p.appendChild(doc.createTextNode(' | '));
-        const nameStrong = doc.createElement('strong');
-        nameStrong.textContent = r.vitalName;
-        p.appendChild(nameStrong);
-        const valueText = [r.value, r.unit].filter(Boolean).join(' ');
-        const notesText = r.notes ? ` [${r.notes}]` : '';
-        p.appendChild(doc.createTextNode(`: ${valueText}${notesText}`));
-      });
-
-      sectionEl.replaceWith(p);
     });
-  }
 
-  doc.querySelectorAll('.vital-table').forEach((vitalTable) => {
-    const rows = extractVitalRows(vitalTable);
-    const rowsData = rows.map((r) => [r.vitalName, r.value, r.unit, r.normalRange, r.notes]);
-    vitalTable.replaceWith(buildTableFromGrid(VITAL_COLUMNS, rowsData));
-  });
-
-  // Compact print: a LAB_RESULTS-kind section collapses to one line, e.g.
-  // "Lab Results: Hemoglobin: 11 g/dL [Low] | WBC: 9000 /uL [Normal] (Method: Automated)".
-  // No date, matching the vitals format — it isn't shown on the row anyway.
-  // Any custom (user-added) columns are appended in parens after the status.
-  if (compact) {
-    doc.querySelectorAll('.scribe-section[data-kind="LAB_RESULTS"]').forEach((sectionEl) => {
-      const tableEl = sectionEl.querySelector('.lab-result-table');
-      if (!tableEl) return;
-      const { headers, rowsData } = extractGrid(tableEl, '.lab-result-row', '.lab-result-table-body');
-      const nameIdx = headers.indexOf('Test Name');
-      const valueIdx = headers.indexOf('Value');
-      const unitIdx = headers.indexOf('Unit');
-      const statusIdx = headers.indexOf('Status');
-      if (nameIdx === -1) return;
-
-      const knownIdxs = new Set([nameIdx, valueIdx, unitIdx, statusIdx]);
-      const customIdxs = headers.map((_, i) => i).filter((i) => !knownIdxs.has(i));
-
-      const rows = rowsData
-        .map((row) => ({
-          name: row[nameIdx] ?? '',
-          value: valueIdx !== -1 ? (row[valueIdx] ?? '') : '',
-          unit: unitIdx !== -1 ? (row[unitIdx] ?? '') : '',
-          status: statusIdx !== -1 ? (row[statusIdx] ?? '') : '',
-          custom: customIdxs
-            .map((i) => ({ label: headers[i], value: row[i] ?? '' }))
-            .filter((c) => c.label && c.value),
-        }))
-        .filter((r) => r.name || r.value);
-      if (rows.length === 0) return;
-
-      const headerText = cleanText(sectionEl.querySelector('header input[type="text"]')?.getAttribute('value'));
-
-      const p = doc.createElement('p');
-      p.className = 'compact-line';
-      if (headerText) {
-        const headerStrong = doc.createElement('strong');
-        headerStrong.textContent = `${headerText}: `;
-        p.appendChild(headerStrong);
-      }
-      rows.forEach((r, i) => {
-        if (i > 0) p.appendChild(doc.createTextNode(' | '));
-        const nameStrong = doc.createElement('strong');
-        nameStrong.textContent = r.name;
-        p.appendChild(nameStrong);
-        const valueText = [r.value, r.unit].filter(Boolean).join(' ');
-        const statusText = r.status ? ` [${r.status}]` : '';
-        const customText = r.custom.length
-          ? ` (${r.custom.map((c) => `${c.label}: ${c.value}`).join(', ')})`
-          : '';
-        p.appendChild(doc.createTextNode(`: ${valueText}${statusText}${customText}`));
-      });
-
-      sectionEl.replaceWith(p);
-    });
-  }
-
-  // Compact print: a PROCEDURES-kind section collapses to one line, e.g.
-  // "Procedures: Wound Dressing: Today [Change gauze daily] | Suture Removal: Tomorrow".
-  if (compact) {
-    doc.querySelectorAll('.scribe-section[data-kind="PROCEDURES"]').forEach((sectionEl) => {
-      const tableEl = sectionEl.querySelector('.procedure-table');
-      if (!tableEl) return;
-      const { headers, rowsData } = extractGrid(tableEl, '.procedure-row', '.procedure-table-body');
-      const nameIdx = headers.indexOf('Procedure');
-      const timingIdx = headers.indexOf('Timing');
-      const noteIdx = headers.indexOf('Note');
-      if (nameIdx === -1) return;
-
-      const rows = rowsData
-        .map((row) => ({
-          name: row[nameIdx] ?? '',
-          timing: timingIdx !== -1 ? (row[timingIdx] ?? '') : '',
-          note: noteIdx !== -1 ? (row[noteIdx] ?? '') : '',
-        }))
-        .filter((r) => r.name || r.timing);
-      if (rows.length === 0) return;
-
-      const headerText = cleanText(sectionEl.querySelector('header input[type="text"]')?.getAttribute('value'));
-
-      const p = doc.createElement('p');
-      p.className = 'compact-line';
-      if (headerText) {
-        const headerStrong = doc.createElement('strong');
-        headerStrong.textContent = `${headerText}: `;
-        p.appendChild(headerStrong);
-      }
-      rows.forEach((r, i) => {
-        if (i > 0) p.appendChild(doc.createTextNode(' | '));
-        const nameStrong = doc.createElement('strong');
-        nameStrong.textContent = r.name;
-        p.appendChild(nameStrong);
-        const noteText = r.note ? ` [${r.note}]` : '';
-        p.appendChild(doc.createTextNode(`: ${r.timing}${noteText}`));
-      });
-
-      sectionEl.replaceWith(p);
-    });
-  }
-
-  [
-    { table: '.lab-result-table', row: '.lab-result-row', body: '.lab-result-table-body' },
-    { table: '.procedure-table', row: '.procedure-row', body: '.procedure-table-body' },
-  ].forEach(({ table: tableSelector, row: rowSelector, body: bodyClass }) => {
-    doc.querySelectorAll(tableSelector).forEach((tableEl) => {
-      const { headers, rowsData } = extractGrid(tableEl, rowSelector, bodyClass);
-      tableEl.replaceWith(buildTableFromGrid(headers, rowsData));
-    });
-  });
+    return p;
+  };
 
   if (compact) {
     doc.querySelectorAll('.scribe-section[data-kind="LIST"]').forEach((sectionEl) => {
-      const headerText = cleanText(sectionEl.querySelector('header input[type="text"]')?.getAttribute('value'));
       const bodyEl = sectionEl.querySelector('header + div');
       const items = Array.from(bodyEl?.querySelectorAll('li') ?? [])
         .map((li) => cleanText(li.textContent))
         .filter(Boolean);
       if (items.length === 0) return;
 
-      const p = doc.createElement('p');
-      p.className = 'compact-line';
-      if (headerText) {
-        const strong = doc.createElement('strong');
-        strong.textContent = `${headerText}: `;
-        p.appendChild(strong);
-      }
-      p.appendChild(doc.createTextNode(items.join(', ')));
-
-      sectionEl.replaceWith(p);
+      sectionEl.replaceWith(
+        buildCompactLine(sectionTitle(sectionEl), [{ detail: items.join(', ') }])
+      );
     });
   }
 
-  // Compact print: a generic TABLE-kind section collapses the same way vitals do —
-  // "Header: col0: col1 col2 | col0: col1 col2". Only medication keeps a real table.
+  // Compact print: a generic TABLE-kind section collapses to one line —
+  // "Header: col0: col1 col2 | col0: col1 col2".
   // These render via TipTap's plain Table/TableHeader/TableCell (no NodeView), so
   // it's one <tbody> with the header row using <th> and data rows using <td>.
   if (compact) {
@@ -771,26 +485,12 @@ function sanitizeContentForPrint(html: string, compact: boolean): string {
         .filter((cells) => cells.some(Boolean));
       if (rows.length === 0) return;
 
-      const headerText = cleanText(sectionEl.querySelector('header input[type="text"]')?.getAttribute('value'));
+      const entries = rows.map(([first, ...rest]) => ({
+        label: first,
+        detail: rest.filter(Boolean).join(' '),
+      }));
 
-      const p = doc.createElement('p');
-      p.className = 'compact-line';
-      if (headerText) {
-        const headerStrong = doc.createElement('strong');
-        headerStrong.textContent = `${headerText}: `;
-        p.appendChild(headerStrong);
-      }
-      rows.forEach((cells, i) => {
-        if (i > 0) p.appendChild(doc.createTextNode(' | '));
-        const [first, ...rest] = cells;
-        const firstStrong = doc.createElement('strong');
-        firstStrong.textContent = first;
-        p.appendChild(firstStrong);
-        const restText = rest.filter(Boolean).join(' ');
-        if (restText) p.appendChild(doc.createTextNode(`: ${restText}`));
-      });
-
-      sectionEl.replaceWith(p);
+      sectionEl.replaceWith(buildCompactLine(sectionTitle(sectionEl), entries));
     });
   }
 
@@ -812,24 +512,34 @@ function sanitizeContentForPrint(html: string, compact: boolean): string {
         .filter((kv) => kv.key || kv.value);
       if (items.length === 0) return;
 
-      const headerText = cleanText(sectionEl.querySelector('header input[type="text"]')?.getAttribute('value'));
+      const entries = items.map((kv) => ({ label: kv.key, detail: kv.value }));
 
-      const p = doc.createElement('p');
-      p.className = 'compact-line';
-      if (headerText) {
-        const headerStrong = doc.createElement('strong');
-        headerStrong.textContent = `${headerText}: `;
-        p.appendChild(headerStrong);
-      }
-      items.forEach((kv, i) => {
-        if (i > 0) p.appendChild(doc.createTextNode(' | '));
-        const keyStrong = doc.createElement('strong');
-        keyStrong.textContent = kv.key;
-        p.appendChild(keyStrong);
-        if (kv.value) p.appendChild(doc.createTextNode(`: ${kv.value}`));
-      });
+      sectionEl.replaceWith(buildCompactLine(sectionTitle(sectionEl), entries));
+    });
+  }
 
-      sectionEl.replaceWith(p);
+  // Compact print: a NARRATIVE-kind section is free-form prose (paragraphs,
+  // headings, lists), so its whole body collapses onto the title line —
+  // "Chief Complaint: Fever since 3 days. Mild headache."
+  if (compact) {
+    doc.querySelectorAll('.scribe-section[data-kind="NARRATIVE"]').forEach((sectionEl) => {
+      const bodyEl = sectionEl.querySelector('header + div');
+      if (!bodyEl) return;
+
+      const text = Array.from(bodyEl.children)
+        .map((child) =>
+          child.tagName === 'UL' || child.tagName === 'OL'
+            ? Array.from(child.querySelectorAll(':scope > li'))
+                .map((li) => cleanText(li.textContent))
+                .filter(Boolean)
+                .join(', ')
+            : cleanText(child.textContent)
+        )
+        .filter(Boolean)
+        .join(' ');
+      if (!text) return;
+
+      sectionEl.replaceWith(buildCompactLine(sectionTitle(sectionEl), [{ detail: text }]));
     });
   }
 
@@ -867,7 +577,9 @@ function sanitizeContentForPrint(html: string, compact: boolean): string {
   });
   const cellPadding = compact ? '2px 4px' : '4px 8px';
   doc.querySelectorAll('th, td').forEach((cell) => {
-    (cell as HTMLElement).style.cssText = `border:1px solid #888 !important;padding:${cellPadding} !important;`;
+    (
+      cell as HTMLElement
+    ).style.cssText = `border:1px solid #888 !important;padding:${cellPadding} !important;`;
   });
 
   return doc.body.innerHTML;
@@ -880,13 +592,16 @@ function buildDocumentHtml(
   mode: 'print' | 'preview' = 'print',
   compact: boolean = false
 ): string {
+  const useDefaultHeader = !hf.headerImage && !hf.headerHeight;
+  const useDefaultFooter = !hf.footerImage && !hf.footerHeight;
+
   const {
     headerImage,
     footerImage,
     headerWidth = '100%',
     footerWidth = '100%',
-    headerHeight = '3cm',
-    footerHeight = '3.5cm',
+    headerHeight = useDefaultHeader ? '1.9cm' : '3cm',
+    footerHeight = useDefaultFooter ? '1.2cm' : '3.5cm',
     headerTopMargin = '0',
   } = hf;
 
@@ -899,16 +614,39 @@ function buildDocumentHtml(
   // reserved as visible white space on every page.
   const hasHeaderHeight = !!hf.headerHeight;
   const hasFooterHeight = !!hf.footerHeight;
+
+  // Built-in neutral branding used when the deployment hasn't configured
+  // its own header/footer images.
+  const printedOn = new Date().toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+  const defaultHeaderHtml = `<div class="print-header-frame print-brand-header">
+      <div class="print-brand-left">
+        <svg width="30" height="30" viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="scribe-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#215FFF"/><stop offset="1" stop-color="#4535B0"/></linearGradient></defs><rect width="28" height="28" rx="7" fill="url(#scribe-g)"/><g stroke="#fff" stroke-width="2.2" stroke-linecap="round"><line x1="8" y1="11" x2="8" y2="17"/><line x1="12" y1="8" x2="12" y2="20"/><line x1="16" y1="10" x2="16" y2="18"/><line x1="20" y1="12" x2="20" y2="16"/></g></svg>
+        <div class="print-brand-text">
+          <span class="print-brand-name">scribe</span>
+          <span class="print-brand-tagline">Session notes</span>
+        </div>
+      </div>
+      <span class="print-brand-date">${printedOn}</span>
+    </div>`;
+  const defaultFooterHtml = `<div class="print-footer-frame print-brand-footer">
+      <span>Powered by @eka.care</span>
+      <span>${printedOn}</span>
+    </div>`;
+
   const headerImgTag = headerImage
     ? `<div class="print-header-frame"><img class="print-hf-img print-header-img" src="${headerImage}" /></div>`
     : hasHeaderHeight
     ? `<div class="print-header-frame"></div>`
-    : '';
+    : defaultHeaderHtml;
   const footerImgTag = footerImage
     ? `<div class="print-footer-frame"><img class="print-hf-img print-footer-img" src="${footerImage}" /></div>`
     : hasFooterHeight
     ? `<div class="print-footer-frame"></div>`
-    : '';
+    : defaultFooterHtml;
   const patientLineHtml = patientLine ? `<div class="print-patient-line">${patientLine}</div>` : '';
 
   const sharedStyles = `
@@ -918,6 +656,58 @@ function buildDocumentHtml(
       background: white;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
+    }
+    .print-brand-header {
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 28px;
+      box-sizing: border-box;
+      background: white;
+      border-top: 3px solid #215FFF;
+      border-bottom: 1px solid #E5E7EB;
+    }
+    .print-brand-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .print-brand-text {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    .print-brand-name {
+      font-size: 19px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: #1A1A1A;
+      line-height: 1.15;
+    }
+    .print-brand-tagline {
+      font-size: 9px;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #9CA3AF;
+      line-height: 1.2;
+    }
+    .print-brand-date {
+      font-size: 11px;
+      color: #6B7280;
+    }
+    .print-brand-footer {
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 28px;
+      box-sizing: border-box;
+      border-top: 1px solid #E5E7EB;
+      font-size: 9.5px;
+      color: #9CA3AF;
+      background: white;
     }
     .print-patient-line {
       display: flex;
@@ -983,6 +773,7 @@ function buildDocumentHtml(
       background: #F9FAFB !important;
       color: #191919 !important;
       font-weight: 600;
+      text-align: left !important;
     }
     .print-body {
       max-width: 21cm;
@@ -1088,9 +879,6 @@ function buildDocumentHtml(
     .print-body .tiptap table {
       font-size: 10px !important;
       margin: 3px 0 4px !important;
-    }
-    .print-body .scribe-section[data-kind="MEDICATION_TABLE"] table {
-      margin-top: 8px !important;
     }
     .print-body table th,
     .print-body table td,
@@ -1230,7 +1018,12 @@ function buildDocumentHtml(
 </html>`;
 }
 
-function printHtml(contentHtml: string, hf: DoctorHeaderFooter, patientLine?: string, compact: boolean = false) {
+function printHtml(
+  contentHtml: string,
+  hf: DoctorHeaderFooter,
+  patientLine?: string,
+  compact: boolean = false
+) {
   const html = buildDocumentHtml(contentHtml, hf, patientLine, 'print', compact);
   void getPlatform().printer?.printHtml(html);
 }
@@ -1262,12 +1055,7 @@ function buildPatientLine(sessionId: string): string | undefined {
 }
 
 async function resolveHeaderFooter(): Promise<DoctorHeaderFooter> {
-  const v2 = await fetchPrintHeaderFooter();
-  if (v2.headerImage || v2.footerImage || v2.headerHeight || v2.footerHeight) {
-    return v2;
-  }
-  const loggedInUserDetails = useVoice2RxStore.getState().loggedInUserDetails;
-  return fetchDoctorHeaderFooter(loggedInUserDetails?.oid || '');
+  return fetchPrintHeaderFooter();
 }
 
 function capturePrintContentHtml(): string | null {
@@ -1313,6 +1101,11 @@ export const buildPrintPreviewHtml = async (sessionId: string): Promise<string |
  * (desktop only). Returns `null` when no native PDF export is available (e.g. web), so callers
  * can surface a friendly error rather than send a broken file.
  */
+function toPdfFileName(fallbackName?: string): string {
+  const safeName = (fallbackName || 'document').replace(/[^\w.-]+/g, '-');
+  return safeName.toLowerCase().endsWith('.pdf') ? safeName : `${safeName}.pdf`;
+}
+
 export const buildDocumentPdfBuffer = async (
   sessionId: string,
   _documentId: string,
@@ -1329,41 +1122,5 @@ export const buildDocumentPdfBuffer = async (
   const html = buildDocumentHtml(contentHtml, hf, patientLine, 'print', getCompactPrintSetting());
 
   const blob = await htmlToPdf(html);
-  const safeName = (fallbackName || 'document').replace(/[^\w.-]+/g, '-');
-  const fileName = safeName.toLowerCase().endsWith('.pdf') ? safeName : `${safeName}.pdf`;
-  return { buffer: await blob.arrayBuffer(), fileName };
-};
-
-// --- Medical Records HTML ---
-
-export const fetchDocumentAsHtml = async ({
-  medRecDocId,
-  patientOid,
-}: {
-  medRecDocId: string;
-  patientOid?: string;
-}): Promise<string> => {
-  const client = new MedicalRecordsClient(medicalRecordSDKConfig);
-
-  const describeResponse = await client.describeDocument({
-    documentId: medRecDocId,
-    patientId: patientOid!,
-    bid: '',
-    preferenceType: 'html',
-  });
-
-  const htmlFile = describeResponse.files?.find(
-    (f) => String(f.file_type).toLowerCase() === 'html'
-  );
-
-  if (!htmlFile?.asset_url) return '';
-
-  const htmlResponse = await getTransport().request(htmlFile.asset_url);
-  const htmlContent = await htmlResponse.text();
-
-  if (!htmlContent) return '';
-
-  const parsed = new DOMParser().parseFromString(htmlContent, 'text/html');
-  parsed.querySelectorAll('style, script, link[rel="stylesheet"]').forEach((el) => el.remove());
-  return parsed.body?.innerHTML.trim() || htmlContent;
+  return { buffer: await blob.arrayBuffer(), fileName: toPdfFileName(fallbackName) };
 };

@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import useVoice2RxStore from '@/store/store';
-import QueueEmptyState from '@/features/session/components/queue-empty-state';
 import { MicrophoneSelectorComponent } from '@/features/session/components/recording/microphone-selector-container';
 import { tracker } from '@/analytics';
 import { MIXPANEL_EVENT_NAME, MIXPANEL_EVENT_TYPE } from '@/constants/enums';
@@ -16,7 +15,7 @@ import { CreateSessionErrorDialog } from '../components/dialogs/create-session-e
 import { SESSION_PHASE } from '@/constants/enums';
 import { useSessionLifecycle } from '../hooks/use-session-lifecycle';
 import { useBeforeUnload } from '../hooks/use-before-unload';
-import { useRecordingCallbacks } from '../hooks/use-recording-callbacks';
+import { useRecordingCallbacks } from '../hooks/recording/use-recording-callbacks';
 import { fetchLatestSessionId } from '../services/session-loader';
 
 interface SessionScreenProps {
@@ -24,29 +23,15 @@ interface SessionScreenProps {
 }
 
 const SessionScreen = ({ sessionId }: SessionScreenProps) => {
-  const sidebarActiveTab = useVoice2RxStore((s) => s.sidebarActiveTab);
-  const queueCount = useVoice2RxStore((s) => s.queueCount);
-  const selectedQueueDoctorId = useVoice2RxStore((s) => s.selectedQueueDoctorId);
+  const router = useRouter();
+  const { createSession, loadSession, startRecording } = useSessionLifecycle();
+  useBeforeUnload();
 
   useEffect(() => {
     tracker.track({
       name: MIXPANEL_EVENT_NAME.SCRIBEWEB_HOME,
     });
   }, []);
-
-  if (sidebarActiveTab === 'my_queue' && queueCount === 0) {
-    return (
-      <QueueEmptyState variant={selectedQueueDoctorId ? 'no_patients' : 'no_doctor_selected'} />
-    );
-  }
-
-  return <SessionScreenInner sessionId={sessionId} />;
-};
-
-const SessionScreenInner = ({ sessionId }: SessionScreenProps) => {
-  const router = useRouter();
-  const { createSession, loadSession, startRecording } = useSessionLifecycle();
-  useBeforeUnload();
 
   const recordingSessionId = useVoice2RxStore((s) => s.sessionV2Ongoing.recording_session_id);
   const recordingPhase = useVoice2RxStore(
@@ -89,63 +74,58 @@ const SessionScreenInner = ({ sessionId }: SessionScreenProps) => {
 
   const initRef = useRef(false);
 
+  const isLivePhase = (phase?: string) =>
+    phase === SESSION_PHASE.RECORDING ||
+    phase === SESSION_PHASE.PAUSED ||
+    phase === SESSION_PHASE.PROCESSING;
+
   // On mount: load existing session, or decide what to land on for /new-session.
   useEffect(() => {
     if (initRef.current) return;
     initRef.current = true;
+    sessionId ? initPastSession(sessionId) : initNewSession();
+  }, [sessionId, createSession, loadSession, startRecording]);
 
-    const maybeAutoStart = (newSessionId: string | null) => {
+  function initPastSession(sid: string) {
+    const store = useVoice2RxStore.getState();
+    const rid = store.sessionV2Ongoing.recording_session_id;
+    if (rid && rid !== sid) {
+      const ridErr = store.sessionV2ContentById[rid]?.error;
+      if (ridErr?.code === 'create_session_failed') {
+        store.clearSessionV2Content(rid);
+        store.clearRecordingSessionId();
+      }
+    }
+
+    if (isLivePhase(store.sessionV2ContentById[sid]?.phase)) return;
+    loadSession(sid);
+  }
+
+  function initNewSession() {
+    const store = useVoice2RxStore.getState();
+    const persistedId = store.sessionV2Ongoing.recording_session_id;
+
+    const maybeAutoStart = (newId: string | null) => {
       const { autoStartRecording, setAutoStartRecording } = useVoice2RxStore.getState();
-      if (autoStartRecording && newSessionId) {
+      if (autoStartRecording && newId) {
         setAutoStartRecording(false);
-        startRecording(newSessionId);
+        startRecording(newId);
       }
     };
 
-    const isLivePhase = (phase?: string) =>
-      phase === SESSION_PHASE.RECORDING ||
-      phase === SESSION_PHASE.PAUSED ||
-      phase === SESSION_PHASE.PROCESSING;
-
-    if (sessionId) {
-      // Clean up stale create-error from a previous new-session attempt
-      const rid = useVoice2RxStore.getState().sessionV2Ongoing.recording_session_id;
-      if (rid && rid !== sessionId) {
-        const ridErr = useVoice2RxStore.getState().sessionV2ContentById[rid]?.error;
-        if (ridErr?.code === 'create_session_failed') {
-          useVoice2RxStore.getState().clearSessionV2Content(rid);
-          useVoice2RxStore.getState().clearRecordingSessionId();
-        }
-      }
-
-      const phase = useVoice2RxStore.getState().sessionV2ContentById[sessionId]?.phase;
-      if (isLivePhase(phase)) return;
-
-      loadSession(sessionId);
-      return;
-    }
-
-    // guard check in New Session Entry gate
-    const persistedSessionId = useVoice2RxStore.getState().sessionV2Ongoing.recording_session_id;
-
-    if (!persistedSessionId) {
+    if (!persistedId) {
       createSession().then(maybeAutoStart);
       return;
     }
 
-    const persistedContent = useVoice2RxStore.getState().sessionV2ContentById[persistedSessionId];
-    if (isLivePhase(persistedContent?.phase)) return;
+    const content = store.sessionV2ContentById[persistedId];
+    if (isLivePhase(content?.phase)) return;
+    if (content?.error?.code === 'create_session_failed') return;
 
-    // Session creation already failed — don't re-validate or create again.
-    if (persistedContent?.error?.code === 'create_session_failed') return;
-
-    // Validate the persisted pointer; if the session never reached the backend, create fresh.
-    loadSession(persistedSessionId).then((found) => {
-      if (!found) {
-        createSession({ force: true });
-      }
+    loadSession(persistedId).then((found) => {
+      if (!found) createSession({ force: true });
     });
-  }, [sessionId, createSession, loadSession, startRecording]);
+  }
 
   // Check if another session is actively recording (relevant when viewing a past session)
   const isAnotherSessionActive = useMemo(() => {

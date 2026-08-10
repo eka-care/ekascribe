@@ -25,6 +25,7 @@ const emptySessionV2UiState = {
   is_template_processing: false,
   transcript_loading: {} as Record<string, boolean>,
   pending_paste_scroll_doc_id: null as SessionV2UiState['pending_paste_scroll_doc_id'],
+  pending_reload_doc_id: null as SessionV2UiState['pending_reload_doc_id'],
 };
 
 export const emptySessionV2Content: SessionV2Content = {
@@ -67,10 +68,6 @@ const storeInitialState = {
   warningListItems: undefined,
   warningType: undefined,
   playAudioCues: false,
-  sidebarActiveTab: 'past_sessions' as const,
-  completedQueuePatients: [],
-  queueRecordingPatientOid: null as string | null,
-  pendingQueuePatient: null,
   sessionV2Ongoing: emptySessionV2Ongoing,
   sessionV2ContentById: {} as Record<string, SessionV2Content>,
 };
@@ -98,10 +95,6 @@ const PERSISTED_KEYS = [
   'userSelectedTemplatesList',
   'templateNameById',
   'selectedMicrophone',
-  'sidebarActiveTab',
-  'selectedQueueClinicId',
-  'selectedQueueDoctorId',
-  'completedQueuePatients',
   'sessionV2Ongoing',
   'newSessionId',
   'sessionV2ContentById',
@@ -162,8 +155,6 @@ const useVoice2RxStore = create<TStore>()(
           warningScreen: undefined,
         }),
 
-      searchedPatientsList: [],
-      setSearchedPatientsList: (patients) => set({ searchedPatientsList: patients }),
 
       templateData: null,
       setTemplateData: (data) => set({ templateData: data }),
@@ -218,43 +209,8 @@ const useVoice2RxStore = create<TStore>()(
       setOnboardingState: (state) => set({ onboarding_state: state }),
       clearOnboardingState: () => set({ onboarding_state: null }),
 
-      sidebarActiveTab: 'past_sessions',
-      setSidebarActiveTab: (tab) => set({ sidebarActiveTab: tab }),
-      isRecordsTabActive: false,
-      setIsRecordsTabActive: (active) => set({ isRecordsTabActive: active }),
-      isVitalsGridOpen: false,
-      setIsVitalsGridOpen: (open) => set({ isVitalsGridOpen: open }),
-
-      refreshQueueAppointmentsCallback: null,
-      setRefreshQueueAppointmentsCallback: (callback) =>
-        set({ refreshQueueAppointmentsCallback: callback }),
-
-      queueCount: null,
-      setQueueCount: (count) => set({ queueCount: count }),
-
-      selectedQueueClinicId: null,
-      setSelectedQueueClinicId: (clinicId) => set({ selectedQueueClinicId: clinicId }),
-
-      selectedQueueDoctorId: null,
-      setSelectedQueueDoctorId: (doctorId) => set({ selectedQueueDoctorId: doctorId }),
-
-      queueRecordingPatientOid: null,
-      setQueueRecordingPatientOid: (oid) => set({ queueRecordingPatientOid: oid }),
-
-      pendingQueuePatient: null,
-      setPendingQueuePatient: (patient) => set({ pendingQueuePatient: patient }),
-
       autoStartRecording: false,
       setAutoStartRecording: (value) => set({ autoStartRecording: value }),
-
-      completedQueuePatients: [],
-      addCompletedQueuePatient: (patientOid) =>
-        set((state) => ({
-          completedQueuePatients: state.completedQueuePatients.includes(patientOid)
-            ? state.completedQueuePatients
-            : [...state.completedQueuePatients, patientOid],
-        })),
-
       // --- V2 Session State ---
       sessionV2Ongoing: emptySessionV2Ongoing,
       // Id of the session created via the new-session flow. Drives the "Current Session" card
@@ -411,9 +367,6 @@ const useVoice2RxStore = create<TStore>()(
         set((state) => ({
           ...storeInitialState,
           workspaceID: state.workspaceID,
-          queueRecordingPatientOid: state.queueRecordingPatientOid,
-          pendingQueuePatient: state.pendingQueuePatient,
-          completedQueuePatients: state.completedQueuePatients,
           sessionV2ContentById: state.sessionV2ContentById,
         })),
     }),
@@ -427,7 +380,6 @@ const useVoice2RxStore = create<TStore>()(
         >,
       onRehydrateStorage: () => (state) => {
         if (!state) return;
-        state.queueRecordingPatientOid = null;
 
         for (const [sessionId, content] of Object.entries(state.sessionV2ContentById)) {
           // Reset transient per-document UI status
@@ -441,6 +393,7 @@ const useVoice2RxStore = create<TStore>()(
               is_template_processing: false,
               transcript_loading: {},
               pending_paste_scroll_doc_id: null,
+              pending_reload_doc_id: null,
             },
           };
 

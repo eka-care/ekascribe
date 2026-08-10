@@ -8,8 +8,9 @@ import type { ErrorEvent } from 'med-scribe-alliance-ts-sdk';
 import useVoice2RxStore from '@/store/store';
 import { SESSION_PHASE } from '@/constants/enums';
 import { tracker } from '@/analytics';
-import { getFlavour, getHost } from '@/platform';
-import { initTransport, refreshAccessToken } from '@/transport';
+import { getFlavour, getHost, getAuthTokens } from '@/platform';
+import { initTransport } from '@/transport';
+import setEnv from '@/fetch-client/helper';
 import type { IpcBridge } from '@/transport';
 
 export type EkaScribeSDK = ReturnType<typeof getEkaScribeInstance>;
@@ -44,6 +45,7 @@ let initPromise: Promise<void> | null = null;
 let currentInitConfig: InitEkaScribeConfig = EKA_SCRIBE_DEFAULT_CONFIG;
 let sharedWorkerUrl: string | undefined;
 
+// Cookies-first with 401 self-heal: onTokenRequired returns a fresh bearer on desktop
 function createInstance() {
   if (sdkInstance) return;
 
@@ -63,24 +65,38 @@ function createInstance() {
   sdkInstance = getEkaScribeInstance(sdkConfig);
 
   sdkInstance.registerCallback('onTokenRequired', async () => {
-    if (cfg.mode === 'ipc') {
-      const newToken = await refreshAccessToken();
-      return newToken ?? '';
+    const sessionId = useVoice2RxStore.getState().sessionV2Ongoing.recording_session_id;
+    tracker.log({
+      name: 'sdk_token_refresh',
+      properties: { session_id: sessionId, host: getHost() },
+    });
+    if (getHost() === 'desktop') {
+      const tokens = await getAuthTokens()?.refresh();
+      if (tokens?.accessToken) {
+        setEnv({ auth_token: tokens.accessToken, refresh_token: tokens.refreshToken });
+        return tokens.accessToken;
+      }
+      tracker.error(new Error('SDK token refresh failed'), {
+        domain: 'auth',
+        component: 'sdk',
+        extra: { session_id: sessionId },
+      });
     }
     return cfg.access_token ?? '';
   });
 
   sdkInstance.registerCallback('onError', (event: ErrorEvent) => {
     const errorCode = event.error?.code;
+    const store = useVoice2RxStore.getState();
+    const sessionId = store.sessionV2Ongoing.recording_session_id;
 
     tracker.error(new Error(`SDK Error: ${errorCode} - ${event.error?.message}`), {
       domain: 'recording',
       component: 'SDKProvider',
       tags: { error_code: String(errorCode ?? 'unknown') },
+      extra: { network_online: navigator.onLine, session_id: sessionId ?? undefined },
     });
 
-    const store = useVoice2RxStore.getState();
-    const sessionId = store.sessionV2Ongoing.recording_session_id;
     if (!sessionId) return;
 
     if (errorCode === 'chunk_limit_reached') {

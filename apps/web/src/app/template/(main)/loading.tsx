@@ -1,10 +1,10 @@
 'use client';
 
-import { Card, CardHeader, CardContent, CardFooter, Skeleton, Separator } from '@ui/src';
+import { Card, Skeleton, Separator } from '@ui/src';
 
 const TemplatesLoadingSkeleton = () => {
   return (
-    <div className="h-full w-full">
+    <div className="min-h-full w-full bg-[#F5F8FF]">
       {/* Template Header Skeleton */}
       <div className="sticky top-0 w-full z-20 bg-card border-b border-border">
         <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 gap-2 sm:gap-4">
@@ -23,38 +23,45 @@ const TemplatesLoadingSkeleton = () => {
         </div>
       </div>
 
-      {/* Templates Grid Skeleton */}
-      <div className="p-4 sm:p-6 lg:p-8">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between w-full gap-3 sm:gap-4 mb-4">
-          <Skeleton className="h-9 w-full sm:w-48" />
-          <Skeleton className="h-9 w-full sm:w-64" />
+      {/* Tabs + search row skeleton */}
+      <div className="p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center w-full gap-3 sm:gap-4 mb-3">
+          <div className="flex flex-1 items-end w-full gap-2 border-b border-[#D1D1D1] pb-3">
+            <Skeleton className="h-4 w-14" />
+            <Skeleton className="h-4 w-24" />
+          </div>
+          <Skeleton className="h-8 w-60 shrink-0 rounded-lg" />
         </div>
-        <div className="grid gap-3 sm:gap-4 lg:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+
+        {/* Cards grid skeleton — mirrors the new card layout */}
+        <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3, 4, 5, 6].map((item) => (
-            <Card key={item} className="w-full max-h-60 border-border gap-3">
-              <CardHeader className="flex p-3 sm:p-4">
-                <div className="flex items-start justify-between">
-                  <Skeleton className="h-5 sm:h-6 w-32 sm:w-48 mb-2" />
+            <Card
+              key={item}
+              className="w-full min-h-55 justify-between gap-2 rounded-lg border-border p-4 shadow-none"
+            >
+              <div className="flex flex-col gap-2 w-full">
+                <div className="flex items-center justify-between w-full">
+                  <Skeleton className="h-6 w-16 rounded-full" />
+                  <Skeleton className="h-7 w-7 rounded-lg" />
                 </div>
-              </CardHeader>
-
-              <CardContent className="space-y-4 overflow-hidden flex-1 p-3 sm:p-4 pt-0">
-                <div className="space-y-2">
-                  <Skeleton className="h-3 sm:h-4 w-full" />
-                  <Skeleton className="h-3 sm:h-4 w-4/5" />
-                  <Skeleton className="h-3 sm:h-4 w-3/5" />
-                </div>
-              </CardContent>
-
-              <CardFooter className="border-t border-border p-3 sm:p-4">
-                <div className="flex items-center justify-between w-full gap-2">
-                  <div className="flex space-x-2 items-center">
-                    <Skeleton className="h-7 sm:h-8 w-14 sm:w-16 rounded" />
-                    <Skeleton className="h-7 sm:h-8 w-7 sm:w-8 rounded" />
+                <div className="flex flex-col gap-2">
+                  <Skeleton className="h-6 w-40" />
+                  <div className="space-y-1.5">
+                    <Skeleton className="h-3 w-full" />
+                    <Skeleton className="h-3 w-4/5" />
+                    <Skeleton className="h-3 w-3/5" />
                   </div>
-                  <Skeleton className="h-5 sm:h-6 w-10 sm:w-11 rounded-full" />
                 </div>
-              </CardFooter>
+              </div>
+
+              <div className="flex items-center justify-between w-full border-t border-[#EDEDED] pt-4">
+                <div className="flex items-center gap-2">
+                  <Skeleton className="h-6 w-11 rounded-full" />
+                  <Skeleton className="h-4 w-12" />
+                </div>
+                <Skeleton className="h-7 w-7 rounded-lg" />
+              </div>
             </Card>
           ))}
         </div>

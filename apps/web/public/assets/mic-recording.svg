@@ -1,0 +1,23 @@
+<svg width="240" height="240" viewBox="70 70 100 100" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="120" cy="120" r="34" fill="#E8F0FF"/>
+
+  <circle cx="120" cy="120" r="34" fill="none" stroke="#215FFF" stroke-width="2">
+    <animate attributeName="r" values="34;48" dur="2.2s" begin="0s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0.45;0" dur="2.2s" begin="0s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="120" cy="120" r="34" fill="none" stroke="#215FFF" stroke-width="2">
+    <animate attributeName="r" values="34;48" dur="2.2s" begin="0.733s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0.45;0" dur="2.2s" begin="0.733s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="120" cy="120" r="34" fill="none" stroke="#215FFF" stroke-width="2">
+    <animate attributeName="r" values="34;48" dur="2.2s" begin="1.467s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0.45;0" dur="2.2s" begin="1.467s" repeatCount="indefinite"/>
+  </circle>
+
+  <svg x="109" y="109" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#215FFF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+    <line x1="12" y1="19" x2="12" y2="23"/>
+    <line x1="8" y1="23" x2="16" y2="23"/>
+  </svg>
+</svg>

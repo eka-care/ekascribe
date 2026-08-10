@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useCallback, useRef, useEffect } from 'react';
-import { Bookmark, Check, Circle, Loader2, AlertCircle } from 'lucide-react';
+import { Fragment, useState, useCallback, useRef, useEffect } from 'react';
+import { Check, Loader2, AlertCircle } from 'lucide-react';
 import ButtonWrapper from '@/shared-components/button/button-wrapper';
 import {
   CustomTooltip,
@@ -13,6 +13,8 @@ import type {
   FooterButton,
   SaveStatusState,
 } from '../../config/tab-footer-config';
+
+const footerButtonClass = 'min-w-24 h-7 gap-1 px-2.5 rounded-lg text-sm whitespace-nowrap';
 
 function SaveStatusIndicator({ status }: { status: SaveStatusState }) {
   if (status === 'generating') {
@@ -29,16 +31,16 @@ function SaveStatusIndicator({ status }: { status: SaveStatusState }) {
 
   if (status === 'typing') {
     return (
-      <span className="flex items-center gap-1 text-sm text-secondary-foreground">
-        <Loader2 className="w-3 h-3 animate-spin" />
-        Saving...
+      <span className="flex items-center gap-1 px-1.5 text-sm text-[#767676] opacity-50">
+        <Loader2 className="w-4 h-4 animate-spin" />
+        Saving
       </span>
     );
   }
 
   if (status === 'synced') {
     return (
-      <span className="flex gap-1 items-center text-sm text-green-10">
+      <span className="flex items-center gap-1 px-1.5 text-sm text-[#767676] opacity-50">
         <Check className="w-4 h-4" />
         Saved
       </span>
@@ -57,23 +59,7 @@ function SaveStatusIndicator({ status }: { status: SaveStatusState }) {
   return null;
 }
 
-function PublishStatusPill({ isPublished }: { isPublished?: boolean }) {
-  if (isPublished === undefined) return null;
-
-  return isPublished ? (
-    <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-xl text-xs text-[#15803D] opacity-80">
-      <Check className="w-3 h-3" />
-      Published
-    </span>
-  ) : (
-    <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-xl text-xs text-[#B45309] opacity-80">
-      <Circle className="w-2 h-2 fill-[#F59E0B] stroke-[#F59E0B]" />
-      Unpublished changes
-    </span>
-  );
-}
-
-export function TabFooter({ config, sessionId }: { config: TabFooterConfig; sessionId: string }) {
+export function TabFooter({ config }: { config: TabFooterConfig }) {
   const [isCopied, setIsCopied] = useState(false);
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
@@ -98,7 +84,7 @@ export function TabFooter({ config, sessionId }: { config: TabFooterConfig; sess
           key={button.key}
           onClick={isDisabled ? undefined : () => handleClick(button)}
           disabled={isDisabled}
-          className={`flex items-center gap-1.5 px-1.5 py-0.5 text-sm font-medium rounded-lg border border-[#D1D1D1] bg-white cursor-pointer transition-colors ${
+          className={`flex items-center justify-center ${footerButtonClass} font-medium border border-[#D1D1D1] bg-white cursor-pointer transition-colors ${
             isDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[#F5F5F5]'
           }`}
         >
@@ -121,12 +107,11 @@ export function TabFooter({ config, sessionId }: { config: TabFooterConfig; sess
       return btn;
     }
 
-    return (
+    const actionBtn = (
       <ButtonWrapper
-        key={button.key}
         size="sm"
         variant={button.variant || 'default'}
-        className={`gap-1.5 px-3 h-7 text-sm whitespace-nowrap ${button.className || ''}`}
+        className={`${footerButtonClass} ${button.className || ''}`}
         onClick={() => handleClick(button)}
         disabled={isDisabled}
       >
@@ -134,79 +119,40 @@ export function TabFooter({ config, sessionId }: { config: TabFooterConfig; sess
         {button.icon}
       </ButtonWrapper>
     );
+
+    const tooltipText = isDisabled ? button.disabledTooltip : button.tooltip;
+    if (tooltipText) {
+      return (
+        <CustomTooltip key={button.key}>
+          <CustomTooltipTrigger asChild>
+            {/* span keeps hover events alive when the button is disabled */}
+            <span className="inline-flex">{actionBtn}</span>
+          </CustomTooltipTrigger>
+          <CustomTooltipContent side="top" sideOffset={4}>
+            {tooltipText}
+          </CustomTooltipContent>
+        </CustomTooltip>
+      );
+    }
+
+    return <Fragment key={button.key}>{actionBtn}</Fragment>;
   };
 
-  const showStatusCluster = !!(
-    (config.saveStatus && config.saveStatus !== 'idle') ||
-    config.reviewPublish?.isPublished !== undefined
-  );
+  const saveStatus = config.saveStatus && config.saveStatus !== 'idle' ? config.saveStatus : null;
 
   return (
     <div className="relative">
       {config.overlay}
-      <div className="flex flex-col p-3 space-y-1 bg-[#F5F5F5] border-t border-[#D1D1D1] shadow">
-        {/* Desktop: single row (buttons left, status + Review & publish right).
-            Mobile: status moves to its own row above, buttons + Review & publish below. */}
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
+      <div className="flex flex-col gap-1 p-4 bg-[#F5F5F5] border-t border-[#D1D1D1] shadow">
+        <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-2">{config.buttons.map(renderButton)}</div>
 
-          {showStatusCluster && (
-            <div className="order-first sm:order-none w-full sm:w-auto sm:ml-auto flex items-center justify-end gap-2">
-              {config.saveStatus && config.saveStatus !== 'idle' && (
-                <SaveStatusIndicator status={config.saveStatus} />
-              )}
-              {config.saveStatus &&
-                config.saveStatus !== 'idle' &&
-                config.reviewPublish?.isPublished !== undefined && (
-                  <div className="w-px h-5 bg-[#D1D1D1]" />
-                )}
-              {config.reviewPublish && (
-                <PublishStatusPill isPublished={config.reviewPublish.isPublished} />
-              )}
-            </div>
-          )}
-
-          {(config.saveNote || config.reviewPublish) && (
-            <div
-              className={`flex items-center gap-2 shrink-0 ml-auto ${
-                showStatusCluster ? 'sm:ml-0' : 'sm:ml-auto'
-              }`}
-            >
-              {config.saveNote && (
-                <button
-                  type="button"
-                  onClick={config.saveNote.isNoteSaved ? undefined : config.saveNote.onSaveNote}
-                  disabled={config.saveNote.isNoteSaved}
-                  className={`flex items-center gap-1.5 px-3 h-7 text-sm rounded-lg border border-[#D1D1D1] bg-white whitespace-nowrap transition-colors ${
-                    config.saveNote.isNoteSaved
-                      ? 'text-primary opacity-70 cursor-default'
-                      : 'text-primary hover:bg-[#F5F5F5] cursor-pointer'
-                  }`}
-                >
-                  {config.saveNote.isNoteSaved ? 'Saved' : 'Save note'}
-                  <Bookmark
-                    className="w-4 h-4"
-                    fill={config.saveNote.isNoteSaved ? 'currentColor' : 'none'}
-                  />
-                </button>
-              )}
-              {config.reviewPublish && (
-                <ButtonWrapper
-                  size="sm"
-                  className="gap-1.5 px-3 h-9 text-sm whitespace-nowrap"
-                  onClick={config.reviewPublish.onReviewPublish}
-                  disabled={config.reviewPublish.disabled}
-                >
-                  Review & publish
-                </ButtonWrapper>
-              )}
+          {saveStatus && (
+            <div className="flex items-center gap-2 shrink-0 ml-auto">
+              <SaveStatusIndicator status={saveStatus} />
             </div>
           )}
         </div>
-
-        {sessionId && (
-          <p className="text-[8px] text-[#767676] flex justify-end w-full">{sessionId}</p>
-        )}
       </div>
     </div>
   );

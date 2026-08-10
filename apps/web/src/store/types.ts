@@ -3,8 +3,6 @@ import {
   TAppConfig,
   TLoggedInUserDetails,
   TPreferenceItem,
-  TSearchPatient,
-  TSelectedPatientDetails,
   TTemplateData,
   TUserSelectedPreferences,
 } from '@/constants/types';
@@ -43,12 +41,6 @@ type TStore = {
 
   playAudioCues: boolean;
   setPlayAudioCues: (playAudioCues: boolean) => void;
-
-  /**
-   * suggestions patients array for autocomplete input
-   */
-  searchedPatientsList: TSearchPatient[] | [];
-  setSearchedPatientsList: (patients: TSearchPatient[]) => void;
 
   warningMessage?: string;
   warningIcon?: React.FC;
@@ -120,43 +112,6 @@ type TStore = {
   setOnboardingState: (state: ONBOARDING_STEP) => void;
   clearOnboardingState: () => void;
 
-  /**
-   * Sidebar active tab state
-   */
-  sidebarActiveTab: 'my_queue' | 'past_sessions';
-  setSidebarActiveTab: (tab: 'my_queue' | 'past_sessions') => void;
-  isRecordsTabActive: boolean;
-  setIsRecordsTabActive: (active: boolean) => void;
-  isVitalsGridOpen: boolean;
-  setIsVitalsGridOpen: (open: boolean) => void;
-
-  /**
-   * Track completed sessions for queue patients (by patient oid)
-   */
-  completedQueuePatients: string[];
-
-  /**
-   * Callback to refresh queue appointments
-   */
-  refreshQueueAppointmentsCallback: (() => Promise<void>) | null;
-  setRefreshQueueAppointmentsCallback: (callback: (() => Promise<void>) | null) => void;
-
-  queueCount: number | null;
-  setQueueCount: (count: number | null) => void;
-
-  selectedQueueClinicId: string | null;
-  setSelectedQueueClinicId: (clinicId: string | null) => void;
-
-  selectedQueueDoctorId: string | null;
-  setSelectedQueueDoctorId: (doctorId: string | null) => void;
-
-  queueRecordingPatientOid: string | null;
-  setQueueRecordingPatientOid: (oid: string | null) => void;
-
-  pendingQueuePatient: TSelectedPatientDetails | null;
-  setPendingQueuePatient: (patient: TSelectedPatientDetails | null) => void;
-
-  addCompletedQueuePatient: (patientOid: string) => void;
 
   autoStartRecording: boolean;
   setAutoStartRecording: (value: boolean) => void;

@@ -1,11 +1,5 @@
 import useVoice2RxStore from '@/store/store';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogOverlay,
-  DialogTitle,
-} from '@ui/src';
+import { Dialog, DialogContent, DialogDescription, DialogOverlay, DialogTitle } from '@ui/src';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -27,12 +21,11 @@ const PreviewTemplateDialog = ({
         </DialogTitle>
         {templateData?.desc && (
           <DialogDescription>
-            <div className="text-muted-foreground prose prose-sm max-w-none text-sm">
+            <div className="text-secondary-foreground prose prose-sm max-w-none text-sm">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{templateData.desc}</ReactMarkdown>
             </div>
           </DialogDescription>
         )}
-
       </DialogContent>
     </Dialog>
   );

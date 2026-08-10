@@ -1,8 +1,7 @@
 'use client';
 
-import { Check, CircleAlert, ExternalLink, X } from 'lucide-react';
+import { Check, CircleAlert, X } from 'lucide-react';
 import { Dialog, DialogContent, DialogTitle, Button } from '@ui/src';
-import { useRouter } from 'next/navigation';
 
 const BULLET_ITEMS = [
   {
@@ -25,8 +24,6 @@ interface SessionLimitDialogProps {
 }
 
 const SessionLimitDialog = ({ open, onOpenChange }: SessionLimitDialogProps) => {
-  const router = useRouter();
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -88,15 +85,6 @@ const SessionLimitDialog = ({ open, onOpenChange }: SessionLimitDialogProps) => 
 
           {/* CTA buttons */}
           <div className="flex flex-col gap-2">
-            <Button
-              className="w-full rounded-xl cursor-pointer"
-              onClick={() => {
-                router.push('/pricing');
-              }}
-            >
-              Upgrade now
-              <ExternalLink className="w-4 h-4" />
-            </Button>
             <Button
               variant="outline"
               className="w-full rounded-xl cursor-pointer border-[#CCCCCC]"

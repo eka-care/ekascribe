@@ -4,7 +4,6 @@ import { with401Retry } from '@/fetch-client/api-with-retry';
 import { postV1AuthAccountLogout } from '@/fetch-client/post-v1-auth-account-logout';
 import { getStorage, getHost, getAuthTokens } from '@/platform';
 import useVoice2RxStore from '@/store/store';
-import { logoutMedicalRecords } from '@eka-care/medical-records-ui';
 
 const handleUserLogout = async () => {
   try {
@@ -59,8 +58,6 @@ const handleUserRedirectAfterLogout = () => {
 };
 
 const handleUserClearStoreAfterLogout = () => {
-  const bid = useVoice2RxStore.getState().loggedInUserDetails?.['b-id'];
-  void logoutMedicalRecords(bid);
   resetTracking();
   const clearStore = useVoice2RxStore.getState().clearStore;
   const clearOnboardingState = useVoice2RxStore.getState().clearOnboardingState;

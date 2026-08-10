@@ -1,104 +1,303 @@
 'use client';
 
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import {
   Bold,
+  ChevronDown,
   Italic,
-  Strikethrough,
-  Underline,
   List,
   ListOrdered,
-  Undo2,
+  Quote,
   Redo2,
+  Strikethrough,
   Table2,
-  FlaskConical,
+  Underline,
+  Undo2,
   type LucideIcon,
 } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@ui/src';
 
 import {
   CustomTooltip,
   CustomTooltipContent,
   CustomTooltipTrigger,
 } from '@/shared-components/custom-tooltip';
+import FavouriteNoteButton from './favourite-note-button';
+
+type ExecCommand = (command: string, payload?: Record<string, unknown>) => void;
 
 interface EditorToolbarProps {
-  onExecCommand: (command: string, payload?: Record<string, unknown>) => void;
+  onExecCommand: ExecCommand;
+  activeHeadingLevel: 1 | 2 | 3 | null;
   showLabResultTable?: boolean;
+  showLabInvestigationTable?: boolean;
+  showMedicationTable?: boolean;
+  /** When provided, shows the "Add to favourite notes" button on the right end. */
+  favouriteNote?: { documentId: string; documentName: string };
 }
 
 type ToolbarAction = {
   label: string;
   command: string;
-  payload?: Record<string, unknown>;
-  icon?: LucideIcon;
-  text?: string;
-  requiresLabResult?: boolean;
+  icon: LucideIcon;
 };
 
-const SEPARATOR = 'separator';
+type TableAction = ToolbarAction & {
+  requires?: 'labResult' | 'labInvestigation' | 'medication';
+};
 
-const TOOLBAR: (ToolbarAction | typeof SEPARATOR)[] = [
-  { label: 'Heading 1', command: 'heading', payload: { level: 1 }, text: 'H1' },
-  { label: 'Heading 2', command: 'heading', payload: { level: 2 }, text: 'H2' },
-  { label: 'Heading 3', command: 'heading', payload: { level: 3 }, text: 'H3' },
-  SEPARATOR,
+const MARK_ACTIONS: ToolbarAction[] = [
   { label: 'Bold', command: 'bold', icon: Bold },
   { label: 'Italic', command: 'italic', icon: Italic },
   { label: 'Underline', command: 'underline', icon: Underline },
   { label: 'Strikethrough', command: 'strike', icon: Strikethrough },
-  SEPARATOR,
+];
+
+const LIST_ACTIONS: ToolbarAction[] = [
   { label: 'Bullet list', command: 'bulletList', icon: List },
   { label: 'Ordered list', command: 'orderedList', icon: ListOrdered },
-  SEPARATOR,
-  { label: 'Table', command: 'table', icon: Table2 },
-  {
-    label: 'Lab result table',
-    command: 'labResultTable',
-    icon: FlaskConical,
-    requiresLabResult: true,
-  },
-  SEPARATOR,
+];
+
+const HISTORY_ACTIONS: ToolbarAction[] = [
   { label: 'Undo', command: 'undo', icon: Undo2 },
   { label: 'Redo', command: 'redo', icon: Redo2 },
 ];
 
-const buttonClass =
-  'w-7 h-7 flex items-center justify-center cursor-pointer rounded-[6px] hover:bg-[#eef1f6] text-[#1a2233] transition-colors';
+const QUOTE_ACTION: ToolbarAction = { label: 'Quote', command: 'blockquote', icon: Quote };
 
-const headingButtonClass =
-  'h-7 px-1.5 flex items-center justify-center cursor-pointer rounded-[6px] hover:bg-[#eef1f6] text-[#1a2233] text-[13px] font-semibold transition-colors';
+export const HEADING_LEVELS = [1, 2, 3] as const;
 
-const EditorToolbar = ({ onExecCommand, showLabResultTable = false }: EditorToolbarProps) => {
-  const items = TOOLBAR.filter((item) =>
-    item === SEPARATOR ? true : !item.requiresLabResult || showLabResultTable
-  );
+const TABLE_ACTIONS: TableAction[] = [{ label: 'Table', command: 'table', icon: Table2 }];
+
+const toggleClass =
+  'size-10 shrink-0 flex items-center justify-center cursor-pointer rounded-lg text-[#1A1A1A] hover:bg-[#F5F5F5] transition-colors';
+
+function ToolbarSeparator() {
   return (
-    <div className="flex items-center py-0.5 overflow-x-auto">
-      <div className="flex items-center gap-0.5 w-max">
-        {items.map((item, index) =>
-          item === SEPARATOR ? (
-            <div key={`separator-${index}`} className="w-px h-4 bg-[#eef1f6] mx-1" />
-          ) : (
-            <CustomTooltip key={item.label}>
-              <CustomTooltipTrigger asChild>
-                <button
-                  type="button"
-                  aria-label={item.label}
-                  className={item.text ? headingButtonClass : buttonClass}
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    onExecCommand(item.command, item.payload);
-                  }}
-                >
-                  {item.icon ? <item.icon className="w-4 h-4" /> : item.text}
-                </button>
-              </CustomTooltipTrigger>
-              <CustomTooltipContent side="bottom">{item.label}</CustomTooltipContent>
-            </CustomTooltip>
-          )
-        )}
-      </div>
+    <div className="w-4 h-10 shrink-0 flex items-center justify-center">
+      <div className="w-px h-4 bg-[#E6E6E6]" />
     </div>
   );
-};
+}
+
+function ToolbarButton({
+  action,
+  onExecCommand,
+}: {
+  action: ToolbarAction;
+  onExecCommand: ExecCommand;
+}) {
+  return (
+    <CustomTooltip>
+      <CustomTooltipTrigger asChild>
+        <button
+          type="button"
+          aria-label={action.label}
+          className={toggleClass}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            onExecCommand(action.command);
+          }}
+        >
+          <action.icon className="w-4 h-4" />
+        </button>
+      </CustomTooltipTrigger>
+      <CustomTooltipContent side="bottom">{action.label}</CustomTooltipContent>
+    </CustomTooltip>
+  );
+}
+
+const HOVER_CLOSE_DELAY_MS = 150;
+
+function useHoverDropdown() {
+  const [open, setOpen] = useState(false);
+  const closeTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const cancelClose = useCallback(() => {
+    if (closeTimeout.current) {
+      clearTimeout(closeTimeout.current);
+      closeTimeout.current = null;
+    }
+  }, []);
+
+  const onMouseEnter = useCallback(() => {
+    cancelClose();
+    setOpen(true);
+  }, [cancelClose]);
+
+  const onMouseLeave = useCallback(() => {
+    cancelClose();
+    closeTimeout.current = setTimeout(() => setOpen(false), HOVER_CLOSE_DELAY_MS);
+  }, [cancelClose]);
+
+  return { open, setOpen, onMouseEnter, onMouseLeave };
+}
+
+function HeadingDropdown({
+  onExecCommand,
+  activeHeadingLevel,
+}: {
+  onExecCommand: ExecCommand;
+  activeHeadingLevel: 1 | 2 | 3 | null;
+}) {
+  const { open, setOpen, onMouseEnter, onMouseLeave } = useHoverDropdown();
+  const isActive = activeHeadingLevel !== null;
+
+  return (
+    <DropdownMenu
+      modal={false}
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) onExecCommand('focus');
+      }}
+    >
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label="Heading styles"
+          aria-pressed={isActive}
+          className="h-10 w-32 shrink-0 flex items-center justify-center gap-1 px-3 rounded-xl cursor-pointer text-xs font-medium leading-4 text-[#1A1A1A] hover:bg-[#F5F5F5] transition-colors"
+          onMouseDown={(e) => e.preventDefault()}
+          onMouseEnter={onMouseEnter}
+          onMouseLeave={onMouseLeave}
+        >
+          <span className="truncate">
+            {isActive ? `Heading ${activeHeadingLevel}` : 'Normal text'}
+          </span>
+          <ChevronDown className="w-4 h-4 shrink-0" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="start"
+        className="min-w-40 border-[#D1D1D1]"
+        onCloseAutoFocus={(e) => e.preventDefault()}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
+      >
+        <DropdownMenuItem className="cursor-pointer" onSelect={() => onExecCommand('paragraph')}>
+          Normal text
+        </DropdownMenuItem>
+        {HEADING_LEVELS.map((level) => (
+          <DropdownMenuItem
+            key={level}
+            className="cursor-pointer"
+            onSelect={() => onExecCommand('heading', { level })}
+          >
+            Heading {level}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function TableDropdown({
+  actions,
+  onExecCommand,
+}: {
+  actions: TableAction[];
+  onExecCommand: ExecCommand;
+}) {
+  const { open, setOpen, onMouseEnter, onMouseLeave } = useHoverDropdown();
+
+  return (
+    <DropdownMenu
+      modal={false}
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) onExecCommand('focus');
+      }}
+    >
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label="Table styles"
+          className={toggleClass}
+          onMouseDown={(e) => e.preventDefault()}
+          onMouseEnter={onMouseEnter}
+          onMouseLeave={onMouseLeave}
+        >
+          <Table2 className="w-4 h-4" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="start"
+        className="min-w-48 border-[#D1D1D1]"
+        onCloseAutoFocus={(e) => e.preventDefault()}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
+      >
+        {actions.map((action) => (
+          <DropdownMenuItem
+            key={action.command}
+            className="cursor-pointer"
+            onSelect={() => onExecCommand(action.command)}
+          >
+            <action.icon className="text-primary" />
+            {action.label}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+const EditorToolbar = memo(function EditorToolbar({
+  onExecCommand,
+  activeHeadingLevel,
+  showLabResultTable = false,
+  showLabInvestigationTable = false,
+  showMedicationTable = false,
+  favouriteNote,
+}: EditorToolbarProps) {
+  const tableActions = useMemo(
+    () =>
+      TABLE_ACTIONS.filter((action) => {
+        if (action.requires === 'labResult') return showLabResultTable;
+        if (action.requires === 'labInvestigation') return showLabInvestigationTable;
+        if (action.requires === 'medication') return showMedicationTable;
+        return true;
+      }),
+    [showLabResultTable, showLabInvestigationTable, showMedicationTable]
+  );
+
+  return (
+    <div className="flex items-center justify-between gap-2 py-1">
+      <div className="flex items-center min-w-0 overflow-x-auto">
+        <div className="flex items-center w-max">
+          {MARK_ACTIONS.map((action) => (
+            <ToolbarButton key={action.command} action={action} onExecCommand={onExecCommand} />
+          ))}
+          <ToolbarSeparator />
+          <HeadingDropdown onExecCommand={onExecCommand} activeHeadingLevel={activeHeadingLevel} />
+          <ToolbarSeparator />
+          {LIST_ACTIONS.map((action) => (
+            <ToolbarButton key={action.command} action={action} onExecCommand={onExecCommand} />
+          ))}
+          <ToolbarSeparator />
+          <ToolbarButton action={QUOTE_ACTION} onExecCommand={onExecCommand} />
+          {tableActions.length > 1 ? (
+            <TableDropdown actions={tableActions} onExecCommand={onExecCommand} />
+          ) : (
+            <ToolbarButton action={tableActions[0]} onExecCommand={onExecCommand} />
+          )}
+          <ToolbarSeparator />
+          {HISTORY_ACTIONS.map((action) => (
+            <ToolbarButton key={action.command} action={action} onExecCommand={onExecCommand} />
+          ))}
+        </div>
+      </div>
+
+      {favouriteNote && (
+        <FavouriteNoteButton
+          documentId={favouriteNote.documentId}
+          documentName={favouriteNote.documentName}
+        />
+      )}
+    </div>
+  );
+});
 
 export default EditorToolbar;

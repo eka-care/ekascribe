@@ -1,7 +1,7 @@
 'use client';
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import { useEditor, EditorContent, ReactRenderer, type Editor } from '@tiptap/react';
+import { useEditor, EditorContent, ReactRenderer } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { Highlight } from '@tiptap/extension-highlight';
 import { Table } from '@tiptap/extension-table';
@@ -26,9 +26,9 @@ import { Markdown } from 'tiptap-markdown';
 import { SlashCommand, getSlashCommandItems } from './slash-command';
 import SlashCommandList, { type SlashCommandListHandle } from './slash-command-list';
 import EditorToolbar from './editor-toolbar';
+import { useActiveHeadingLevel } from './use-active-heading-level';
 import TableAddButtons from './table-add-buttons';
 import { isAllowedHref, sanitizeHtmlForNote } from '../../services/html-sanitize';
-import { insertLabResultTable } from '../../ag-ui/editor/lab-result/insert-lab-result-table';
 
 const turndown = new TurndownService({ headingStyle: 'atx', hr: '---', bulletListMarker: '-' });
 
@@ -112,6 +112,8 @@ interface TiptapEditorProps {
   placeholder?: string;
   showToolbar?: boolean;
   editable?: boolean;
+  /** When provided, the toolbar shows the "Add to favourite notes" button. */
+  favouriteNote?: { documentId: string; documentName: string };
 }
 
 const TiptapWysiwygEditor = forwardRef<TiptapEditorHandle, TiptapEditorProps>(
@@ -126,6 +128,7 @@ const TiptapWysiwygEditor = forwardRef<TiptapEditorHandle, TiptapEditorProps>(
       placeholder: placeholderText,
       showToolbar = true,
       editable = true,
+      favouriteNote,
     },
     ref
   ) => {
@@ -209,8 +212,8 @@ const TiptapWysiwygEditor = forwardRef<TiptapEditorHandle, TiptapEditorProps>(
       }),
       SlashCommand.configure({
         suggestion: {
-          items: ({ query, editor }: { query: string; editor: Editor }) =>
-            getSlashCommandItems(editor).filter((item) =>
+          items: ({ query }: { query: string }) =>
+            getSlashCommandItems().filter((item) =>
               item.title.toLowerCase().includes(query.toLowerCase())
             ),
           render: renderSuggestion,
@@ -226,7 +229,7 @@ const TiptapWysiwygEditor = forwardRef<TiptapEditorHandle, TiptapEditorProps>(
       content: resolvedContent,
       editorProps: {
         attributes: {
-          class: 'outline-none min-h-[300px] max-w-none scribe-editor',
+          class: 'outline-none min-h-[300px] max-w-none pl-[6px] scribe-editor',
         },
       },
       onUpdate: () => {
@@ -253,6 +256,8 @@ const TiptapWysiwygEditor = forwardRef<TiptapEditorHandle, TiptapEditorProps>(
         onBlurRef.current?.();
       },
     });
+
+    const activeHeadingLevel = useActiveHeadingLevel(editor, editorContainerRef);
 
     useEffect(() => {
       const timer = setTimeout(() => {
@@ -321,7 +326,8 @@ const TiptapWysiwygEditor = forwardRef<TiptapEditorHandle, TiptapEditorProps>(
       editor.setEditable(editable);
     }, [editor, editable]);
 
-    const execCommand = (command: string, payload?: Record<string, unknown>) => {
+    const execCommand = useCallback(
+      (command: string, payload?: Record<string, unknown>) => {
       if (!editor) return;
       if (command === '__suppressBlur') {
         suppressBlurRef.current = true;
@@ -332,12 +338,18 @@ const TiptapWysiwygEditor = forwardRef<TiptapEditorHandle, TiptapEditorProps>(
         return;
       }
       switch (command) {
+        case 'focus':
+          editor.chain().focus().run();
+          break;
         case 'heading':
           editor
             .chain()
             .focus()
             .toggleHeading({ level: (payload?.level as 1 | 2 | 3) || 1 })
             .run();
+          break;
+        case 'paragraph':
+          editor.chain().focus().setParagraph().run();
           break;
         case 'bold':
           editor.chain().focus().toggleBold().run();
@@ -353,6 +365,9 @@ const TiptapWysiwygEditor = forwardRef<TiptapEditorHandle, TiptapEditorProps>(
           break;
         case 'orderedList':
           editor.chain().focus().toggleOrderedList().run();
+          break;
+        case 'blockquote':
+          editor.chain().focus().toggleBlockquote().run();
           break;
         case 'hr':
           editor.chain().focus().setHorizontalRule().run();
@@ -388,9 +403,6 @@ const TiptapWysiwygEditor = forwardRef<TiptapEditorHandle, TiptapEditorProps>(
         case 'table':
           editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
           break;
-        case 'labResultTable':
-          insertLabResultTable(editor);
-          break;
         case 'color':
           editor
             .chain()
@@ -406,7 +418,9 @@ const TiptapWysiwygEditor = forwardRef<TiptapEditorHandle, TiptapEditorProps>(
             .run();
           break;
       }
-    };
+      },
+      [editor]
+    );
 
     useImperativeHandle(ref, () => ({
       getInstance: () => {
@@ -437,17 +451,18 @@ const TiptapWysiwygEditor = forwardRef<TiptapEditorHandle, TiptapEditorProps>(
       >
         {showToolbar && (
           <div
-            className="sticky top-0 z-10 -mx-4 px-4 py-1.5 bg-white border-b border-[#eef1f6]"
+            className="sticky top-0 z-10 -mx-4 px-4 bg-white border-b border-[#E6E6E6]"
             onMouseDown={() => { suppressBlurRef.current = true; }}
             onMouseUp={() => { suppressBlurRef.current = false; }}
           >
             <EditorToolbar
               onExecCommand={execCommand}
-              showLabResultTable={!!editor?.schema.nodes.labResultTable}
+              activeHeadingLevel={activeHeadingLevel}
+              favouriteNote={favouriteNote}
             />
           </div>
         )}
-        <div className="pt-3 relative" ref={editorContainerRef}>
+        <div className="pt-3 relative z-0" ref={editorContainerRef}>
           <EditorContent editor={editor} />
           {isFocused && editable && (
             <TableAddButtons editor={editor} containerRef={editorContainerRef} />

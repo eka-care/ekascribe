@@ -38,6 +38,5 @@ export const GET_EKA_V2RX_HOST_V3 = () => HOSTS.EKA_V2RX_HOST_V3;
 export const GET_AORTAGO_HOST = () => HOSTS.AORTAGO_HOST;
 export const GET_COG_HOST = () => HOSTS.COG_HOST;
 export const GET_HUB_HOST = () => HOSTS.HUB_HOST;
-export const GET_MDB_HOST = () => HOSTS.MDB_HOST;
 
 export default setEnv;

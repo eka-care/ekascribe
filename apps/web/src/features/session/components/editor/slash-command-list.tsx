@@ -18,7 +18,6 @@ import {
   Quote,
   Table,
   Minus,
-  FlaskConical,
 } from 'lucide-react';
 import type { SlashCommandItem } from './slash-command';
 
@@ -31,7 +30,6 @@ const iconMap: Record<string, React.ReactNode> = {
   Quote: <Quote className="w-4 h-4" />,
   Table: <Table className="w-4 h-4" />,
   Minus: <Minus className="w-4 h-4" />,
-  FlaskConical: <FlaskConical className="w-4 h-4" />,
 };
 
 interface SlashCommandListProps {

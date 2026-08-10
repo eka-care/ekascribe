@@ -17,13 +17,10 @@ import useVoice2RxStore from '@/store/store';
 import { SessionBodySkeleton } from '@/app/new-session/loading';
 import ErrorComponent from '../output/error-component';
 import { TEMPLATE_WARNINGS_MSG } from '@/constants/enums';
-import { useStreamTab } from '../../ag-ui/hooks/use-stream-tab';
-import { useDocumentTab } from '../../hooks/use-document-tab';
-import { useEditorFocus } from '../../hooks/use-editor-focus';
-import { usePasteScroll } from '../../hooks/use-paste-scroll';
-import { useDocumentChat } from '../../ag-ui/hooks/use-document-chat';
+import { useStreamEditor } from '../../ag-ui/hooks/use-stream-editor';
+import { useDocumentEditor } from '../../hooks/document/use-document-editor';
+import { useEditorFocus } from '../../hooks/document/use-editor-focus';
 import { buildScribeEditorExtensions } from '../../ag-ui/editor/editor-extensions';
-import { EditorShell } from '../editor/editor-shell';
 import type { StreamMessage, StreamPhase } from '../../ag-ui/types';
 
 const WysiwygEditor = dynamic(() => import('../editor/tiptap-wysiwyg-editor'), {
@@ -73,7 +70,7 @@ export const SessionDocument = forwardRef<SessionDocumentHandle, SessionDocument
 );
 
 // ─────────────────────────────────────────────────────────────────────────
-// Streaming mode — wraps useStreamTab, renders streaming UI + editor
+// Streaming mode — wraps useStreamEditor, renders streaming UI + editor
 // ─────────────────────────────────────────────────────────────────────────
 
 const StreamingDocument = forwardRef<SessionDocumentHandle, StreamingProps>(
@@ -93,10 +90,9 @@ const StreamingDocument = forwardRef<SessionDocumentHandle, StreamingProps>(
       handleBlur,
       saveDocument,
       getMarkdown,
-    } = useStreamTab({ sessionId, templateId, streamKey, onFinished, onDocumentId, documentId });
+    } = useStreamEditor({ sessionId, templateId, streamKey, onFinished, onDocumentId, documentId });
 
-    const { chatDockOpen, editorWrapperRef, handleFocusChange, handleCloseChatDock } =
-      useEditorFocus(editorRef);
+    const { editorWrapperRef, handleFocusChange } = useEditorFocus(editorRef);
 
     useImperativeHandle(
       ref,
@@ -108,21 +104,13 @@ const StreamingDocument = forwardRef<SessionDocumentHandle, StreamingProps>(
       [state, saveDocument, getMarkdown]
     );
 
-    // Edit-with-AI chat: operates on the live editor markdown, applies any
-    // edits back into the editor, and persists once a turn changes the note.
-    const applyChatMarkdown = useCallback(
-      (markdown: string) => {
-        editorRef.current?.getInstance()?.setMarkdown(markdown);
-      },
-      [editorRef]
+    const favouriteNote = useMemo(
+      () =>
+        state.document_id
+          ? { documentId: state.document_id, documentName: documentName || 'Note' }
+          : undefined,
+      [state.document_id, documentName]
     );
-    const chat = useDocumentChat({
-      sessionId,
-      documentId: state.document_id,
-      getCurrentMarkdown: getMarkdown,
-      onMarkdownUpdate: applyChatMarkdown,
-      onComplete: saveDocument,
-    });
 
     const hasSections = state.sections.length > 0;
     const hasStreamContent = hasSections || messages.length > 0 || toolCalls.length > 0;
@@ -141,12 +129,7 @@ const StreamingDocument = forwardRef<SessionDocumentHandle, StreamingProps>(
     }, [state.sections.length, messages.length, toolCalls.length, isStreaming]);
 
     return (
-      <EditorShell
-        chatDockOpen={chatDockOpen}
-        chatDockEnabled={phase === 'finished' && !!state.document_id}
-        chat={chat}
-        onCloseChatDock={handleCloseChatDock}
-      >
+      <div className="flex-1 min-h-0 h-full flex flex-col">
         <div className="flex-1 min-h-0 overflow-y-auto">
           <div className="flex flex-col px-4 pt-4 pb-4 gap-3">
             {!isLoading && (
@@ -171,6 +154,7 @@ const StreamingDocument = forwardRef<SessionDocumentHandle, StreamingProps>(
                 customExtensions={buildScribeEditorExtensions()}
                 editable={phase === 'finished'}
                 showToolbar={phase === 'finished'}
+                favouriteNote={favouriteNote}
                 onChange={handleChange}
                 onBlur={handleBlur}
                 onFocusChange={handleFocusChange}
@@ -189,7 +173,7 @@ const StreamingDocument = forwardRef<SessionDocumentHandle, StreamingProps>(
             <div ref={bottomRef} />
           </div>
         </div>
-      </EditorShell>
+      </div>
     );
   }
 );
@@ -222,16 +206,9 @@ const DocumentView = forwardRef<SessionDocumentHandle, DocumentProps>(function D
     handleBlur,
     saveDocument,
     getMarkdown,
-  } = useDocumentTab({ sessionId, documentId });
+  } = useDocumentEditor({ sessionId, documentId });
 
-  const { chatDockOpen, editorWrapperRef, handleFocusChange, handleCloseChatDock } =
-    useEditorFocus(editorRef);
-
-  const scrollContainerRef = usePasteScroll(
-    sessionId,
-    documentId,
-    loaderState.status === 'ready'
-  );
+  const { editorWrapperRef, handleFocusChange } = useEditorFocus(editorRef);
 
   const isDocumentEmpty = useMemo(
     () =>
@@ -264,22 +241,10 @@ const DocumentView = forwardRef<SessionDocumentHandle, DocumentProps>(function D
     [documentId, getMarkdown, saveDocument]
   );
 
-  // Edit-with-AI chat over the saved note.
-  const applyChatMarkdown = useCallback(
-    (markdown: string) => {
-      editorRef.current?.getInstance()?.setMarkdown(markdown);
-    },
-    [editorRef]
+  const favouriteNote = useMemo(
+    () => ({ documentId, documentName: doc?.document_name || 'Note' }),
+    [documentId, doc?.document_name]
   );
-  const chat = useDocumentChat({
-    sessionId,
-    documentId,
-    getCurrentMarkdown: getMarkdown,
-    onMarkdownUpdate: applyChatMarkdown,
-    onComplete: () => {
-      saveDocument();
-    },
-  });
 
   // Auto-stream in-progress custom docs when triggered by end-recording flow
   useEffect(() => {
@@ -443,8 +408,8 @@ const DocumentView = forwardRef<SessionDocumentHandle, DocumentProps>(function D
   }
 
   return (
-    <EditorShell chatDockOpen={chatDockOpen} chat={chat} onCloseChatDock={handleCloseChatDock}>
-      <div ref={scrollContainerRef} className="flex-1 min-h-0 overflow-y-auto px-4 pb-2">
+    <div className="flex-1 min-h-0 h-full flex flex-col">
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-2">
         <div ref={editorWrapperRef}>
           <WysiwygEditor
             key={documentId}
@@ -452,15 +417,16 @@ const DocumentView = forwardRef<SessionDocumentHandle, DocumentProps>(function D
             initialJSON={initialJSON}
             initialValue={initialValue}
             customExtensions={buildScribeEditorExtensions()}
-            editable={!chat.streaming}
+            editable={true}
             showToolbar={true}
+            favouriteNote={favouriteNote}
             onChange={handleChange}
             onBlur={handleBlur}
             onFocusChange={handleFocusChange}
           />
         </div>
       </div>
-    </EditorShell>
+    </div>
   );
 });
 

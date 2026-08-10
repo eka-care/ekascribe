@@ -5,7 +5,7 @@ import { TEMPLATE_HEADER_CONFIG_STATE } from '@/features/templates/config/templa
 
 const CreateTemplate = () => {
   return (
-    <div className="h-full w-full flex flex-col overflow-hidden">
+    <div className="h-full w-full flex flex-col overflow-hidden bg-[#F5F8FF]">
       <TemplateHeader configKey={TEMPLATE_HEADER_CONFIG_STATE.CREATE} />
 
       <div className="flex-1 w-full overflow-y-auto lg:overflow-hidden lg:grid lg:grid-cols-3 min-h-0">
