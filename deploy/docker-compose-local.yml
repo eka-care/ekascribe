@@ -35,6 +35,7 @@ services:
       ECHO_PG_HOST: postgres
       # override .env's relative ./storage so api + worker share the mounted volume
       STORAGE_ROOT: /data/storage
+      UVICORN_WORKERS: ${UVICORN_WORKERS:-2}
     volumes:
       - storage:/data/storage
       - logs:/data/logs
