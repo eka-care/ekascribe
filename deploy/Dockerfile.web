@@ -19,6 +19,21 @@ ENV NEXT_PUBLIC_EKA_HOST=${NEXT_PUBLIC_EKA_HOST}
 RUN cd apps/web && npm run build
 
 FROM node:20-slim
+
+# In-image debugging toolkit -- see the same block in Dockerfile.api for why it
+# is baked in rather than reached for with `kubectl debug`. Kept above the COPY
+# layers so a code change does not re-run apt. No psql here: web talks to the
+# API over HTTP, never to Postgres.
+#
+#   procps          ps, top, free, vmstat, kill
+#   iproute2        ip, ss          net-tools     netstat, ifconfig
+#   bind9-dnsutils  dig, nslookup   iputils-ping  ping
+#   netcat-openbsd  nc              inetutils-telnet  telnet
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    procps htop lsof less vim jq curl wget \
+    iproute2 net-tools bind9-dnsutils iputils-ping netcat-openbsd inetutils-telnet \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=build /repo/apps/web/.next/standalone ./
