@@ -127,7 +127,6 @@ jobs:
             --build-arg NEXT_PUBLIC_FIREBASE_APP_ID=${NEXT_PUBLIC_FIREBASE_APP_ID} \
             --build-arg NEXT_PUBLIC_MIX_PANEL_KEY=${NEXT_PUBLIC_MIX_PANEL_KEY} \
             --build-arg NEXT_PUBLIC_CRISP_WEBSITE_ID=${NEXT_PUBLIC_CRISP_WEBSITE_ID} \
-            --build-arg NEXT_PUBLIC_SENTRY_DSN=${NEXT_PUBLIC_SENTRY_DSN} \
             --cache-from=type=registry,ref=${ECR_REPO_URL}/${ECR_REPOSITORY}:buildcache-ekascribe-web \
             --cache-to=type=registry,ref=${ECR_REPO_URL}/${ECR_REPOSITORY}:buildcache-ekascribe-web,mode=max \
             -t ${ECR_REPO_URL}/${ECR_REPOSITORY}:${IMAGE_TAG} \

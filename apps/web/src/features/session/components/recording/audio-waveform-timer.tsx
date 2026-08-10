@@ -1,22 +1,24 @@
 'use client';
 
-import { Badge } from '@ui/src';
 import { Timer } from 'lucide-react';
 import useVoice2RxStore from '@/store/store';
 import convertSecondsToMinutes from '@/utils/convert-seconds-to-minutes';
 
-const BAR_WIDTH_PX = 2;
-const BAR_GAP_PX = 1.5;
-const MAX_HEIGHT_PX = 28;
+const BAR_WIDTH_PX = 2.5;
+const BAR_GAP_PX = 2;
+const MAX_HEIGHT_PX = 32;
+const MAX_BARS = 35;
 
 const LiveWaveform = ({ amplitudes }: { amplitudes: number[] }) => {
+  const bars = amplitudes.slice(-MAX_BARS);
+
   return (
     <div className="w-full h-8 flex items-center justify-center">
       <div
         className="w-full h-full flex items-center justify-end overflow-hidden"
         style={{ gap: `${BAR_GAP_PX}px`, padding: '6px 4px' }}
       >
-        {amplitudes.map((amp, idx) => {
+        {bars.map((amp, idx) => {
           const height = Math.max(2, Math.min(1, amp) * MAX_HEIGHT_PX);
           return (
             <div
@@ -46,14 +48,14 @@ export function AudioWaveformTimer({ sessionId }: { sessionId: string }) {
 
   return (
     <div className="flex items-center justify-end gap-2 w-full sm:w-auto">
-      <div className="flex-1 min-w-0 sm:w-50">
+      <div className="flex-1 min-w-0 w-fit py-1 h-fit border border-border rounded-lg">
         <LiveWaveform amplitudes={amplitudes} />
       </div>
 
-      <Badge variant="outline" className="h-fit border-border rounded-lg">
-        <Timer className="size-3" />
-        <span className="font-bold">{convertSecondsToMinutes(sessionDuration)}</span>
-      </Badge>
+      <span className="text-sm font-medium text-foreground tabular-nums flex items-center gap-1">
+        <Timer className="size-3.5" />
+        {convertSecondsToMinutes(sessionDuration)}
+      </span>
     </div>
   );
 }

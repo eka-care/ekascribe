@@ -4,16 +4,16 @@ import { useCallback, useRef, useState } from 'react';
 import { TPastSessionHistoryData } from '@/constants/types';
 import { with401Retry } from '@/fetch-client/api-with-retry';
 import useVoice2RxStore from '@/store/store';
-import type { NormalizedDocument } from '../types';
-import { normalizeDocuments } from '../utils/normalize-documents';
+import type { NormalizedDocument } from '../../types';
+import { normalizeDocuments } from '../../utils/normalize-documents';
 import {
   addNote,
   fetchDocumentContent,
   fetchDocumentJson,
   saveDocumentContent,
   saveDocumentJson,
-} from '../services/document-service';
-import * as sdkService from '../services/sdk-service';
+} from '../../services/document-service';
+import * as sdkService from '../../services/sdk-service';
 
 const SESSIONS_PAGE_SIZE = 10;
 
@@ -113,7 +113,7 @@ export function useCopyFromSession({
 
         useVoice2RxStore
           .getState()
-          .addSessionV2Document(sessionId, { ...newDoc, content: content ?? '' });
+          .addSessionV2Document(sessionId, { ...newDoc, content: content ?? null });
 
         return newDoc.document_id;
       } catch (error) {

@@ -10,7 +10,7 @@ import {
 } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
-import { streamAgUiRun, type AgUiEvent } from '../ag-ui-stream';
+import { streamAgUiRun, type AgUiEvent } from '../ag-ui-client';
 import { applyPatch, applySnapshot, EMPTY_SCRIBE_STATE } from '../state-reducer';
 import type { ScribeState, StreamMessage, StreamPhase, StreamToolCall } from '../types';
 import { tracker } from '@/analytics';
@@ -67,7 +67,7 @@ type Result = {
  * Aborting transitions to 'finished' (we treat user-cancel and successful
  * end the same — neither needs an error toast).
  */
-export function useStreamTemplateRun({
+export function useAgentRun({
   sessionId,
   templateId,
   streamKey,
@@ -122,6 +122,7 @@ export function useStreamTemplateRun({
     setRunId(localRunId);
     setPhase('connecting');
     setError(null);
+    const streamStartMs = Date.now();
     tracker.log({
       name: 'agui_streaming_started',
       properties: { session_id: sessionId, template_id: templateId },
@@ -165,6 +166,10 @@ export function useStreamTemplateRun({
         }
 
         if (isStale()) return;
+        tracker.log({
+          name: 'agui_streaming_completed',
+          properties: { session_id: sessionId, template_id: templateId, duration_ms: Date.now() - streamStartMs },
+        });
         // If the stream closed without an explicit terminal frame and
         // we're still in connecting/streaming, treat the closed stream
         // as a finish.
@@ -177,7 +182,7 @@ export function useStreamTemplateRun({
           tracker.error(e, {
             domain: 'processing',
             component: 'agui_streaming',
-            extra: { session_id: sessionId, template_id: templateId },
+            extra: { session_id: sessionId, template_id: templateId, duration_ms: Date.now() - streamStartMs },
           });
           setError(e instanceof Error ? e.message : String(e));
           setPhase('error');

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { Fragment, useState, useCallback, useRef, useEffect } from 'react';
 import { Bookmark, Check, Loader2, AlertCircle } from 'lucide-react';
 import ButtonWrapper from '@/shared-components/button/button-wrapper';
 import {
@@ -57,7 +57,7 @@ function SaveStatusIndicator({ status }: { status: SaveStatusState }) {
   return null;
 }
 
-export function TabFooter({ config, sessionId }: { config: TabFooterConfig; sessionId: string }) {
+export function TabFooter({ config }: { config: TabFooterConfig }) {
   const [isCopied, setIsCopied] = useState(false);
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
@@ -105,9 +105,8 @@ export function TabFooter({ config, sessionId }: { config: TabFooterConfig; sess
       return btn;
     }
 
-    return (
+    const actionBtn = (
       <ButtonWrapper
-        key={button.key}
         size="sm"
         variant={button.variant || 'default'}
         className={`gap-1.5 px-3 h-7 text-sm whitespace-nowrap ${button.className || ''}`}
@@ -118,6 +117,23 @@ export function TabFooter({ config, sessionId }: { config: TabFooterConfig; sess
         {button.icon}
       </ButtonWrapper>
     );
+
+    const tooltipText = isDisabled ? button.disabledTooltip : button.tooltip;
+    if (tooltipText) {
+      return (
+        <CustomTooltip key={button.key}>
+          <CustomTooltipTrigger asChild>
+            {/* span keeps hover events alive when the button is disabled */}
+            <span className="inline-flex">{actionBtn}</span>
+          </CustomTooltipTrigger>
+          <CustomTooltipContent side="top" sideOffset={4}>
+            {tooltipText}
+          </CustomTooltipContent>
+        </CustomTooltip>
+      );
+    }
+
+    return <Fragment key={button.key}>{actionBtn}</Fragment>;
   };
 
   const showStatusCluster = !!(config.saveStatus && config.saveStatus !== 'idle');
@@ -137,7 +153,7 @@ export function TabFooter({ config, sessionId }: { config: TabFooterConfig; sess
             </div>
           )}
 
-          {(config.saveNote || config.publish) && (
+          {config.saveNote && (
             <div
               className={`flex items-center gap-2 shrink-0 ml-auto ${
                 showStatusCluster ? 'sm:ml-0' : 'sm:ml-auto'
@@ -161,23 +177,9 @@ export function TabFooter({ config, sessionId }: { config: TabFooterConfig; sess
                   />
                 </button>
               )}
-              {config.publish && (
-                <ButtonWrapper
-                  size="sm"
-                  className="gap-1.5 px-3 h-9 text-sm whitespace-nowrap"
-                  onClick={config.publish.onPublish}
-                  disabled={config.publish.disabled}
-                >
-                  Publish
-                </ButtonWrapper>
-              )}
             </div>
           )}
         </div>
-
-        {sessionId && (
-          <p className="text-[8px] text-[#767676] flex justify-end w-full">{sessionId}</p>
-        )}
       </div>
     </div>
   );

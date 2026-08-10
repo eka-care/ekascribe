@@ -1,16 +1,32 @@
 import * as Sentry from '@sentry/browser';
 import type { TrackEvent, ErrorContext, TrackingProvider, EventKind } from '../types';
 
+const CRITICAL_ERROR_CODES = new Set([
+  'processing_failed',
+  'create_session_failed',
+  'session_end_failed',
+  'chunk_limit_reached',
+]);
+
 const MILESTONE_EVENTS_BY_NAME = new Set([
   'processing_started',
   'processing_completed',
   'processing_failed',
+  'processing_timeout',
   'discard_session',
   'stop_processing',
   'upload_audio_to_notes',
   'upload_transcript_to_notes',
   'agui_streaming_started',
+  'agui_streaming_completed',
   'retry_attempted',
+  'mic_permission_denied',
+  'create_session_failed',
+  'session_end_failed',
+  'session_created',
+  'chunk_upload_summary',
+  'high_memory_usage',
+  'long_session_ended',
 ]);
 
 const MILESTONE_EVENTS_BY_TYPE = new Set([
@@ -66,13 +82,17 @@ export class SentryProvider implements TrackingProvider {
 
   error(error: unknown, context: ErrorContext): void {
     const sessionId = context.extra?.session_id as string | undefined;
+    const errorCode = context.tags?.error_code;
+    const isCritical = !!(errorCode && CRITICAL_ERROR_CODES.has(errorCode));
     const tags: Record<string, string> = {
       domain: context.domain,
       ...(context.component ? { component: context.component } : {}),
       ...(sessionId ? { session_id: sessionId } : {}),
+      ...(isCritical ? { critical: 'true' } : {}),
       ...context.tags,
     };
     Sentry.captureException(error, {
+      level: isCritical ? 'fatal' : undefined,
       tags,
       extra: context.extra,
     });

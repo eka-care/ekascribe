@@ -3,8 +3,8 @@
 import { useCallback, useState } from 'react';
 import useVoice2RxStore from '@/store/store';
 import { with401Retry } from '@/fetch-client/api-with-retry';
-import * as sdkService from '../services/sdk-service';
-import { pollSessionInBackground } from '../services/session-loader';
+import * as sdkService from '../../services/sdk-service';
+import { pollSessionInBackground } from '../../services/session-loader';
 import { SESSION_PHASE } from '@/constants/enums';
 import { tracker } from '@/analytics';
 
@@ -62,7 +62,7 @@ export function useProcessTranscript(sessionId: string) {
       tracker.error(error, {
         domain: 'processing',
         component: 'upload_transcript',
-        extra: { session_id: sessionId },
+        extra: { session_id: sessionId, network_online: navigator.onLine },
       });
       store.setWarningInfo({
         screen: 'upload_transcription',

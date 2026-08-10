@@ -207,7 +207,7 @@ export type TAppConfig = {
   print_header?: TPrintConfigSection;
   print_footer?: TPrintConfigSection;
   print_compact?: boolean;
-  notes_ids?: { id: string; name: string }[];
+  notes_ids?: { id: string; name: string; added_at?: string }[];
 };
 
 export type TOutputSummary = {

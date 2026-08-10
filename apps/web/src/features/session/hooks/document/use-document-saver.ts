@@ -3,7 +3,7 @@
 import { useCallback, useRef } from 'react';
 import type { JSONContent } from '@tiptap/core';
 
-import { saveDocumentJson, saveDocumentContent } from '../services/document-service';
+import { saveDocumentJson, saveDocumentContent } from '../../services/document-service';
 import useVoice2RxStore from '@/store/store';
 
 type SaverArgs = {

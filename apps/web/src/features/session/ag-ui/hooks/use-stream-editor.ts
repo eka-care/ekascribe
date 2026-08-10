@@ -4,9 +4,9 @@ import { useCallback, useEffect, useRef } from 'react';
 import type { JSONContent } from '@tiptap/core';
 
 import type { TiptapEditorHandle } from '../../components/editor/tiptap-wysiwyg-editor';
-import { useStreamTemplateRun } from './use-stream-template-run';
+import { useAgentRun } from './use-agent-run';
 import { scribeStateToTiptap, scribeStateToMarkdown } from '../editor/scribe-state-converters';
-import { useDocumentSaver } from '../../hooks/use-document-saver';
+import { useDocumentSaver } from '../../hooks/document/use-document-saver';
 import useVoice2RxStore from '@/store/store';
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -40,8 +40,8 @@ type Args = {
   documentId?: string;
 };
 
-export function useStreamTab({ sessionId, templateId, streamKey, onFinished, onDocumentId, documentId }: Args) {
-  const { state, messages, toolCalls, phase, error, runId } = useStreamTemplateRun({
+export function useStreamEditor({ sessionId, templateId, streamKey, onFinished, onDocumentId, documentId }: Args) {
+  const { state, messages, toolCalls, phase, error, runId } = useAgentRun({
     sessionId,
     templateId,
     streamKey,

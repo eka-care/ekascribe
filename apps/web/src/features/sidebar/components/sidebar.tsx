@@ -5,6 +5,7 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { Sidebar, SidebarFooter, SidebarHeader, Button, SidebarContent } from '@ui/src';
 
 import {
+  AudioLines,
   ChevronRight,
   ChevronLeft,
   Plus,
@@ -271,7 +272,9 @@ const CustomSidebar = () => {
       <SidebarHeader>
         {isCollapsed ? (
           <div className="flex flex-col items-center gap-1">
-            <span className="text-lg font-bold text-primary leading-6">S</span>
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#215FFF] to-[#4535B0] flex items-center justify-center shadow-sm">
+              <AudioLines className="w-5 h-5 text-white" strokeWidth={2.2} />
+            </div>
             <button
               className="cursor-pointer hidden md:flex p-1 rounded hover:bg-accent transition-colors"
               onClick={() => {
@@ -283,10 +286,19 @@ const CustomSidebar = () => {
             </button>
           </div>
         ) : (
-          <div className="flex items-center justify-between p-2">
-            <div className="flex flex-col">
-              <span className="text-xl font-bold text-primary leading-6">scribe</span>
-              <span className="text-[10px] text-[#767676] leading-3">powered by eka.care</span>
+          <div className="flex items-center justify-between px-2 pt-2 pb-0">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#215FFF] to-[#4535B0] flex items-center justify-center shadow-sm shrink-0">
+                <AudioLines className="w-5 h-5 text-white" strokeWidth={2.2} />
+              </div>
+              <div className="flex flex-col justify-center">
+                <span className="text-lg font-bold tracking-tight text-[#1A1A1A] leading-5">
+                  scribe
+                </span>
+                <span className="text-[9px] italic font-medium tracking-wide text-[#767676] leading-3">
+                  powered by @eka.care
+                </span>
+              </div>
             </div>
             <button
               className="cursor-pointer hidden md:flex p-1 rounded hover:bg-accent transition-colors"
@@ -304,7 +316,7 @@ const CustomSidebar = () => {
       <SidebarContent className="overflow-y-auto">
         {!isCollapsed ? (
           <div className="flex flex-col h-full">
-            <div className="px-3 pt-2">
+            <div className="px-3">
               <Button
                 variant="outline"
                 onClick={handleNewSessionClick}
@@ -453,8 +465,8 @@ const CustomSidebar = () => {
 
           {/* Bottom tab bar */}
           <div
-            className={`flex items-center border-t gap-2 border-[#D1D1D1] p-3 ${
-              isCollapsed ? 'flex-col' : ''
+            className={`flex items-start px-2 pb-3 ${
+              isCollapsed ? 'flex-col gap-1 border-t border-[#D1D1D1] pt-2' : 'justify-between pt-4'
             }`}
           >
             {/* Profile */}
@@ -472,7 +484,7 @@ const CustomSidebar = () => {
                     setActivePanel(activePanel === 'profile' ? null : 'profile');
                   }}
                 >
-                  <span className="size-9 flex items-center justify-center rounded-md bg-gradient-to-b from-[#FEF9E7] to-[#FEF3C7] text-[#854D0E] text-xs font-semibold border border-[#F5D580]">
+                  <span className="size-9 flex items-center justify-center rounded-md bg-linear-to-b from-[#FEF9E7] to-[#FEF3C7] text-[#854D0E] text-xs font-semibold border border-[#F5D580]">
                     {(loggedInUserDetails?.fn?.[0] || '').toUpperCase()}
                     {(loggedInUserDetails?.ln?.[0] || '').toUpperCase()}
                   </span>
@@ -494,7 +506,7 @@ const CustomSidebar = () => {
                   size="icon"
                   className={`size-9 cursor-pointer rounded-lg ${
                     pathname.startsWith('/template')
-                      ? 'text-primary'
+                      ? 'text-primary bg-[#E9EFFF] hover:bg-[#E9EFFF] border border-primary'
                       : 'text-[#1A1A1A] hover:bg-[#F3F4F6]'
                   }`}
                   onClick={() => {
@@ -530,7 +542,6 @@ const CustomSidebar = () => {
                 <CustomTooltipContent collisionPadding={8}>App download</CustomTooltipContent>
               </CustomTooltip>
             </WebOnly>
-
           </div>
         </div>
       </SidebarFooter>

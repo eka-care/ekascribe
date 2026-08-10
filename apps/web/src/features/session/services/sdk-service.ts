@@ -90,10 +90,6 @@ export async function deleteDocument(documentId: string) {
   return getSDK().documents.deleteDocument(documentId);
 }
 
-export async function publishDocument(request: TPostV1DocumentRequest) {
-  return getSDK().documents.publishDocument(request);
-}
-
 export async function getDocument(request: { documentId: string; params?: string }) {
   return getSDK().documents.getDocument(request);
 }
@@ -126,10 +122,4 @@ export async function getSessionHistory(params: { txn_count: number; oid?: strin
 
 export async function updateConfig(request: TPatchVoiceApiV2ConfigRequest) {
   return getSDK().sessions.updateConfig(request);
-}
-
-// --- Doctor header/footer ---
-
-export async function getDoctorHeaderFooter(request: { doctor_oid: string; clinic_id?: string }) {
-  return getSDK().sessions.getDoctorHeaderFooter(request);
 }

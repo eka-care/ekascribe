@@ -4,13 +4,13 @@ import {
   Badge,
   Button,
   Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
   Switch,
 } from '@ui/src';
-import { Trash2, Pencil, MoveDiagonal } from 'lucide-react';
+import { Trash2, Pencil, MoveDiagonal, EllipsisVertical } from 'lucide-react';
 import { TPreferenceItem, TTemplateData } from '@/constants/types';
 import useVoice2RxStore from '@/store/store';
 import { useRouter } from 'next/navigation';
@@ -21,11 +21,6 @@ import { getSDK } from '@/features/session/services/sdk-provider';
 import { useQueryClient } from '@tanstack/react-query';
 import { getAllTemplatesQueryKey } from '@/features/templates/hooks/use-get-all-templates';
 import PreviewTemplateDialog from './dialog/preview-template-dialog';
-import {
-  CustomTooltip,
-  CustomTooltipContent,
-  CustomTooltipTrigger,
-} from '@/shared-components/custom-tooltip';
 import ConfirmationDialog from '@/shared-components/dialog/confirmation-dialog';
 
 interface TemplateCardProps {
@@ -37,9 +32,7 @@ const TemplateCard = ({ template }: TemplateCardProps) => {
   const userSelectedTemplatesList = useVoice2RxStore((state) => state.userSelectedTemplatesList);
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const queryClient = useQueryClient();
-  const router = useRouter();
   const [openPreviewDialog, setOpenPreviewDialog] = useState(false);
-  const setTemplateAction = useVoice2RxStore((state) => state.setTemplateAction);
   const setUserSelectedTemplatesList = useVoice2RxStore(
     (state) => state.setUserSelectedTemplatesList
   );
@@ -65,13 +58,13 @@ const TemplateCard = ({ template }: TemplateCardProps) => {
     });
   };
 
+  const router = useRouter();
+  const setTemplateAction = useVoice2RxStore((state) => state.setTemplateAction);
+
+  // Default templates are edited as a copy
   const handleEdit = () => {
     if (template.default) {
-      const modifiedTemplate = {
-        ...template,
-        title: `${template.title} - copy`,
-      };
-      setTemplateData(modifiedTemplate);
+      setTemplateData({ ...template, title: `${template.title} - copy` });
     } else {
       setTemplateData(template);
     }
@@ -181,73 +174,69 @@ const TemplateCard = ({ template }: TemplateCardProps) => {
 
   return (
     <>
-      <Card className="w-full min-h-[200px] sm:min-h-[220px] max-h-60 border-border gap-2 sm:gap-3 py-3 sm:py-4">
-        <CardHeader className="flex space-x-1 px-3 sm:px-4 justify-between">
-          <div className="flex flex-col min-w-0 flex-1">
-            <CardTitle className="font-medium leading-6 text-sm sm:text-base truncate">
-              {template.title}
-            </CardTitle>
-
-            <Badge variant="secondary" className="mt-1 text-xs w-fit">
+      <Card className="w-full min-h-55 justify-between gap-2 rounded-lg border-border p-4 shadow-none">
+        <div className="flex flex-col gap-2 w-full min-w-0">
+          <div className="flex items-center justify-between w-full">
+            <Badge
+              variant="outline"
+              className="rounded-full bg-white border-[#D1D1D1] px-2.5 py-0.5 text-xs font-semibold text-foreground"
+            >
               {template.default ? 'Default' : 'Custom'}
             </Badge>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 rounded-lg cursor-pointer"
+              onClick={handlePreview}
+            >
+              <MoveDiagonal className="w-4 h-4" />
+            </Button>
           </div>
 
-          <Button
-            variant="ghost"
-            size="icon"
-            className="py-0.5 items-start hover:bg-transparent cursor-pointer shrink-0"
-            onClick={handlePreview}
-          >
-            <MoveDiagonal className="w-6 h-6 sm:w-8 sm:h-8" />
-          </Button>
-        </CardHeader>
+          <div className="flex flex-col gap-1 min-w-0">
+            <h3 className="text-md font-medium leading-7 text-foreground truncate">
+              {template.title}
+            </h3>
+            <p className="text-muted-foreground text-xs leading-4 line-clamp-3">{template.desc}</p>
+          </div>
+        </div>
 
-        <CardContent className="space-y-4 overflow-hidden flex-1 px-3 sm:px-4">
-          <p className="text-muted-foreground text-xs sm:text-sm leading-5 line-clamp-2">
-            {template.desc}
-          </p>
-        </CardContent>
+        <div className="flex items-center justify-between w-full border-t border-[#EDEDED] pt-4">
+          <div className="flex items-center gap-2">
+            <Switch
+              checked={isFavorite}
+              onCheckedChange={handleAddToList}
+              className="shrink-0 w-11 h-6 *:data-[slot=switch-thumb]:size-5 *:data-[slot=switch-thumb]:data-[state=checked]:translate-x-[calc(100%)] data-[state=unchecked]:bg-muted-foreground cursor-pointer"
+            />
+            <span className="text-sm font-medium leading-none text-foreground">
+              {isFavorite ? 'Active' : 'Inactive'}
+            </span>
+          </div>
 
-        <CardFooter className="px-3 sm:px-4 pt-2">
-          <div className="flex items-center justify-between w-full gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5 sm:gap-2 cursor-pointer rounded-xl text-primary text-xs sm:text-sm px-2 sm:px-3"
-              onClick={handleEdit}
-            >
-              <Pencil className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary" />
-              Edit
-            </Button>
-
-            <div className="flex space-x-1 sm:space-x-2 items-center">
-              {!template.default ? (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="gap-2 cursor-pointer h-8 w-8 sm:h-9 sm:w-9"
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon" className="h-7 w-7 rounded-lg cursor-pointer">
+                <EllipsisVertical className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="border border-border shadow-md">
+              <DropdownMenuItem className="cursor-pointer" onClick={handleEdit}>
+                <Pencil className="w-4 h-4" />
+                Edit
+              </DropdownMenuItem>
+              {!template.default && (
+                <DropdownMenuItem
+                  variant="destructive"
+                  className="cursor-pointer"
                   onClick={() => setOpenDeleteDialog(true)}
                 >
-                  <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-destructive" />
-                </Button>
-              ) : null}
-
-              <CustomTooltip>
-                <CustomTooltipTrigger className="cursor-pointer">
-                  <Switch
-                    checked={isFavorite}
-                    onCheckedChange={handleAddToList}
-                    className="shrink-0 w-9 h-5 sm:w-11 sm:h-6 *:data-[slot=switch-thumb]:size-4 sm:*:data-[slot=switch-thumb]:size-5 *:data-[slot=switch-thumb]:data-[state=checked]:translate-x-[calc(100%)] data-[state=unchecked]:bg-muted-foreground cursor-pointer"
-                  />
-                </CustomTooltipTrigger>
-                <CustomTooltipContent>
-                  {isFavorite ? 'Remove from my library' : 'Add to my library'}
-                </CustomTooltipContent>
-              </CustomTooltip>
-            </div>
-          </div>
-        </CardFooter>
+                  <Trash2 className="w-4 h-4" />
+                  Delete
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </Card>
 
       <ConfirmationDialog

@@ -313,7 +313,7 @@ const SidebarPastSessions = ({
                   <div
                     key={session.txn_id}
                     data-jump-active={isSelectedSession || undefined}
-                    className={`flex items-center gap-2 px-3 py-2 cursor-pointer transition-colors ${
+                    className={`relative flex items-center gap-2 pl-2 pr-3 py-2 cursor-pointer transition-colors ${
                       isSelectedSession
                         ? 'bg-[#E9EFFF]'
                         : isHovered || openDropdownId === session.txn_id
@@ -411,7 +411,7 @@ const SidebarPastSessions = ({
                       </DropdownMenu>
                     </div>
 
-                    {isSelectedSession && <div className="w-1 h-8 rounded-sm bg-primary" />}
+                    {isSelectedSession && <div className="absolute right-1 top-1/2 -translate-y-1/2 w-1 h-8 rounded-sm bg-primary" />}
                   </div>
                 );
               })}

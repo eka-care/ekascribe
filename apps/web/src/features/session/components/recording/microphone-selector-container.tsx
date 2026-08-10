@@ -6,7 +6,7 @@ import { tracker } from '@/analytics';
 import { MIXPANEL_EVENT_NAME, MIXPANEL_EVENT_TYPE } from '@/constants/enums';
 import { Mic, MicOff, ChevronsUpDown, Check } from 'lucide-react';
 import { cn } from '@ui/src/shadcn-ui/lib/utils';
-import { useMicrophonePermission } from '@/features/session/hooks/use-microphone-permission';
+import { useMicrophonePermission } from '@/features/session/hooks/recording/use-microphone-permission';
 import { getPlatform } from '@/platform';
 
 interface MicrophoneSelectorComponentProps {

@@ -1,28 +1,14 @@
 'use client';
 
 import { useState, useMemo, useCallback, useRef } from 'react';
-import { toast } from 'sonner';
-import { TriangleAlert, CheckCircle2 } from 'lucide-react';
 import useVoice2RxStore from '@/store/store';
 import SessionTabRow from '@/features/session/components/session-tab-row';
-import SessionAlert from '@/features/session/utils/session-alert';
+import SessionContent from '@/features/session/components/session-content';
 import { AddOrConvertPopover } from '@/features/session/components/dialogs/add-or-convert-popover';
-import {
-  printDocument,
-  addNote,
-  deleteNote,
-  renameDocument,
-  publishDoc,
-} from '@/features/session/services/document-service';
-import LinkPastSessionsDialog from './dialogs/link-past-sessions-dialog';
+import { printDocument } from '@/features/session/services/document-service';
 import WhatsAppSendDialog from './dialogs/whatsapp-send-dialog';
 import { useCapabilities } from '@/platform';
-import { SessionBodySkeleton } from '@/app/new-session/loading';
-import AnalysingStateDisplay from './output/analysing-component';
-import ErrorComponent, { getSessionErrorContent } from './output/error-component';
-import { ContextTabContent } from './tabs/context-tab-content';
-import { TranscriptTabContent } from './tabs/transcript-tab-content';
-import { SessionDocument, type SessionDocumentHandle } from './tabs/session-document';
+import type { SessionDocumentHandle } from './tabs/session-document';
 import { TabFooter } from './tabs/tab-footer';
 import {
   getContextFooterConfig,
@@ -32,19 +18,17 @@ import {
   getChunkLimitFooterConfig,
 } from '../config/tab-footer-config';
 import type { TabFooterConfig } from '../config/tab-footer-config';
-import { useSessionContext } from '../hooks/use-session-context';
-import { useContextTab } from '../hooks/use-context-tab';
 import { useErrorHandlers } from '../hooks/use-error-handlers';
 import { useSessionLifecycle } from '../hooks/use-session-lifecycle';
-import { copyMarkdownToClipboard } from '../utils/copy-output-utils';
-import { useConvertTemplate } from '../hooks/use-convert-template';
-import { useCopyFromSession } from '../hooks/use-copy-from-session';
-import { useSavedNotes, type SavedNote } from '../hooks/use-saved-notes';
-import { useSessionLimitGuard } from '../hooks/use-session-limit-guard';
-import { SESSION_PHASE } from '@/constants/enums';
-import { useDocumentStreaming } from '../hooks/use-document-streaming';
-import type { NormalizedDocument } from '../types';
+import { useSessionContext } from '../hooks/context/use-session-context';
+import { useContextEditor } from '../hooks/context/use-context-editor';
+import { useSessionTabs } from '../hooks/use-session-tabs';
+import { useSessionView } from '../hooks/use-session-view';
+import LinkPastSessionsDialog from './dialogs/link-past-sessions-dialog';
 import type { TPastSessionHistoryData } from '@/constants/types';
+import { copyMarkdownToClipboard } from '../utils/copy-output-utils';
+import { toast } from 'sonner';
+import { ContextTabContentHandle } from './tabs/context-tab-content';
 
 interface SessionBodyProps {
   sessionId: string;
@@ -55,19 +39,11 @@ interface SessionBodyProps {
 const EMPTY_DOCUMENTS: never[] = [];
 const EMPTY_TRANSCRIPT: never[] = [];
 
-const _deletingDocs = new Set<string>();
-const _convertingTemplates = new Set<string>();
-const _renamingDocs = new Set<string>();
+const SESSION_LIMIT_TOAST = 'Session limit reached.';
 
 const SessionBody = ({ sessionId, onAddTranscript, isLimitExceeded }: SessionBodyProps) => {
-  const limitGuard = useSessionLimitGuard({
-    isLimitExceeded: !!isLimitExceeded,
-  });
-
-  const phase = useVoice2RxStore(
-    (s) => s.sessionV2ContentById[sessionId]?.phase || SESSION_PHASE.IDLE
-  );
-  const sessionError = useVoice2RxStore((s) => s.sessionV2ContentById[sessionId]?.error ?? null);
+  const { showAddButton, showConvertOption, showGenerateTranscript, getFooterMode } =
+    useSessionView(sessionId);
 
   const documents = useVoice2RxStore(
     (s) => s.sessionV2ContentById[sessionId]?.documents ?? EMPTY_DOCUMENTS
@@ -81,24 +57,30 @@ const SessionBody = ({ sessionId, onAddTranscript, isLimitExceeded }: SessionBod
   const selectedPatientDetails = useVoice2RxStore(
     (s) => s.sessionV2ContentById[sessionId]?.patient_details ?? null
   );
-  const uiLoading = useVoice2RxStore(
-    (s) => s.sessionV2ContentById[sessionId]?.ui?.loading || false
-  );
-  const userStatus = useVoice2RxStore((s) => s.sessionV2ContentById[sessionId]?.user_status || '');
   const selectedTranscriptLang = useVoice2RxStore(
     (s) => s.sessionV2ContentById[sessionId]?.ui?.selected_transcript_lang || ''
   );
   const userSelectedTemplatesList = useVoice2RxStore((s) => s.userSelectedTemplatesList);
 
-  const warningMessage = useVoice2RxStore((s) => s.warningMessage);
-  const warningType = useVoice2RxStore((s) => s.warningType);
-  const warningScreen = useVoice2RxStore((s) => s.warningScreen);
-  const warningListHeader = useVoice2RxStore((s) => s.warningListHeader);
-  const warningListItems = useVoice2RxStore((s) => s.warningListItems);
-  const WarningAction = useVoice2RxStore((s) => s.warningAction);
-  const clearWarningInfo = useVoice2RxStore((s) => s.clearWarningInfo);
-
-  const [activeTab, setActiveTab] = useState('transcript');
+  const {
+    activeTab,
+    setActiveTab,
+    tabs,
+    handleAddNote,
+    handleDeleteTab,
+    handleRenameTab,
+    activeStreamTabs,
+    finishedStreamTabs,
+    streamDocIds,
+    streamAgUiRun,
+    handleStreamFinished,
+    handleStreamDocumentId,
+    addPendingTab,
+    removePendingTab,
+    autoStreamDocId,
+    clearAutoStreamDocId,
+    mountedDocIds,
+  } = useSessionTabs(sessionId);
 
   const [whatsappSendOpen, setWhatsappSendOpen] = useState(false);
   const [whatsappSendDoc, setWhatsappSendDoc] = useState<{ id: string; name: string } | null>(null);
@@ -106,387 +88,241 @@ const SessionBody = ({ sessionId, onAddTranscript, isLimitExceeded }: SessionBod
   const hasWhatsApp = useCapabilities().has('whatsapp-linked-device');
   const streamRef = useRef<SessionDocumentHandle>(null);
   const documentRef = useRef<SessionDocumentHandle>(null);
+  const contextRef = useRef<ContextTabContentHandle>(null);
 
   const saveStatus = useVoice2RxStore(
     (s) => s.sessionV2ContentById[sessionId]?.ui?.save_status_by_doc?.[activeTab] || 'idle'
   );
 
-  const { ensureContextDocument } = useContextTab({ sessionId });
-  const sessionContext = useSessionContext({ sessionId, patientOid });
-  const { handleTryAgain, handleDiscard, handleContinueRecording } = useErrorHandlers();
+  const { ensureContextDocument } = useContextEditor({ sessionId });
+  const { handleTryAgain, handleDiscard, handleContinueRecording } = useErrorHandlers(sessionId);
   const { endRecording } = useSessionLifecycle();
-  const { convertTemplate } = useConvertTemplate(sessionId);
-  const copyFromSession = useCopyFromSession({ sessionId, patientOid });
-  const savedNotes = useSavedNotes();
 
-  const showConvertOption = userStatus === 'commit';
-
-  const hasTranscriptContent = useMemo(
-    () => transcriptDocs.some((t) => t.status === 'success'),
-    [transcriptDocs]
-  );
-
-  // --- Document streaming hook ---
-  const streaming = useDocumentStreaming({ sessionId, activeTab, setActiveTab });
   const {
-    finishedStreamTabs,
-    streamDocIds,
-    activeStreamTabs,
-    addPendingTab,
-    removePendingTab,
-    handleStreamFinished,
-    handleStreamDocumentId,
-    streamAgUiRun,
-    handleDeleteStream,
-    tabs,
-    autoStreamDocId,
-    clearAutoStreamDocId,
-  } = streaming;
+    linkedSessions,
+    isPatientSelected,
+    fetchPatientSessions,
+    handleAddLinkedSessions,
+    handleRemoveLinkedSession,
+  } = useSessionContext({ sessionId, patientOid });
+
+  const [showLinkDialog, setShowLinkDialog] = useState(false);
+  const [patientSessions, setPatientSessions] = useState<TPastSessionHistoryData[]>([]);
+  const [loadingPatientSessions, setLoadingPatientSessions] = useState(false);
+
+  // Opens link dialog with fetched patient sessions
+  const handleOpenLinkDialog = useCallback(async () => {
+    if (!patientOid) return;
+    setShowLinkDialog(true);
+    setLoadingPatientSessions(true);
+    try {
+      const sessions = await fetchPatientSessions();
+      setPatientSessions(sessions);
+    } finally {
+      setLoadingPatientSessions(false);
+    }
+  }, [patientOid, fetchPatientSessions]);
+
+  // Links selected sessions then closes the dialog
+  const handleAddAndClose = useCallback(
+    async (sessions: TPastSessionHistoryData[]) => {
+      setShowLinkDialog(false);
+      await handleAddLinkedSessions(sessions);
+    },
+    [handleAddLinkedSessions]
+  );
 
   const isContextTab = activeTab === 'context';
   const isTranscriptTab = activeTab === 'transcript';
   const isStreamTab = activeTab.startsWith('stream:');
   const activeDoc = documents.find((d) => d.document_id === activeTab);
-  const isDocumentTab = !!activeDoc;
 
-  // Keep visited document tabs mounted so streaming survives tab switches.
-  const mountedDocIdsRef = useRef<Set<string>>(new Set());
-  if (isDocumentTab) mountedDocIdsRef.current.add(activeTab);
-  // Clean up deleted docs
-  for (const id of mountedDocIdsRef.current) {
-    if (!documents.some((d) => d.document_id === id)) mountedDocIdsRef.current.delete(id);
-  }
+  // Resolves which transcript doc to show based on selected language
+  const activeTranscriptDoc = useMemo(() => {
+    if (!isTranscriptTab || transcriptDocs.length === 0) return null;
+    const existingLangs = new Set(transcriptDocs.map((t) => t.lang || 'raw'));
+    const activeLang =
+      selectedTranscriptLang && existingLangs.has(selectedTranscriptLang)
+        ? selectedTranscriptLang
+        : transcriptDocs[0]?.lang || 'raw';
+    return transcriptDocs.find((t) => (t.lang || 'raw') === activeLang) || transcriptDocs[0];
+  }, [isTranscriptTab, transcriptDocs, selectedTranscriptLang]);
 
-  // --- Tab handlers ---
+  // Saves current tab content before switching, closes context dialogs
   const handleTabChange = useCallback(
     async (tabId: string) => {
       clearAutoStreamDocId();
-
+      if (isContextTab) {
+        setShowLinkDialog(false);
+      }
       if (isStreamTab && finishedStreamTabs.has(activeTab)) {
         streamRef.current?.save();
-      } else if (isDocumentTab) {
-        documentRef.current?.save();
+      } else if (activeDoc) {
+        // Only save dirty docs
+        const status =
+          useVoice2RxStore.getState().sessionV2ContentById[sessionId]?.ui?.save_status_by_doc?.[
+            activeTab
+          ];
+        if (status === 'typing') documentRef.current?.save();
+      } else if (isContextTab) {
+        void contextRef.current?.save();
       }
-
       setActiveTab(tabId);
-      sessionContext.setShowLinkDialog(false);
 
       if (tabId === 'context') {
         await ensureContextDocument();
       }
     },
     [
-      sessionContext,
-      ensureContextDocument,
+      sessionId,
+      isContextTab,
       isStreamTab,
-      isDocumentTab,
+      activeDoc,
       activeTab,
       finishedStreamTabs,
       clearAutoStreamDocId,
+      setActiveTab,
+      ensureContextDocument,
     ]
   );
 
-  const handleAddNote = useCallback(async () => {
-    const noteCount = documents.filter((d) => d.document_type === 'notes').length;
-    const label = `Note ${noteCount + 1}`;
-    const pendingId = `pending-note-${Date.now()}`;
-    addPendingTab(pendingId, label);
-    const newDoc = await addNote(sessionId, label, 'notes', { skipStoreUpdate: true });
-    removePendingTab(pendingId);
-    if (newDoc) {
-      useVoice2RxStore.getState().addSessionV2Document(sessionId, newDoc);
-      setActiveTab(newDoc.document_id);
-    }
-  }, [sessionId, documents, addPendingTab, removePendingTab]);
-
-  const handleDeleteTab = useCallback(
-    async (_tabId: string) => {
-      let deleteDocId = _tabId;
-
-      if (deleteDocId.startsWith('stream:')) {
-        const docId = handleDeleteStream(deleteDocId);
-        if (docId) deleteDocId = docId;
-      }
-
-      if (_deletingDocs.has(deleteDocId)) return;
-      _deletingDocs.add(deleteDocId);
-
-      if (activeTab === _tabId || activeTab === deleteDocId) {
-        const remaining = documents.filter((d) => d.document_id !== deleteDocId && d.status !== 'in-progress');
-        setActiveTab(
-          remaining.length > 0 ? remaining[remaining.length - 1].document_id : 'transcript'
-        );
-      }
-
-      try {
-        await deleteNote(sessionId, deleteDocId);
-      } finally {
-        _deletingDocs.delete(deleteDocId);
-      }
-    },
-    [sessionId, activeTab, documents, handleDeleteStream]
-  );
-
-  const handleRenameTab = useCallback(
-    async (tabId: string, newLabel: string) => {
-      const docId = tabId.startsWith('stream:') ? streamDocIds.get(tabId)! : tabId;
-      if (_renamingDocs.has(docId)) return;
-      _renamingDocs.add(docId);
-
-      try {
-        await renameDocument(sessionId, docId, newLabel);
-      } finally {
-        _renamingDocs.delete(docId);
-      }
-    },
-    [sessionId, streamDocIds]
-  );
-
+  // Copies active document markdown to clipboard
   const handleCopyDocument = useCallback(async () => {
     const md = documentRef.current?.getMarkdown() || activeDoc?.content;
     if (!md) return;
     await copyMarkdownToClipboard(md);
   }, [activeDoc]);
 
-  const handleConvertTemplate = useCallback(
-    async (template: { id: string; name: string }, closePopover: () => void) => {
-      if (_convertingTemplates.has(template.id)) return;
-      _convertingTemplates.add(template.id);
-
-      closePopover();
-      const pendingId = `pending-convert-${template.id}`;
-      addPendingTab(pendingId, template.name);
-
-      try {
-        const newDocId = await convertTemplate(template);
-        removePendingTab(pendingId);
-        if (newDocId) setActiveTab(newDocId);
-      } finally {
-        _convertingTemplates.delete(template.id);
+  // Renders the "Add or convert" popover content for the tab row
+  const renderAddContent = (close: () => void) => (
+    <AddOrConvertPopover
+      sessionId={sessionId}
+      patientOid={patientOid}
+      close={close}
+      addPendingTab={addPendingTab}
+      removePendingTab={removePendingTab}
+      setActiveTab={setActiveTab}
+      onAddNote={() => {
+        close();
+        handleAddNote();
+      }}
+      onAddTranscript={
+        onAddTranscript
+          ? () => {
+              close();
+              onAddTranscript();
+            }
+          : undefined
       }
-    },
-    [convertTemplate, addPendingTab, removePendingTab]
+      templates={userSelectedTemplatesList}
+      onStreamTemplate={
+        showConvertOption ? (template) => streamAgUiRun(template, close) : undefined
+      }
+      showConvertOption={showConvertOption}
+      showGenerateTranscriptOption={showGenerateTranscript}
+    />
   );
 
-  const handlePickCopyNote = useCallback(
-    async (
-      note: NormalizedDocument,
-      session: TPastSessionHistoryData,
-      closePopover: () => void
-    ) => {
-      closePopover();
-      const pendingId = `pending-copy-note-${note.document_id}`;
-      addPendingTab(pendingId, note.document_name || 'Note');
+  // Dialog overlays rendered above the context footer
+  const contextOverlay = showLinkDialog ? (
+    <div className="absolute bottom-full left-2 mb-2 z-10">
+      <LinkPastSessionsDialog
+        patientName={selectedPatientDetails?.username || ''}
+        sessions={patientSessions}
+        loading={loadingPatientSessions}
+        onClose={() => setShowLinkDialog(false)}
+        onAddContext={handleAddAndClose}
+        alreadyLinkedIds={linkedSessions.map((s) => s.txn_id)}
+      />
+    </div>
+  ) : undefined;
 
-      try {
-        const newDocId = await copyFromSession.copyNoteIntoSession(session.txn_id, note);
-        if (newDocId) setActiveTab(newDocId);
-      } finally {
-        removePendingTab(pendingId);
-      }
-    },
-    [copyFromSession, addPendingTab, removePendingTab]
-  );
+  // Builds footer config based on active tab type and session phase
+  const activeDocStatus = isTranscriptTab ? activeTranscriptDoc?.status : activeDoc?.status;
+  const footerMode = getFooterMode(activeTab, activeDocStatus);
 
-  const handleSaveNote = useCallback(
-    async (documentId: string, documentName: string) => {
-      const success = await savedNotes.saveNote(documentId, documentName);
-      if (success) {
-        toast.success('Note saved');
-      } else {
-        toast.error('Failed to save note');
-      }
-    },
-    [savedNotes]
-  );
-
-  const handlePublish = useCallback(
-    async (documentId: string) => {
-      const success = await publishDoc(sessionId, documentId);
-      if (success) {
-        toast.success('Published');
-      } else {
-        toast.error('Failed to publish');
-      }
-    },
-    [sessionId]
-  );
-
-  const handlePickSavedNote = useCallback(
-    async (note: SavedNote, closePopover: () => void) => {
-      closePopover();
-      const pendingId = `pending-saved-note-${note.document_id}`;
-      addPendingTab(pendingId, note.document_name || 'Note');
-
-      try {
-        const newDocId = await copyFromSession.copyNoteIntoSession(sessionId, {
-          document_id: note.document_id,
-          document_name: note.document_name,
-          get_url: null,
-        });
-        if (newDocId) setActiveTab(newDocId);
-      } finally {
-        removePendingTab(pendingId);
-      }
-    },
-    [copyFromSession, sessionId, addPendingTab, removePendingTab]
-  );
-
-  // --- Render content ---
-  const renderContent = () => {
-    if (activeTab.startsWith('pending-processing-') && phase === SESSION_PHASE.PROCESSING)
-      return <AnalysingStateDisplay />;
-
-    if (phase === SESSION_PHASE.ERROR && !isContextTab) {
-      const activeTabLabel = tabs.find((t) => t.id === activeTab)?.label;
-      const { title, description } = getSessionErrorContent(sessionError, activeTabLabel);
-      const isChunkLimit = sessionError?.code === 'chunk_limit_reached';
-      return (
-        <ErrorComponent
-          title={title}
-          variant={isChunkLimit ? 'warning' : 'error'}
-          errors={[{ type: isChunkLimit ? 'warning' : 'error', msg: description }]}
-        />
-      );
-    }
-
-    if (uiLoading) return <SessionBodySkeleton />;
-
-    if (isStreamTab) return null;
-
-    if (isContextTab) {
-      return (
-        <ContextTabContent
-          sessionId={sessionId}
-          patientOid={patientOid}
-          linkedSessions={sessionContext.linkedSessions}
-          onRemoveLinkedSession={sessionContext.handleRemoveLinkedSession}
-        />
-      );
-    }
-
-    if (isTranscriptTab) {
-      return <TranscriptTabContent sessionId={sessionId} />;
-    }
-
-    return null;
-  };
-
-  // --- Footer config ---
   const footerConfig = ((): TabFooterConfig | null => {
-    if (phase === SESSION_PHASE.ERROR && !isContextTab) {
-      if (sessionError?.code === 'chunk_limit_reached') {
+    switch (footerMode) {
+      case 'chunk-limit':
         return getChunkLimitFooterConfig({
           onEndRecording: endRecording,
           onContinueRecording: handleContinueRecording,
           onDiscard: handleDiscard,
         });
+
+      case 'error':
+        return getErrorFooterConfig({
+          onTryAgain: handleTryAgain,
+          onDiscard: handleDiscard,
+        });
+
+      case 'stream': {
+        const isDone = finishedStreamTabs.has(activeTab);
+        const streamDocId = streamDocIds.get(activeTab) || streamRef.current?.getDocumentId() || '';
+        return getDocumentFooterConfig({
+          onCopy: async () => {
+            const md = streamRef.current?.getMarkdown();
+            if (md) await copyMarkdownToClipboard(md);
+          },
+          onPrint: async () => {
+            const docId = streamDocIds.get(activeTab) || streamRef.current?.getDocumentId() || '';
+            if (docId) await printDocument({ documentId: docId, sessionId });
+          },
+          saveStatus: isDone ? saveStatus : 'generating',
+          copyDisabled: !isDone,
+          printDisabled: !isDone || !streamDocId,
+        });
       }
-      return getErrorFooterConfig({
-        onTryAgain: handleTryAgain,
-        onDiscard: handleDiscard,
-      });
-    }
 
-    if (isStreamTab) {
-      const isDone = finishedStreamTabs.has(activeTab);
-      const streamDocId = streamDocIds.get(activeTab) || streamRef.current?.getDocumentId() || '';
-      return getDocumentFooterConfig({
-        onCopy: async () => {
-          const md = streamRef.current?.getMarkdown();
-          if (md) await copyMarkdownToClipboard(md);
-        },
-        onPrint: async () => {
-          const docId = streamDocIds.get(activeTab) || streamRef.current?.getDocumentId() || '';
-          if (docId) await printDocument({ documentId: docId, sessionId });
-        },
-        onPublish: () => {
-          const docId = streamDocIds.get(activeTab) || streamRef.current?.getDocumentId() || '';
-          if (docId) handlePublish(docId);
-        },
-        saveStatus: isDone ? saveStatus : 'generating',
-        copyDisabled: !isDone,
-        printDisabled: !isDone || !streamDocId,
-        publishDisabled: !isDone || !streamDocId,
-      });
-    }
+      case 'context':
+        return getContextFooterConfig({
+          onLinkPastSessions: handleOpenLinkDialog,
+          isPatientSelected,
+          saveStatus,
+          overlay: contextOverlay,
+        });
 
-    if (isContextTab) {
-      const contextOverlay = sessionContext.showLinkDialog ? (
-        <div className="absolute bottom-full left-2 mb-2 z-10">
-          <LinkPastSessionsDialog
-            patientName={selectedPatientDetails?.username || ''}
-            sessions={sessionContext.patientSessions}
-            loading={sessionContext.loadingPatientSessions}
-            onClose={() => sessionContext.setShowLinkDialog(false)}
-            onAddContext={sessionContext.handleAddLinkedSessions}
-            alreadyLinkedIds={sessionContext.linkedSessions.map((s) => s.txn_id)}
-          />
-        </div>
-      ) : undefined;
-
-      return getContextFooterConfig({
-        onLinkPastSessions: sessionContext.handleOpenLinkDialog,
-        isPatientSelected: sessionContext.isPatientSelected,
-        saveStatus,
-        overlay: contextOverlay,
-      });
-    }
-
-    if (isTranscriptTab && transcriptDocs.length > 0) {
-      const existingLangs = new Set(transcriptDocs.map((t) => t.lang || 'raw'));
-      const activeLang =
-        selectedTranscriptLang && existingLangs.has(selectedTranscriptLang)
-          ? selectedTranscriptLang
-          : transcriptDocs[0]?.lang || 'raw';
-      const activeTranscriptDoc =
-        transcriptDocs.find((t) => (t.lang || 'raw') === activeLang) || transcriptDocs[0];
-      return getTranscriptFooterConfig({
-        onCopy: async () => {
-          if (activeTranscriptDoc?.content) {
-            await copyMarkdownToClipboard(activeTranscriptDoc.content);
-          }
-        },
-        copyDisabled: !activeTranscriptDoc?.content,
-      });
-    }
-
-    if (isDocumentTab && activeDoc) {
-      const hasContent = activeDoc.content !== '' && (!!activeDoc.content || activeDoc.status === 'success');
-      return getDocumentFooterConfig({
-        onCopy: handleCopyDocument,
-        onPrint: async () => {
-          await printDocument({ documentId: activeDoc.document_id, sessionId });
-        },
-        onSendWhatsApp: hasWhatsApp
-          ? () => {
-              setWhatsappSendDoc({
-                id: activeDoc.document_id,
-                name: activeDoc.document_name || 'Prescription',
-              });
-              setWhatsappSendOpen(true);
+      case 'transcript':
+        return getTranscriptFooterConfig({
+          onCopy: async () => {
+            if (activeTranscriptDoc?.content) {
+              await copyMarkdownToClipboard(activeTranscriptDoc.content);
             }
-          : undefined,
-        onSaveNote: () => handleSaveNote(activeDoc.document_id, activeDoc.document_name || 'Note'),
-        onPublish: () => handlePublish(activeDoc.document_id),
-        isNoteSaved: savedNotes.isNoteSaved(activeDoc.document_id),
-        saveStatus,
-        copyDisabled: !hasContent,
-        printDisabled: !hasContent,
-        whatsappDisabled: !hasContent,
-      });
+          },
+          copyDisabled: !activeTranscriptDoc?.content,
+        });
+
+      case 'document': {
+        if (!activeDoc) return null;
+        const hasContent =
+          activeDoc.content !== '' && (!!activeDoc.content || activeDoc.status === 'success');
+        return getDocumentFooterConfig({
+          onCopy: handleCopyDocument,
+          onPrint: async () => {
+            await printDocument({ documentId: activeDoc.document_id, sessionId });
+          },
+          onSendWhatsApp: hasWhatsApp
+            ? () => {
+                setWhatsappSendDoc({
+                  id: activeDoc.document_id,
+                  name: activeDoc.document_name || 'Prescription',
+                });
+                setWhatsappSendOpen(true);
+              }
+            : undefined,
+          saveStatus,
+          copyDisabled: !hasContent,
+          printDisabled: !hasContent,
+          whatsappDisabled: !hasContent,
+        });
+      }
+
+      case 'doc-error':
+      case 'none':
+      default:
+        return null;
     }
-
-    return null;
   })();
-
-  // --- Warning overlay ---
-  const showWarning =
-    warningMessage &&
-    (warningScreen === 'start_session' ||
-      warningScreen === 'recording' ||
-      warningScreen === 'template' ||
-      warningScreen === 'output_summary');
 
   return (
     <div className="w-full px-4 flex flex-col flex-1 min-h-0">
@@ -495,107 +331,32 @@ const SessionBody = ({ sessionId, onAddTranscript, isLimitExceeded }: SessionBod
           tabs={tabs}
           activeTabId={activeTab}
           onTabChange={handleTabChange}
-          showAddButton={phase !== SESSION_PHASE.PROCESSING && phase !== SESSION_PHASE.ERROR}
+          showAddButton={showAddButton}
           onRenameTab={handleRenameTab}
           onDeleteTab={handleDeleteTab}
           addButtonLabel="Add or convert"
-          disabledTabIds={limitGuard.isLimitExceeded ? ['context'] : undefined}
-          onDisabledTabClick={limitGuard.disabledClickHandler}
-          renderAddPopoverContent={(close) => (
-            <AddOrConvertPopover
-              onAddNote={() => {
-                close();
-                handleAddNote();
-              }}
-              onAddTranscript={
-                onAddTranscript
-                  ? () => {
-                      close();
-                      onAddTranscript();
-                    }
-                  : undefined
-              }
-              templates={userSelectedTemplatesList}
-              onConvertTemplate={(template) => handleConvertTemplate(template, close)}
-              onStreamTemplate={
-                showConvertOption ? (template) => streamAgUiRun(template, close) : undefined
-              }
-              showConvertOption={showConvertOption}
-              showGenerateTranscriptOption={phase === SESSION_PHASE.IDLE}
-              sessionId={sessionId}
-              patientOid={patientOid}
-              onPickCopyNote={(note, session) => handlePickCopyNote(note, session, close)}
-              savedNotes={savedNotes.notes}
-              onPickSavedNote={(note) => handlePickSavedNote(note, close)}
-            />
-          )}
+          disabledTabIds={isLimitExceeded ? ['context'] : undefined}
+          onDisabledTabClick={isLimitExceeded ? () => toast.info(SESSION_LIMIT_TOAST) : undefined}
+          renderAddPopoverContent={renderAddContent}
         />
 
-        <div className="flex-1 min-h-0 overflow-y-auto flex flex-col relative" data-print-content>
-          {/* Stream tabs stay mounted so SSE connections survive tab switches */}
-          {activeStreamTabs.map((tab) => {
-            const templateId = tab.id.split(':')[1] ?? '';
-            const isActive = activeTab === tab.id;
-            return (
-              <div key={tab.id} className={isActive ? 'flex flex-col flex-1 min-h-0' : 'hidden'}>
-                <SessionDocument
-                  ref={isActive ? streamRef : undefined}
-                  mode="streaming"
-                  sessionId={sessionId}
-                  templateId={templateId}
-                  streamKey={tab.id}
-                  documentName={tab.label}
-                  onFinished={({ success }) => { if (success) handleStreamFinished(tab.id); }}
-                  onDocumentId={(docId: string) => handleStreamDocumentId(tab.id, docId)}
-                />
-              </div>
-            );
-          })}
+        <SessionContent
+          sessionId={sessionId}
+          activeTab={activeTab}
+          tabs={tabs}
+          activeStreamTabs={activeStreamTabs}
+          mountedDocIds={mountedDocIds}
+          autoStreamDocId={autoStreamDocId}
+          onStreamFinished={handleStreamFinished}
+          onStreamDocumentId={handleStreamDocumentId}
+          linkedSessions={linkedSessions}
+          onRemoveLinkedSession={handleRemoveLinkedSession}
+          streamRef={streamRef}
+          documentRef={documentRef}
+          contextRef={contextRef}
+        />
 
-          {/* Document tabs stay mounted so streaming survives tab switches */}
-          {Array.from(mountedDocIdsRef.current).map((docId) => (
-            <div key={docId} className={activeTab === docId ? 'flex flex-col flex-1 min-h-0' : 'hidden'}>
-              <SessionDocument
-                ref={activeTab === docId ? documentRef : undefined}
-                mode="document"
-                sessionId={sessionId}
-                documentId={docId}
-                hasTranscriptContent={hasTranscriptContent}
-                autoStream={autoStreamDocId === docId}
-              />
-            </div>
-          ))}
-
-          {!isStreamTab && renderContent()}
-
-          {showWarning && (
-            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 w-[316px]">
-              <SessionAlert
-                variant={
-                  warningType === 'error'
-                    ? 'destructive'
-                    : warningType === 'success'
-                      ? 'success'
-                      : 'warning'
-                }
-                icon={
-                  warningType === 'success' ? (
-                    <CheckCircle2 className="w-4 h-4" />
-                  ) : (
-                    <TriangleAlert className="w-4 h-4" />
-                  )
-                }
-                title={warningMessage}
-                description={warningListHeader}
-                listItems={warningListItems}
-                actionComponent={WarningAction ? <WarningAction /> : undefined}
-                onClose={clearWarningInfo}
-              />
-            </div>
-          )}
-        </div>
-
-        {footerConfig && <TabFooter config={footerConfig} sessionId={sessionId} />}
+        {footerConfig && <TabFooter config={footerConfig} />}
       </div>
 
       {whatsappSendOpen && whatsappSendDoc && (

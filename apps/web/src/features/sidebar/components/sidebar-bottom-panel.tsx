@@ -12,7 +12,7 @@ const SidebarBottomPanel = ({ header, onClose, children, isCollapsed }: SidebarB
   return (
     <div className={isCollapsed
       ? "absolute left-full bottom-2 ml-2 w-56 z-50 bg-white rounded-xl shadow-lg border border-border p-3 pb-1"
-      : "rounded-t-xl shadow-[0_-4px_12px_rgba(0,0,0,0.08)] border-t border-border p-3 pb-1"
+      : "absolute bottom-16 left-0 right-0 z-50 bg-white rounded-t-xl shadow-[0_-4px_12px_rgba(0,0,0,0.08)] border-t border-b border-border p-3 pb-1"
     }>
       <div className="flex items-center justify-between mb-2">
         <div className="flex-1 min-w-0">{header}</div>

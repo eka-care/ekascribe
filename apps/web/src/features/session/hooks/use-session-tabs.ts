@@ -4,41 +4,22 @@ import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import type { TSessionTab } from '@/features/session/components/session-tab-row';
 import useVoice2RxStore from '@/store/store';
 import { SESSION_PHASE } from '@/constants/enums';
+import { addNote, deleteNote, renameDocument } from '../services/document-service';
 import { resolveOutputTemplates } from '../utils/resolve-output-templates';
-import { clearStreamCache } from '@/features/session/ag-ui/hooks/use-stream-template-run';
-import { clearStreamMarkdownCache } from '@/features/session/ag-ui/hooks/use-stream-tab';
+import { clearStreamCache } from '@/features/session/ag-ui/hooks/use-agent-run';
+import {
+  clearStreamMarkdownCache,
+  getStreamMarkdownCache,
+} from '@/features/session/ag-ui/hooks/use-stream-editor';
 import type { NormalizedDocument } from '../types';
 
 const EMPTY_DOCUMENTS: never[] = [];
 
-type UseDocumentStreamingArgs = {
-  sessionId: string;
-  activeTab: string;
-  setActiveTab: (tab: string | ((prev: string) => string)) => void;
-};
+const _deletingDocs = new Set<string>();
+const _renamingDocs = new Set<string>();
 
-export type DocumentStreamingResult = {
-  pendingTabs: TSessionTab[];
-  finishedStreamTabs: Set<string>;
-  streamDocIds: Map<string, string>;
-  activeStreamTabs: TSessionTab[];
-  addPendingTab: (id: string, label: string) => void;
-  removePendingTab: (id: string) => void;
-  handleStreamFinished: (streamKey: string) => void;
-  handleStreamDocumentId: (streamKey: string, docId: string) => void;
-  streamAgUiRun: (template: { id: string; name: string }, closePopover: () => void) => void;
-  handleDeleteStream: (streamTabId: string) => string | undefined;
-  tabs: TSessionTab[];
-  outputFormatTemplates: { id: string; name: string }[];
-  autoStreamDocId: string | null;
-  clearAutoStreamDocId: () => void;
-};
-
-export function useDocumentStreaming({
-  sessionId,
-  activeTab,
-  setActiveTab,
-}: UseDocumentStreamingArgs): DocumentStreamingResult {
+export function useSessionTabs(sessionId: string) {
+  // ─── Store selectors ───
   const phase = useVoice2RxStore(
     (s) => s.sessionV2ContentById[sessionId]?.phase || SESSION_PHASE.IDLE
   );
@@ -56,6 +37,10 @@ export function useDocumentStreaming({
     return base.map((t) => ({ ...t, name: templateNameById[t.id] || t.name }));
   }, [sessionTemplates, defaultTemplates, templateNameById]);
 
+  // ─── Active tab ───
+  const [activeTab, setActiveTab] = useState('transcript');
+
+  // ─── Stream / pending state ───
   const [pendingTabs, setPendingTabs] = useState<TSessionTab[]>([]);
   const [finishedStreamTabs, setFinishedStreamTabs] = useState<Set<string>>(() => new Set());
   const [streamDocIds, setStreamDocIds] = useState<Map<string, string>>(() => new Map());
@@ -72,7 +57,7 @@ export function useDocumentStreaming({
     setPendingTabs((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  // Phase transition handling
+  // ─── Phase transition effects ───
   useEffect(() => {
     if (phase === SESSION_PHASE.PROCESSING && prevPhaseRef.current !== SESSION_PHASE.PROCESSING) {
       setPendingTabs((prev) => prev.filter((t) => !t.id.startsWith('pending-processing-')));
@@ -88,7 +73,6 @@ export function useDocumentStreaming({
       setActiveTab((cur: string) => (cur.startsWith('pending-processing-') ? 'transcript' : cur));
     }
 
-    // PROCESSING → OUTPUT: land on the right tab
     if (phase === SESSION_PHASE.OUTPUT && prevPhaseRef.current === SESSION_PHASE.PROCESSING) {
       setPendingTabs((prev) => prev.filter((t) => !t.id.startsWith('pending-processing-')));
 
@@ -101,7 +85,6 @@ export function useDocumentStreaming({
       if (successCustomDoc) {
         setActiveTab(successCustomDoc.document_id);
       } else if (customDocs.length === 0) {
-        // No custom docs — start AG-UI streams
         const templates =
           outputFormatTemplates.length > 0
             ? outputFormatTemplates
@@ -127,34 +110,71 @@ export function useDocumentStreaming({
       }
     }
     prevPhaseRef.current = phase;
-  }, [phase, documents, outputFormatTemplates, addPendingTab, setActiveTab]);
+  }, [phase, documents, outputFormatTemplates, addPendingTab]);
 
-  // When a stream tab's document appears in backend with non-in-progress status, switch to it
+  // Flip finished stream tabs to regular document tabs once their doc lands in the store
   useEffect(() => {
-    if (!activeTab.startsWith('stream:')) return;
-    const docId = streamDocIds.get(activeTab);
-    if (!docId) return;
-    if (!documents.some((d) => d.document_id === docId && d.status !== 'in-progress')) return;
+    for (const [streamKey, docId] of streamDocIds) {
+      if (!documents.some((d) => d.document_id === docId && d.status !== 'in-progress')) continue;
 
-    setActiveTab(docId);
-    setPendingTabs((prev) => prev.filter((t) => t.id !== activeTab));
-    setFinishedStreamTabs((prev) => {
-      const next = new Set(prev);
-      next.delete(activeTab);
-      return next;
-    });
-    setStreamDocIds((prev) => {
-      const next = new Map(prev);
-      next.delete(activeTab);
-      return next;
-    });
-    clearStreamCache(activeTab);
-    clearStreamMarkdownCache(activeTab);
-  }, [activeTab, documents, streamDocIds, setActiveTab]);
+      if (activeTab === streamKey) setActiveTab(docId);
+      setPendingTabs((prev) => prev.filter((t) => t.id !== streamKey));
+      setFinishedStreamTabs((prev) => {
+        const next = new Set(prev);
+        next.delete(streamKey);
+        return next;
+      });
+      setStreamDocIds((prev) => {
+        const next = new Map(prev);
+        next.delete(streamKey);
+        return next;
+      });
+      clearStreamCache(streamKey);
+      clearStreamMarkdownCache(streamKey);
+    }
+  }, [activeTab, documents, streamDocIds]);
 
-  const handleStreamFinished = useCallback((streamKey: string) => {
-    setFinishedStreamTabs((prev) => new Set(prev).add(streamKey));
-  }, []);
+  // ─── Stream handlers ───
+  const streamDocIdsRef = useRef(streamDocIds);
+  streamDocIdsRef.current = streamDocIds;
+  const pendingTabsRef = useRef(pendingTabs);
+  pendingTabsRef.current = pendingTabs;
+
+  // Marks the stream done and syncs the finished doc into the store so the tab flips to document view
+  const handleStreamFinished = useCallback(
+    (streamKey: string) => {
+      setFinishedStreamTabs((prev) => new Set(prev).add(streamKey));
+
+      const docId = streamDocIdsRef.current.get(streamKey);
+      if (!docId) return;
+
+      const store = useVoice2RxStore.getState();
+      const existing = store.sessionV2ContentById[sessionId]?.documents.find(
+        (d) => d.document_id === docId
+      );
+      if (existing) {
+        if (existing.status === 'in-progress') {
+          store.setSessionV2Document(sessionId, docId, { status: 'success' });
+        }
+        return;
+      }
+
+      store.addSessionV2Document(sessionId, {
+        document_id: docId,
+        template_id: streamKey.split(':')[1] || '',
+        document_name: pendingTabsRef.current.find((t) => t.id === streamKey)?.label || 'Note',
+        document_type: 'custom',
+        type: 'markdown',
+        status: 'success',
+        errors: [],
+        warnings: [],
+        get_url: null,
+        edit_url: null,
+        content: getStreamMarkdownCache(streamKey) ?? null,
+      });
+    },
+    [sessionId]
+  );
 
   const handleStreamDocumentId = useCallback((streamKey: string, docId: string) => {
     setStreamDocIds((prev) => {
@@ -170,10 +190,9 @@ export function useDocumentStreaming({
       setPendingTabs((prev) => [...prev, { id: streamId, label: template.name, closable: true }]);
       setActiveTab(streamId);
     },
-    [setActiveTab]
+    []
   );
 
-  // Returns the resolved document ID for deletion (or undefined if no doc associated)
   const handleDeleteStream = useCallback(
     (streamTabId: string): string | undefined => {
       const docId = streamDocIds.get(streamTabId);
@@ -200,7 +219,74 @@ export function useDocumentStreaming({
     [pendingTabs]
   );
 
-  // Build the full tabs list
+  // ─── Tab CRUD handlers ───
+  const handleAddNote = useCallback(async () => {
+    const noteCount = documents.filter((d) => d.document_type === 'notes').length;
+    const label = `Note ${noteCount + 1}`;
+    const pendingId = `pending-note-${Date.now()}`;
+    addPendingTab(pendingId, label);
+    const newDoc = await addNote(sessionId, label, 'notes', { skipStoreUpdate: true });
+    removePendingTab(pendingId);
+    if (newDoc) {
+      useVoice2RxStore.getState().addSessionV2Document(sessionId, newDoc);
+      setActiveTab(newDoc.document_id);
+    }
+  }, [sessionId, documents, addPendingTab, removePendingTab]);
+
+  const handleDeleteTab = useCallback(
+    async (_tabId: string) => {
+      let deleteDocId = _tabId;
+
+      if (deleteDocId.startsWith('stream:')) {
+        const docId = handleDeleteStream(deleteDocId);
+        if (docId) deleteDocId = docId;
+      }
+
+      if (_deletingDocs.has(deleteDocId)) return;
+      _deletingDocs.add(deleteDocId);
+
+      if (activeTab === _tabId || activeTab === deleteDocId) {
+        const remaining = documents.filter(
+          (d) => d.document_id !== deleteDocId && d.status !== 'in-progress'
+        );
+        setActiveTab(
+          remaining.length > 0 ? remaining[remaining.length - 1].document_id : 'transcript'
+        );
+      }
+
+      try {
+        await deleteNote(sessionId, deleteDocId);
+      } finally {
+        _deletingDocs.delete(deleteDocId);
+      }
+    },
+    [sessionId, activeTab, documents, handleDeleteStream]
+  );
+
+  const handleRenameTab = useCallback(
+    async (tabId: string, newLabel: string) => {
+      const docId = tabId.startsWith('stream:') ? streamDocIds.get(tabId)! : tabId;
+      if (_renamingDocs.has(docId)) return;
+      _renamingDocs.add(docId);
+
+      try {
+        await renameDocument(sessionId, docId, newLabel);
+      } finally {
+        _renamingDocs.delete(docId);
+      }
+    },
+    [sessionId, streamDocIds]
+  );
+
+  // ─── Mounted doc tracking ───
+  const mountedDocIdsRef = useRef<Set<string>>(new Set());
+  const isDocumentTab = documents.some((d) => d.document_id === activeTab);
+  if (isDocumentTab) mountedDocIdsRef.current.add(activeTab);
+  for (const id of mountedDocIdsRef.current) {
+    if (!documents.some((d) => d.document_id === id)) mountedDocIdsRef.current.delete(id);
+  }
+
+  // ─── Tab list ───
   const tabs = useMemo<TSessionTab[]>(() => {
     const result: TSessionTab[] = [
       { id: 'context', label: 'Add context' },
@@ -231,19 +317,35 @@ export function useDocumentStreaming({
   }, [documents, pendingTabs, streamDocIds]);
 
   return {
+    // Tab state
+    activeTab,
+    setActiveTab,
+    tabs,
+
+    // Tab CRUD
+    handleAddNote,
+    handleDeleteTab,
+    handleRenameTab,
+
+    // Stream management
     pendingTabs,
+    activeStreamTabs,
     finishedStreamTabs,
     streamDocIds,
-    activeStreamTabs,
-    addPendingTab,
-    removePendingTab,
+    streamAgUiRun,
     handleStreamFinished,
     handleStreamDocumentId,
-    streamAgUiRun,
     handleDeleteStream,
-    tabs,
-    outputFormatTemplates,
+
+    // Pending tab helpers
+    addPendingTab,
+    removePendingTab,
+
+    // Auto-stream
     autoStreamDocId,
     clearAutoStreamDocId,
+
+    // Mounted docs
+    mountedDocIds: mountedDocIdsRef.current,
   };
 }

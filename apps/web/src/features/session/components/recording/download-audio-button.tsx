@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
-import { ArrowDownToLine } from 'lucide-react';
-import ButtonWrapper from '@/shared-components/button/button-wrapper';
+import { Download, Loader2 } from 'lucide-react';
 import {
   CustomTooltip,
   CustomTooltipContent,
   CustomTooltipTrigger,
 } from '@/shared-components/custom-tooltip';
 import { getBlobStore } from '@/platform';
+import useVoice2RxStore from '@/store/store';
+import convertSecondsToMinutes from '@/utils/convert-seconds-to-minutes';
 
 interface DownloadAudioButtonProps {
   sessionID: string;
@@ -15,14 +16,32 @@ interface DownloadAudioButtonProps {
 const DownloadAudioButton = ({ sessionID }: DownloadAudioButtonProps) => {
   const [isDownloadAudioButtonLoading, setIsDownloadAudioButtonLoading] = useState(false);
   const [hasAudio, setHasAudio] = useState(false);
+  const [blobDuration, setBlobDuration] = useState(0);
+  const storeDuration = useVoice2RxStore(
+    (s) => s.sessionV2ContentById[sessionID]?.session_duration || 0
+  );
+  const sessionDuration = storeDuration || blobDuration;
 
   useEffect(() => {
     let isMounted = true;
     const checkAudioAvailability = async () => {
       try {
         const exists = await getBlobStore().has(sessionID);
-        if (isMounted) {
-          setHasAudio(exists);
+        if (!isMounted) return;
+        setHasAudio(exists);
+
+        if (exists && !storeDuration) {
+          const blob = await getBlobStore().get(sessionID, '');
+          if (!blob || !isMounted) return;
+          const url = URL.createObjectURL(blob);
+          const audio = new Audio(url);
+          audio.addEventListener('loadedmetadata', () => {
+            if (isMounted && isFinite(audio.duration)) {
+              setBlobDuration(Math.round(audio.duration));
+            }
+            URL.revokeObjectURL(url);
+          });
+          audio.addEventListener('error', () => URL.revokeObjectURL(url));
         }
       } catch (error) {
         console.error('Failed to check audio availability', error);
@@ -39,7 +58,7 @@ const DownloadAudioButton = ({ sessionID }: DownloadAudioButtonProps) => {
     return () => {
       isMounted = false;
     };
-  }, [sessionID]);
+  }, [sessionID, storeDuration]);
 
   const handleDownloadAudio = async () => {
     setIsDownloadAudioButtonLoading(true);
@@ -68,30 +87,30 @@ const DownloadAudioButton = ({ sessionID }: DownloadAudioButtonProps) => {
     }
   };
 
-  const isDisabled = isDownloadAudioButtonLoading || !hasAudio;
-
-  if (isDisabled) return null;
+  if (!hasAudio) return null;
 
   return (
     <CustomTooltip>
       <CustomTooltipTrigger asChild>
-        <span
-          className={`${isDisabled ? 'cursor-not-allowed' : ''} inline-flex`}
-          tabIndex={isDisabled ? 0 : -1}
+        <button
+          className="flex items-center gap-1 px-2 py-1 bg-white border border-[#D1D1D1] rounded-lg cursor-pointer hover:bg-[#F5F5F5] transition-colors"
+          onClick={handleDownloadAudio}
+          disabled={isDownloadAudioButtonLoading}
         >
-          <ButtonWrapper
-            variant="outline"
-            className="gap-2 px-3 border-border cursor-pointer"
-            onClick={handleDownloadAudio}
-            disabled={isDisabled}
-            isLoading={isDownloadAudioButtonLoading}
-          >
-            <ArrowDownToLine className="size-4" />
-          </ButtonWrapper>
-        </span>
+          {sessionDuration > 0 && (
+            <span className="text-sm font-medium text-foreground">
+              {convertSecondsToMinutes(sessionDuration)}
+            </span>
+          )}
+          {isDownloadAudioButtonLoading ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            <Download className="size-4" />
+          )}
+        </button>
       </CustomTooltipTrigger>
-      <CustomTooltipContent collisionPadding={8} className="w-4/5 sm:w-auto text-wrap">
-        Audio download is available only for the most recently recorded session.
+      <CustomTooltipContent collisionPadding={8}>
+        Download recording
       </CustomTooltipContent>
     </CustomTooltip>
   );

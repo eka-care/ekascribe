@@ -7,7 +7,7 @@ import useVoice2RxStore from '@/store/store';
 import { with401Retry } from '@/fetch-client/api-with-retry';
 import getSystemInfo from '@/utils/get-system-info';
 import { getPlatform } from '@/platform';
-import { useMicrophonePermission } from '@/features/session/hooks/use-microphone-permission';
+import { useMicrophonePermission } from '@/features/session/hooks/recording/use-microphone-permission';
 import * as sdkService from '../services/sdk-service';
 import {
   loadSessionDetails,
@@ -19,6 +19,7 @@ import { SESSION_PHASE, MIXPANEL_EVENT_NAME, MIXPANEL_EVENT_TYPE } from '@/const
 import { tracker, setSessionContext } from '@/analytics';
 import { ERROR_CODE } from '@eka-care/ekascribe-ts-sdk';
 import { getSDK } from '../services/sdk-provider';
+import { discardAndCleanup } from '../utils/discard-session';
 
 function teardownSessionMixing() {
   getPlatform().audioCapture?.teardownSessionMixing?.();
@@ -64,6 +65,7 @@ export function useSessionLifecycle() {
 
       activeCreatePromise = (async () => {
         const sessionId = 'sc-' + uuidv4().replace(/-/g, '').slice(0, 28);
+        const createStartMs = Date.now();
 
         try {
           const { userLevelPreferences } = useVoice2RxStore.getState();
@@ -150,7 +152,13 @@ export function useSessionLifecycle() {
             const apiCode = !response.success ? response.error?.code : undefined;
             tracker.log({
               name: 'create_session_failed',
-              properties: { session_id: sessionId, message: errorMessage, api_code: apiCode },
+              properties: {
+                session_id: sessionId,
+                message: errorMessage,
+                api_code: apiCode,
+                duration_ms: Date.now() - createStartMs,
+                network_online: navigator.onLine,
+              },
             });
             store.setSessionV2Content(sessionId, {
               phase: SESSION_PHASE.ERROR,
@@ -183,8 +191,13 @@ export function useSessionLifecycle() {
           });
 
           setSessionContext(session_id);
+          tracker.log({
+            name: 'session_created',
+            properties: { session_id: session_id, duration_ms: Date.now() - createStartMs },
+          });
           tracker.track({
             name: MIXPANEL_EVENT_NAME.SCRIBEWEB_NEW_SESSION,
+            properties: { session_id: session_id },
           });
 
           return session_id;
@@ -194,6 +207,7 @@ export function useSessionLifecycle() {
             domain: 'recording',
             component: 'voice_api',
             tags: { error_code: 'create_session_failed' },
+            extra: { session_id: sessionId, network_online: navigator.onLine },
           });
           store.setSessionV2Content(sessionId, {
             phase: SESSION_PHASE.ERROR,
@@ -256,6 +270,10 @@ export function useSessionLifecycle() {
 
       const micPermission = await checkMicrophonePermission();
       if (!micPermission) {
+        tracker.log({
+          name: 'mic_permission_denied',
+          properties: { session_id: sessionId },
+        });
         setIsStartSessionLoading(false);
         _startRecordingInFlight = false;
         return;
@@ -276,6 +294,13 @@ export function useSessionLifecycle() {
             'Could not enable system audio capture, continuing with microphone only',
             error
           );
+          tracker.log({
+            name: 'mic_access_failed',
+            properties: {
+              session_id: sessionId,
+              error_message: error instanceof Error ? error.message : String(error),
+            },
+          });
           teardownSessionMixing();
         }
 
@@ -403,10 +428,15 @@ export function useSessionLifecycle() {
     const sessionId = store.sessionV2Ongoing.recording_session_id;
     if (!sessionId) return;
 
-    const phase = store.sessionV2ContentById[sessionId]?.phase;
+    const sessionContent = store.sessionV2ContentById[sessionId];
+    const phase = sessionContent?.phase;
     if (phase !== SESSION_PHASE.RECORDING && phase !== SESSION_PHASE.PAUSED) return;
 
     _endRecordingInFlight = true;
+    const endRecordingStartMs = Date.now();
+    const recordingDurationMs = Math.round((sessionContent?.session_duration ?? 0) * 1000);
+    const totalChunks = sessionContent?.uploaded_chunks?.length ?? 0;
+    const uploadProgress = sessionContent?.upload_progress;
 
     teardownSessionMixing();
 
@@ -417,9 +447,49 @@ export function useSessionLifecycle() {
     store.setSessionV2Content(sessionId, { phase: SESSION_PHASE.PROCESSING });
 
     tracker.log({
-      name: MIXPANEL_EVENT_NAME.SCRIBEWEB_NEW_SESSION,
-      type: MIXPANEL_EVENT_TYPE.END_RECORDING,
+      name: 'chunk_upload_summary',
+      properties: {
+        session_id: sessionId,
+        total_chunks: totalChunks,
+        successful_uploads: uploadProgress?.success ?? 0,
+        pending_or_failed: totalChunks - (uploadProgress?.success ?? 0),
+        recording_duration_ms: recordingDurationMs,
+      },
     });
+
+    const perfMemory = (performance as { memory?: { usedJSHeapSize: number } }).memory;
+    const memoryMb = perfMemory ? Math.round(perfMemory.usedJSHeapSize / 1024 / 1024) : 0;
+    const MEMORY_THRESHOLD_MB = 500;
+    const LONG_SESSION_MS = 30 * 60 * 1000;
+    tracker.log({
+      name: 'memory_snapshot',
+      properties: {
+        session_id: sessionId,
+        heap_used_mb: memoryMb,
+        recording_duration_ms: recordingDurationMs,
+      },
+    });
+    if (memoryMb > MEMORY_THRESHOLD_MB) {
+      tracker.log({
+        name: 'high_memory_usage',
+        properties: {
+          session_id: sessionId,
+          heap_used_mb: memoryMb,
+          recording_duration_ms: recordingDurationMs,
+        },
+      });
+    }
+    if (recordingDurationMs > LONG_SESSION_MS) {
+      tracker.log({
+        name: 'long_session_ended',
+        properties: {
+          session_id: sessionId,
+          recording_duration_ms: recordingDurationMs,
+          heap_used_mb: memoryMb,
+          total_chunks: totalChunks,
+        },
+      });
+    }
 
     try {
       const response = await with401Retry(() => sdkService.endRecording(), 'end recording');
@@ -428,7 +498,9 @@ export function useSessionLifecycle() {
         name: MIXPANEL_EVENT_NAME.SCRIBEWEB_NEW_SESSION,
         type: MIXPANEL_EVENT_TYPE.END_RECORDING,
         properties: {
-          success_message: `Recording ended. Status code: ${response.status_code} | Error code: ${response.error_code}`,
+          session_id: sessionId,
+          status_code: response.status_code,
+          error_code: response.error_code,
         },
       });
 
@@ -457,7 +529,11 @@ export function useSessionLifecycle() {
 
       tracker.log({
         name: 'processing_started',
-        properties: { session_id: sessionId },
+        properties: {
+          session_id: sessionId,
+          recording_duration_ms: recordingDurationMs,
+          total_chunks: totalChunks,
+        },
       });
 
       // Success — poll for output
@@ -466,17 +542,29 @@ export function useSessionLifecycle() {
       });
 
       if (result === 'failed') {
+        const processingDurationMs = Date.now() - endRecordingStartMs;
         tracker.log({
           name: 'processing_failed',
           properties: {
             session_id: sessionId,
             message: 'Failed to process data. Please try again.',
+            duration_ms: processingDurationMs,
+            recording_duration_ms: recordingDurationMs,
+            total_chunks: totalChunks,
+            failed_chunks: totalChunks - (uploadProgress?.success ?? 0),
+            network_online: navigator.onLine,
           },
         });
         tracker.error(new Error('Processing failed'), {
           domain: 'processing',
           component: 'polling',
-          extra: { session_id: sessionId },
+          extra: {
+            session_id: sessionId,
+            duration_ms: processingDurationMs,
+            recording_duration_ms: recordingDurationMs,
+            total_chunks: totalChunks,
+            network_online: navigator.onLine,
+          },
         });
         store.setSessionV2Content(sessionId, {
           phase: SESSION_PHASE.ERROR,
@@ -488,7 +576,11 @@ export function useSessionLifecycle() {
       } else {
         tracker.log({
           name: 'processing_completed',
-          properties: { session_id: sessionId },
+          properties: {
+            session_id: sessionId,
+            duration_ms: Date.now() - endRecordingStartMs,
+            recording_duration_ms: recordingDurationMs,
+          },
         });
       }
     } catch (e) {
@@ -497,13 +589,22 @@ export function useSessionLifecycle() {
         properties: {
           session_id: sessionId,
           message: 'Failed to end recording. Please try again.',
+          total_chunks: totalChunks,
+          failed_chunks: totalChunks - (uploadProgress?.success ?? 0),
+          recording_duration_ms: recordingDurationMs,
+          network_online: navigator.onLine,
         },
       });
       tracker.error(e, {
         domain: 'recording',
         component: 'voice_api',
         tags: { error_code: 'session_end_failed' },
-        extra: { session_id: sessionId },
+        extra: {
+          session_id: sessionId,
+          total_chunks: totalChunks,
+          recording_duration_ms: recordingDurationMs,
+          network_online: navigator.onLine,
+        },
       });
 
       console.error('endRecording failed:', e);
@@ -521,34 +622,23 @@ export function useSessionLifecycle() {
   }, []);
 
   // --- Discard Session ---
-  const discardSession = useCallback(() => {
-    if (_discardInFlight) return;
-    _discardInFlight = true;
+  const discardSession = useCallback(
+    (targetSessionId?: string) => {
+      if (_discardInFlight) return;
+      _discardInFlight = true;
 
-    teardownSessionMixing();
-    const store = useVoice2RxStore.getState();
-    const sessionId = store.sessionV2Ongoing.recording_session_id;
+      teardownSessionMixing();
+      const store = useVoice2RxStore.getState();
+      const sessionId = targetSessionId || store.sessionV2Ongoing.recording_session_id;
 
-    if (sessionId) {
-      tracker.log({
-        name: 'discard_session',
-        properties: { session_id: sessionId },
-      });
-      with401Retry(() => sdkService.cancelSession(sessionId), 'cancel session');
-      store.clearSessionV2Content(sessionId);
-    }
+      if (sessionId) {
+        discardAndCleanup(sessionId, () => router.replace('/new-session'));
+      }
 
-    store.clearRecordingSessionId();
-    store.clearStore();
-    store.refreshPastSessionsCallback?.();
-    store.setWarningInfo({
-      message: 'Session was discarded',
-      type: 'success',
-      screen: 'start_session',
-    });
-    router.replace('/new-session');
-    _discardInFlight = false;
-  }, [router]);
+      _discardInFlight = false;
+    },
+    [router]
+  );
 
   // --- Stop Processing (abort polling, reset states, redirect) ---
   const stopProcessing = useCallback(() => {

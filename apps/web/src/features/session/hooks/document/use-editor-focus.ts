@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { TiptapEditorHandle } from '../components/editor/tiptap-wysiwyg-editor';
+import type { TiptapEditorHandle } from '../../components/editor/tiptap-wysiwyg-editor';
 
 export function useEditorFocus(editorRef: React.RefObject<TiptapEditorHandle | null>) {
   const [editorFocused, setEditorFocused] = useState(false);

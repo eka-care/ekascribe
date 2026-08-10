@@ -59,7 +59,6 @@ async function refreshToken(): Promise<boolean> {
 
     await response.json();
   } catch (error) {
-    console.log('%c Line:9 🥃 refreshToken error: ', 'color:#f5ce50', error);
     await handleUserLogout();
     return false;
   }
@@ -125,6 +124,17 @@ export default async function fetchWrapper(
           status_code: response.status,
           duration_ms: durationMs,
           is_retry: !retry,
+        },
+      });
+    } else if (durationMs > 5000) {
+      tracker.log({
+        name: 'slow_api_call',
+        properties: {
+          endpoint: extractEndpoint(urlString),
+          method,
+          status_code: response.status,
+          duration_ms: durationMs,
+          service: classifyService(urlString),
         },
       });
     }

@@ -22,6 +22,8 @@ export type FooterButton = {
   className?: string;
   isCopyAction?: boolean;
   disabledTooltip?: string;
+  /** Hover tooltip shown while the button is enabled */
+  tooltip?: string;
   buttonStyle?: 'action' | 'link';
 };
 
@@ -34,10 +36,6 @@ export type TabFooterConfig = {
   saveNote?: {
     onSaveNote: () => void;
     isNoteSaved?: boolean;
-  };
-  publish?: {
-    onPublish: () => void;
-    disabled?: boolean;
   };
 };
 
@@ -76,12 +74,12 @@ export function getDocumentFooterConfig({
   onPrint,
   onSendWhatsApp,
   onSaveNote,
-  onPublish,
   saveStatus,
   copyDisabled,
   printDisabled,
   whatsappDisabled,
-  publishDisabled,
+  whatsappTooltip,
+  whatsappDisabledTooltip,
   isNoteSaved,
 }: {
   onCopy: () => void;
@@ -90,12 +88,12 @@ export function getDocumentFooterConfig({
   onSendWhatsApp?: () => void;
   /** When provided, adds a "Save note" button at the end of the toolbar. */
   onSaveNote?: () => void;
-  onPublish?: () => void;
   saveStatus: SaveStatusState;
   copyDisabled?: boolean;
   printDisabled?: boolean;
   whatsappDisabled?: boolean;
-  publishDisabled?: boolean;
+  whatsappTooltip?: string;
+  whatsappDisabledTooltip?: string;
   isNoteSaved?: boolean;
 }): TabFooterConfig {
   return {
@@ -126,13 +124,14 @@ export function getDocumentFooterConfig({
               icon: <WhatsAppIcon className="w-4 h-4 text-[#25D366]" />,
               onClick: onSendWhatsApp,
               disabled: whatsappDisabled,
+              tooltip: whatsappTooltip,
+              disabledTooltip: whatsappDisabledTooltip,
               className: 'text-primary bg-white border border-[#D1D1D1] hover:bg-[#F5F5F5]',
             } as FooterButton,
           ]
         : []),
     ],
     saveNote: onSaveNote ? { onSaveNote, isNoteSaved } : undefined,
-    publish: onPublish ? { onPublish, disabled: publishDisabled } : undefined,
   };
 }
 

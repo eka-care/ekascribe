@@ -17,9 +17,9 @@ import useVoice2RxStore from '@/store/store';
 import { SessionBodySkeleton } from '@/app/new-session/loading';
 import ErrorComponent from '../output/error-component';
 import { TEMPLATE_WARNINGS_MSG } from '@/constants/enums';
-import { useStreamTab } from '../../ag-ui/hooks/use-stream-tab';
-import { useDocumentTab } from '../../hooks/use-document-tab';
-import { useEditorFocus } from '../../hooks/use-editor-focus';
+import { useStreamEditor } from '../../ag-ui/hooks/use-stream-editor';
+import { useDocumentEditor } from '../../hooks/document/use-document-editor';
+import { useEditorFocus } from '../../hooks/document/use-editor-focus';
 import { buildScribeEditorExtensions } from '../../ag-ui/editor/editor-extensions';
 import type { StreamMessage, StreamPhase } from '../../ag-ui/types';
 
@@ -70,7 +70,7 @@ export const SessionDocument = forwardRef<SessionDocumentHandle, SessionDocument
 );
 
 // ─────────────────────────────────────────────────────────────────────────
-// Streaming mode — wraps useStreamTab, renders streaming UI + editor
+// Streaming mode — wraps useStreamEditor, renders streaming UI + editor
 // ─────────────────────────────────────────────────────────────────────────
 
 const StreamingDocument = forwardRef<SessionDocumentHandle, StreamingProps>(
@@ -90,7 +90,7 @@ const StreamingDocument = forwardRef<SessionDocumentHandle, StreamingProps>(
       handleBlur,
       saveDocument,
       getMarkdown,
-    } = useStreamTab({ sessionId, templateId, streamKey, onFinished, onDocumentId, documentId });
+    } = useStreamEditor({ sessionId, templateId, streamKey, onFinished, onDocumentId, documentId });
 
     const { editorWrapperRef, handleFocusChange } = useEditorFocus(editorRef);
 
@@ -197,7 +197,7 @@ const DocumentView = forwardRef<SessionDocumentHandle, DocumentProps>(function D
     handleBlur,
     saveDocument,
     getMarkdown,
-  } = useDocumentTab({ sessionId, documentId });
+  } = useDocumentEditor({ sessionId, documentId });
 
   const { editorWrapperRef, handleFocusChange } = useEditorFocus(editorRef);
 

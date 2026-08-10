@@ -1,6 +1,7 @@
 import useVoice2RxStore from '@/store/store';
 import { with401Retry } from '@/fetch-client/api-with-retry';
 import { SESSION_PHASE } from '@/constants/enums';
+import { tracker } from '@/analytics';
 import type { NormalizedDocument, SessionV2Phase } from '../types';
 import { normalizeDocuments } from '../utils/normalize-documents';
 import { resolveSessionPreferences, TRawSessionConfig } from '../utils/resolve-session-preferences';
@@ -193,6 +194,7 @@ export async function pollAndLoadSessionDetails(
   pollingAbortController = new AbortController();
   const { signal } = pollingAbortController;
 
+  const pollStartMs = Date.now();
   const status = await pollSessionStatus(
     sessionId,
     signal,
@@ -203,6 +205,13 @@ export async function pollAndLoadSessionDetails(
   if (signal.aborted) return 'failed';
 
   if (!status || status === 'failed' || status === 'expired') {
+    const isTimeout = !status && !signal.aborted;
+    if (isTimeout) {
+      tracker.log({
+        name: 'processing_timeout',
+        properties: { session_id: sessionId, poll_duration_ms: Date.now() - pollStartMs, network_online: navigator.onLine },
+      });
+    }
     let apiStatus: string | null = null;
     try {
       apiStatus = await loadSessionDetails(sessionId);

@@ -1,10 +1,12 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { TPastSessionHistoryData } from '@/constants/types';
-import { with401Retry } from '@/fetch-client/api-with-retry';
+import type { TPastSessionHistoryData } from '@/constants/types';
 import useVoice2RxStore from '@/store/store';
-import * as sdkService from '../services/sdk-service';
+import { with401Retry } from '@/fetch-client/api-with-retry';
+import * as sdkService from '../../services/sdk-service';
+
+export const MAX_ATTACHMENTS = 1;
 
 export function useSessionContext({
   sessionId,
@@ -14,24 +16,15 @@ export function useSessionContext({
   patientOid?: string;
 }) {
   const [linkedSessions, setLinkedSessions] = useState<TPastSessionHistoryData[]>([]);
-  const [showLinkDialog, setShowLinkDialog] = useState(false);
-  const [patientSessions, setPatientSessions] = useState<TPastSessionHistoryData[]>([]);
-  const [loadingPatientSessions, setLoadingPatientSessions] = useState(false);
 
-  // Subscribe reactively so the effect re-runs when loadSessionDetails populates session_context
   const storeSessionContext = useVoice2RxStore(
     (s) => s.sessionV2ContentById[sessionId]?.session_context
   );
 
-  // Restore linked sessions from V2 store session_context.
-  // API returns: { past_sessions: [{ session_id, date_epoch }] }
-  // Skip effect when we ourselves wrote to the store (via syncToStore) to avoid loops.
   const isLocalWriteRef = useRef(false);
 
   useEffect(() => {
     if (!storeSessionContext) return;
-
-    // Skip if this update came from our own syncToStore call
     if (isLocalWriteRef.current) {
       isLocalWriteRef.current = false;
       return;
@@ -51,9 +44,9 @@ export function useSessionContext({
         oid: '',
       }))
     );
+
   }, [storeSessionContext]);
 
-  // Sync local state back to store so context survives navigation
   const syncToStore = useCallback(
     (sessions: TPastSessionHistoryData[]) => {
       isLocalWriteRef.current = true;
@@ -71,10 +64,8 @@ export function useSessionContext({
 
   const isPatientSelected = !!patientOid;
 
-  const handleOpenLinkDialog = useCallback(async () => {
-    if (!patientOid) return;
-    setShowLinkDialog(true);
-    setLoadingPatientSessions(true);
+  const fetchPatientSessions = useCallback(async (): Promise<TPastSessionHistoryData[]> => {
+    if (!patientOid) return [];
 
     try {
       const response = await with401Retry(
@@ -86,20 +77,18 @@ export function useSessionContext({
         'get patient session history'
       );
       if (response.status_code === 200 && response.data) {
-        setPatientSessions(response.data.filter((s) => s.txn_id !== sessionId));
+        return response.data.filter((s) => s.txn_id !== sessionId);
       }
     } catch {
-      setPatientSessions([]);
-    } finally {
-      setLoadingPatientSessions(false);
+      // ignore
     }
+    return [];
   }, [patientOid, sessionId]);
 
   const handleAddLinkedSessions = useCallback(
     async (sessions: TPastSessionHistoryData[]) => {
       const updated = [...linkedSessions, ...sessions];
       setLinkedSessions(updated);
-      setShowLinkDialog(false);
       syncToStore(updated);
 
       if (sessionId && sessions.length > 0) {
@@ -152,12 +141,8 @@ export function useSessionContext({
 
   return {
     linkedSessions,
-    showLinkDialog,
-    setShowLinkDialog,
-    patientSessions,
-    loadingPatientSessions,
     isPatientSelected,
-    handleOpenLinkDialog,
+    fetchPatientSessions,
     handleAddLinkedSessions,
     handleRemoveLinkedSession,
   };

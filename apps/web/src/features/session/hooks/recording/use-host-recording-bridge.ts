@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useHostBridge } from '@/platform';
 import useVoice2RxStore from '@/store/store';
 import { SESSION_PHASE } from '@/constants/enums';
-import { useSessionLifecycle } from './use-session-lifecycle';
+import { useSessionLifecycle } from '../use-session-lifecycle';
 
 // Phases that, when left via IDLE/undefined, mean the session was discarded rather than completed.
 // OUTPUT is excluded — the native "processed" overlay manages its own dismissal.

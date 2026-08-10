@@ -25,6 +25,7 @@ const emptySessionV2UiState = {
   is_template_processing: false,
   transcript_loading: {} as Record<string, boolean>,
   pending_paste_scroll_doc_id: null as SessionV2UiState['pending_paste_scroll_doc_id'],
+  pending_reload_doc_id: null as SessionV2UiState['pending_reload_doc_id'],
 };
 
 export const emptySessionV2Content: SessionV2Content = {
@@ -210,7 +211,6 @@ const useVoice2RxStore = create<TStore>()(
 
       autoStartRecording: false,
       setAutoStartRecording: (value) => set({ autoStartRecording: value }),
-
       // --- V2 Session State ---
       sessionV2Ongoing: emptySessionV2Ongoing,
       // Id of the session created via the new-session flow. Drives the "Current Session" card
@@ -393,6 +393,7 @@ const useVoice2RxStore = create<TStore>()(
               is_template_processing: false,
               transcript_loading: {},
               pending_paste_scroll_doc_id: null,
+              pending_reload_doc_id: null,
             },
           };
 

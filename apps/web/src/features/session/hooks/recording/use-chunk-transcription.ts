@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react';
 import useVoice2RxStore from '@/store/store';
 import { with401Retry } from '@/fetch-client/api-with-retry';
-import * as sdkService from '../services/sdk-service';
+import * as sdkService from '../../services/sdk-service';
 import { SESSION_PHASE } from '@/constants/enums';
 
 const POLL_INTERVAL_MS = 1500;

@@ -3,18 +3,18 @@
 import { useCallback, useEffect, useRef } from 'react';
 import type { JSONContent } from '@tiptap/core';
 
-import type { TiptapEditorHandle } from '../components/editor/tiptap-wysiwyg-editor';
+import type { TiptapEditorHandle } from '../../components/editor/tiptap-wysiwyg-editor';
 import { useDocumentLoader, type DocumentLoaderState } from './use-document-loader';
 import { useDocumentSaver } from './use-document-saver';
 import useVoice2RxStore from '@/store/store';
-import type { NormalizedDocument } from '../types';
+import type { NormalizedDocument } from '../../types';
 
 type Args = {
   sessionId: string;
   documentId: string;
 };
 
-export type DocumentTabResult = {
+export type DocumentEditorResult = {
   doc: NormalizedDocument | null;
   loaderState: DocumentLoaderState;
   reloadDocument: () => void;
@@ -28,24 +28,25 @@ export type DocumentTabResult = {
   getMarkdown: () => string;
 };
 
-export function useDocumentTab({ sessionId, documentId }: Args): DocumentTabResult {
-  const { state: loaderState, reload: reloadDocument, setContent: setDocumentContent } = useDocumentLoader(
-    sessionId,
-    documentId
-  );
+export function useDocumentEditor({ sessionId, documentId }: Args): DocumentEditorResult {
+  const {
+    state: loaderState,
+    reload: reloadDocument,
+    setContent: setDocumentContent,
+  } = useDocumentLoader(sessionId, documentId);
+
   const saver = useDocumentSaver({ sessionId, documentId });
 
   const editorRef = useRef<TiptapEditorHandle>(null);
   const latestMdRef = useRef<string | null>(null);
 
-  // Doc metadata (status, name, publish state) comes from the store.
   const doc = useVoice2RxStore((s) => {
     const session = s.sessionV2ContentById[sessionId];
     if (!session) return null;
     return session.documents.find((d) => d.document_id === documentId) ?? null;
   });
 
-  // Stable refs so callbacks don't recreate on every doc update.
+  // Stable refs so callbacks don't recreate on every doc/saver update
   const docRef = useRef(doc);
   docRef.current = doc;
 
@@ -58,6 +59,7 @@ export function useDocumentTab({ sessionId, documentId }: Args): DocumentTabResu
   const documentIdRef = useRef(documentId);
   documentIdRef.current = documentId;
 
+  // Fallback chain: editor instance → cached markdown → loader initial value
   const getMarkdown = useCallback(() => {
     const md = editorRef.current?.getInstance()?.getMarkdown();
     if (md !== undefined && md !== null) return md;
@@ -76,7 +78,7 @@ export function useDocumentTab({ sessionId, documentId }: Args): DocumentTabResu
     return saverRef.current.save({ json, markdown: md });
   }, []);
 
-  // --- Editor callbacks ---
+  // Cache latest markdown and mark status as typing
   const handleChange = useCallback(() => {
     const md = editorRef.current?.getInstance()?.getMarkdown();
     if (md !== undefined && md !== null) latestMdRef.current = md;
@@ -85,6 +87,7 @@ export function useDocumentTab({ sessionId, documentId }: Args): DocumentTabResu
       .setDocSaveStatus(sessionIdRef.current, documentIdRef.current, 'typing');
   }, []);
 
+  // Auto-save on blur if user was typing
   const handleBlur = useCallback(async () => {
     const currentStatus =
       useVoice2RxStore.getState().sessionV2ContentById[sessionIdRef.current]?.ui
@@ -93,16 +96,31 @@ export function useDocumentTab({ sessionId, documentId }: Args): DocumentTabResu
     await saveDocument();
   }, [saveDocument]);
 
-  // Save unsaved changes before page unload.
+  // Reload document when triggered externally (e.g. after regeneration)
+  const pendingReloadDocId = useVoice2RxStore(
+    (s) => s.sessionV2ContentById[sessionId]?.ui?.pending_reload_doc_id ?? null
+  );
+  useEffect(() => {
+    if (pendingReloadDocId !== documentId) return;
+    useVoice2RxStore.getState().setSessionV2Ui(sessionId, { pending_reload_doc_id: null });
+    reloadDocument();
+  }, [pendingReloadDocId, documentId, sessionId, reloadDocument]);
+
+  // Save unsaved changes before page unload — dirty docs only, a no-op save would unpublish
   const saveDocumentRef = useRef(saveDocument);
   saveDocumentRef.current = saveDocument;
   useEffect(() => {
-    const handleBeforeUnload = () => saveDocumentRef.current();
+    const handleBeforeUnload = () => {
+      const status =
+        useVoice2RxStore.getState().sessionV2ContentById[sessionIdRef.current]?.ui
+          ?.save_status_by_doc?.[documentIdRef.current];
+      if (status === 'typing') saveDocumentRef.current();
+    };
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, []);
 
-  // Derive editor-init payload from loader state.
+  // Derive editor init payload from loader state
   const initialJSON =
     loaderState.status === 'ready' && loaderState.source === 'json'
       ? loaderState.initialJSON

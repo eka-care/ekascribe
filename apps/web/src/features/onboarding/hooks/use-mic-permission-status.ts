@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { useMicrophonePermission } from '@/features/session/hooks/use-microphone-permission';
+import { useMicrophonePermission } from '@/features/session/hooks/recording/use-microphone-permission';
 import { getPlatform, type MicPermissionState } from '@/platform';
 
 export type MicPermissionStatus = 'unknown' | 'prompt' | 'granted' | 'denied' | 'unsupported';

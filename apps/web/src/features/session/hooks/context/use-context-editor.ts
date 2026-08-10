@@ -1,12 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useRef } from 'react';
-import type { TiptapEditorHandle } from '../components/editor/tiptap-wysiwyg-editor';
+import type { TiptapEditorHandle } from '../../components/editor/tiptap-wysiwyg-editor';
 import useVoice2RxStore from '@/store/store';
 import { with401Retry } from '@/fetch-client/api-with-retry';
-import * as sdkService from '../services/sdk-service';
-import * as documentService from '../services/document-service';
-import type { NormalizedDocument } from '../types';
+import * as sdkService from '../../services/sdk-service';
+import * as documentService from '../../services/document-service';
+import type { NormalizedDocument } from '../../types';
+import { useDocumentLoader } from '../document/use-document-loader';
 
 const CONTEXT_DOCUMENT_NAME = 'Add context';
 
@@ -14,45 +15,39 @@ const CONTEXT_DOCUMENT_NAME = 'Add context';
 let activeContextCreatePromise: Promise<string | null> | null = null;
 let activeContextCreateSessionId: string | null = null;
 
-export function useContextTab({ sessionId }: { sessionId: string }) {
+export function useContextEditor({
+  sessionId,
+  loadContent = false,
+}: {
+  sessionId: string;
+  loadContent?: boolean;
+}) {
   const contextEditorRef = useRef<TiptapEditorHandle>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Read context doc and content from V2 store
+  // Finds the context document for this session from the store
   const contextDoc = useVoice2RxStore((s) => {
     const session = s.sessionV2ContentById[sessionId];
     return session?.context?.find((d) => d.document_type === 'context') || null;
   });
 
-  const contextContent = contextDoc?.content || '';
-  const isLoadingContent =
-    !!contextDoc?.document_id && contextDoc.content === null && !!contextDoc.get_url;
+  // Loads document content from backend when loadContent is true
+  const { state: loadState } = useDocumentLoader(
+    sessionId,
+    loadContent ? (contextDoc?.document_id ?? null) : null
+  );
 
-  // Fetch context content from presigned URL on mount when doc exists but content is null
-  useEffect(() => {
-    if (!contextDoc?.document_id || contextDoc.content !== null) return;
-    if (!contextDoc.get_url) return;
+  const isLoadingContent = !!contextDoc?.document_id && loadState.status === 'loading';
+  const contextContent = loadState.status === 'ready' ? (loadState.initialValue ?? '') : '';
+  const contextInitialJSON = loadState.status === 'ready' ? loadState.initialJSON : undefined;
 
-    documentService
-      .fetchDocumentContent(sessionId, contextDoc.document_id, contextDoc.get_url, false)
-      .then((content) => {
-        useVoice2RxStore.getState().setSessionV2Document(sessionId, contextDoc.document_id, {
-          content: content ?? '',
-        });
-      })
-      .catch(() => {
-        useVoice2RxStore.getState().setSessionV2Document(sessionId, contextDoc.document_id, {
-          content: '',
-        });
-      });
-  }, [contextDoc?.document_id, sessionId]);
-
-  // Check if a context document already exists in the V2 store
+  // Checks if a context document already exists in the store
   const findExistingContextDoc = useCallback((): NormalizedDocument | undefined => {
     const session = useVoice2RxStore.getState().sessionV2ContentById[sessionId];
     return session?.context?.find((d) => d.document_type === 'context');
   }, [sessionId]);
 
+  // Creates a context document if one doesn't exist, deduped across concurrent calls
   const ensureContextDocument = useCallback(async (): Promise<string | null> => {
     if (!sessionId) return null;
 
@@ -110,14 +105,17 @@ export function useContextTab({ sessionId }: { sessionId: string }) {
     return createPromise;
   }, [sessionId, findExistingContextDoc]);
 
+  // Saves editor content (markdown + JSON) to backend
   const saveContext = useCallback(async (): Promise<boolean> => {
     if (!sessionId) return false;
 
     const doc = findExistingContextDoc();
     if (!doc) return false;
 
-    const md = contextEditorRef.current?.getInstance()?.getMarkdown();
+    const instance = contextEditorRef.current?.getInstance();
+    const md = instance?.getMarkdown();
     if (md === undefined) return false;
+    const json = instance?.getJSON();
 
     // Flush any pending debounce
     if (debounceRef.current) {
@@ -125,15 +123,30 @@ export function useContextTab({ sessionId }: { sessionId: string }) {
       debounceRef.current = null;
     }
 
-    // Write to store
     useVoice2RxStore.getState().setSessionV2Document(sessionId, doc.document_id, {
       content: md,
     });
 
-    return documentService.saveDocumentContent(sessionId, doc.document_id, md, doc.edit_url);
+    const [jsonOk, mdOk] = await Promise.all([
+      json
+        ? documentService.saveDocumentJson(
+            sessionId,
+            doc.document_id,
+            json as unknown as Record<string, unknown>
+          )
+        : Promise.resolve(true),
+      documentService.saveDocumentContent(sessionId, doc.document_id, md, doc.edit_url),
+    ]);
+
+    return jsonOk && mdOk;
   }, [sessionId, findExistingContextDoc]);
 
-  // Save unsaved changes before page unload (refresh/close)
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
+
   useEffect(() => {
     const handleBeforeUnload = () => {
       saveContext();
@@ -142,6 +155,7 @@ export function useContextTab({ sessionId }: { sessionId: string }) {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [saveContext]);
 
+  // Debounced handler that syncs editor markdown to the store on each change
   const handleContextChange = useCallback(() => {
     const doc = findExistingContextDoc();
     if (!doc) return;
@@ -159,6 +173,7 @@ export function useContextTab({ sessionId }: { sessionId: string }) {
 
   return {
     contextContent,
+    contextInitialJSON,
     contextEditorRef,
     ensureContextDocument,
     saveContext,

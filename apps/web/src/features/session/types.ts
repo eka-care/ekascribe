@@ -36,6 +36,8 @@ export type NormalizedDocument = {
   last_saved_at?: number;
 };
 
+export type PastePosition = 'top' | 'bottom';
+
 export type SessionV2UiState = {
   loading: boolean;
   poll_status: 'idle' | 'polling' | 'success' | 'failed' | 'timeout';
@@ -46,6 +48,7 @@ export type SessionV2UiState = {
   is_template_processing: boolean;
   transcript_loading: Record<string, boolean>;
   pending_paste_scroll_doc_id: string | null;
+  pending_reload_doc_id: string | null;
 };
 
 export type SessionV2Content = {

@@ -18,8 +18,6 @@ COPY . .
 ARG NEXT_PUBLIC_ENV
 ENV NEXT_PUBLIC_ENV=${NEXT_PUBLIC_ENV}
 
-ARG NEXT_PUBLIC_SENTRY_DSN
-ENV NEXT_PUBLIC_SENTRY_DSN=${NEXT_PUBLIC_SENTRY_DSN}
 
 # Sets Next.js basePath for feature preview deploys (e.g., /life-2000).
 # Not set in normal dev/prod flows — app serves from / as usual.

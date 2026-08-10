@@ -3,9 +3,9 @@
 import { useCallback, useState } from 'react';
 import useVoice2RxStore from '@/store/store';
 import { with401Retry } from '@/fetch-client/api-with-retry';
-import * as sdkService from '../services/sdk-service';
-import { pollSessionInBackground } from '../services/session-loader';
-import { useSessionLifecycle } from './use-session-lifecycle';
+import * as sdkService from '../../services/sdk-service';
+import { pollSessionInBackground } from '../../services/session-loader';
+import { useSessionLifecycle } from '../use-session-lifecycle';
 import { SESSION_PHASE } from '@/constants/enums';
 import { tracker } from '@/analytics';
 
@@ -86,7 +86,7 @@ export function useProcessAudio() {
       tracker.error(error, {
         domain: 'recording',
         component: 'upload_audio',
-        extra: { session_id: store.sessionV2Ongoing.recording_session_id },
+        extra: { session_id: store.sessionV2Ongoing.recording_session_id, network_online: navigator.onLine },
       });
       store.setWarningInfo({
         screen: 'upload_audio',

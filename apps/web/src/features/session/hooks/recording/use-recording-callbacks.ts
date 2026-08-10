@@ -4,9 +4,9 @@ import { useCallback, useEffect, useRef } from 'react';
 import type { AudioEvent, UploadEvent } from 'med-scribe-alliance-ts-sdk';
 import useVoice2RxStore from '@/store/store';
 import { tracker } from '@/analytics';
-import { getSDK } from '../services/sdk-provider';
-import * as sdkService from '../services/sdk-service';
-import { getAudioAmplitude, mapAmplitudeForUi } from '../utils/calculate-amplitude';
+import { getSDK } from '../../services/sdk-provider';
+import * as sdkService from '../../services/sdk-service';
+import { getAudioAmplitude, mapAmplitudeForUi } from '../../utils/calculate-amplitude';
 import { getBlobStore } from '@/platform';
 import { SESSION_PHASE } from '@/constants/enums';
 
@@ -91,6 +91,11 @@ export function useRecordingCallbacks() {
             });
           }
 
+          // TODO: remove this log later
+          tracker.log({
+            name: 'chunk_ready',
+            properties: { fileName: event.data.fileName, session_id: sessionId },
+          });
           // Save audio chunk to IndexedDB for offline recovery / audio download
           (async () => {
             try {
@@ -129,11 +134,25 @@ export function useRecordingCallbacks() {
           console.error('Upload failed:', event.data.fileName, event.data.error);
           tracker.log({
             name: 'chunk_upload_failed',
-            properties: { fileName: event.data.fileName, session_id: sessionId },
+            properties: {
+              fileName: event.data.fileName,
+              session_id: sessionId,
+              network_online: navigator.onLine,
+              error_message: String(event.data.error ?? ''),
+            },
           });
           break;
         case 'retry':
           console.warn('Upload retry:', event.data.fileName, 'attempt:', event.data.attempt);
+          // TODO: remove this log later
+          tracker.log({
+            name: 'chunk_upload_retry',
+            properties: {
+              fileName: event.data.fileName,
+              session_id: sessionId,
+              attempt: event.data.attempt,
+            },
+          });
           break;
       }
     };

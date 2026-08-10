@@ -10,7 +10,7 @@
  * BE state ops in voice2rx/services/templates/ag_ui/state_ops.py.
  */
 
-import type { JsonPatchOp } from './ag-ui-stream';
+import type { JsonPatchOp } from './ag-ui-client';
 import type { ScribeState } from './types';
 
 export const EMPTY_SCRIBE_STATE: ScribeState = {

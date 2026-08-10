@@ -11,7 +11,8 @@ const nextConfig: NextConfig = {
   },
   output: 'standalone',
   transpilePackages: ['@eka-care/medical-records-ui'],
-  // reactStrictMode: false,
+  // StrictMode's dev double-mount fires the AG-UI run POST twice, creating ghost documents
+  reactStrictMode: false,
   // Prevent browser caching - forces fresh content on every load
   async headers() {
     return [

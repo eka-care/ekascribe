@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo } from 'react';
-import { Loader2, Mic } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import useVoice2RxStore from '@/store/store';
 import { with401Retry } from '@/fetch-client/api-with-retry';
 import {
@@ -22,7 +22,7 @@ import { pollAndLoadSessionDetails } from '../../services/session-loader';
 import { SESSION_PHASE } from '@/constants/enums';
 import type { NormalizedDocument } from '../../types';
 import TranscriptIdleState from '../recording/transcript-idle-state';
-// import { useChunkTranscription } from '../../hooks/use-chunk-transcription';
+// import { useChunkTranscription } from '../../hooks/recording/use-chunk-transcription';
 
 interface TranscriptTabContentProps {
   sessionId: string;
@@ -45,7 +45,6 @@ export function TranscriptTabContent({ sessionId }: TranscriptTabContentProps) {
     (s) => s.sessionV2ContentById[sessionId]?.ui?.transcript_loading ?? EMPTY_TRANSCRIPT_LOADING
   );
 
-  const isRecording = phase === SESSION_PHASE.RECORDING || phase === SESSION_PHASE.PAUSED;
   const isProcessing = phase === SESSION_PHASE.PROCESSING;
 
   // Poll for chunk transcripts during recording
@@ -170,26 +169,62 @@ export function TranscriptTabContent({ sessionId }: TranscriptTabContentProps) {
     return <TranscriptIdleState />;
   }
 
-  // While recording, the transcript isn't available yet (live chunk transcripts are disabled).
-  if (isRecording) {
+  if (phase === SESSION_PHASE.RECORDING) {
     return (
-      <ErrorComponent
-        title="Recording in progress"
-        variant="in-progress"
-        description="Your transcript will appear here once you end the session."
-        icon={<Mic className="w-8 h-8 text-secondary-foreground" />}
-      />
+      <div className="flex flex-col items-center justify-center h-full">
+        <div className="flex flex-col items-center gap-4">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/assets/mic-recording.svg" alt="" width={100} height={100} />
+          <div className="flex flex-col items-center gap-2 text-center">
+            <p className="text-2xl font-medium leading-none tracking-[-0.6px] text-foreground w-82.5">
+              Recording in progress
+            </p>
+            <p className="text-sm leading-5 text-[#999] w-52.5">
+              The transcript will be ready once you end the session
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (phase === SESSION_PHASE.PAUSED) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full">
+        <div className="flex flex-col items-center gap-4">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/assets/mic-paused.svg" alt="" width={100} height={100} />
+          <div className="flex flex-col items-center gap-2 text-center">
+            <p className="text-2xl font-medium leading-none tracking-[-0.6px] text-foreground w-82.5">
+              Recording paused
+            </p>
+            <p className="text-sm leading-5 text-[#999] min-h-10">
+              Resume when you&apos;re ready to continue
+            </p>
+          </div>
+        </div>
+      </div>
     );
   }
 
   // While processing, keep an in-progress state until the transcript content is ready.
   if (isProcessing && !activeDoc?.content) {
     return (
-      <ErrorComponent
-        title="Generating transcript"
-        variant="loading"
-        description="Your transcript will appear here soon."
-      />
+      <div className="flex flex-col items-center justify-center h-full">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-25 h-25 flex items-center justify-center">
+            <Loader2 className="w-10 h-10 animate-spin text-primary" />
+          </div>
+          <div className="flex flex-col items-center gap-2 text-center">
+            <p className="text-2xl font-medium leading-none tracking-[-0.6px] text-foreground w-82.5">
+              Generating transcript
+            </p>
+            <p className="text-sm leading-5 text-[#999] min-h-10">
+              Your transcript will appear here soon
+            </p>
+          </div>
+        </div>
+      </div>
     );
   }
 

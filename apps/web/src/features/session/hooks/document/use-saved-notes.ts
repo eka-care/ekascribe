@@ -6,11 +6,13 @@ import type { TPatchVoiceApiV2ConfigRequest } from '@eka-care/ekascribe-ts-sdk';
 import useVoice2RxStore from '@/store/store';
 import { with401Retry } from '@/fetch-client/api-with-retry';
 import { getEkascribeConfigQueryKey } from '@/features/settings/hooks/use-get-config';
-import * as sdkService from '../services/sdk-service';
+import * as sdkService from '../../services/sdk-service';
 
 export type SavedNote = {
   document_id: string;
   document_name: string;
+  /** ISO date the note was added to favourites. Absent on notes saved before this was tracked. */
+  added_at?: string;
 };
 
 export function useSavedNotes() {
@@ -20,7 +22,12 @@ export function useSavedNotes() {
   const queryClient = useQueryClient();
 
   const notes = useMemo<SavedNote[]>(
-    () => savedNotesIds.map(({ id, name }) => ({ document_id: id, document_name: name })),
+    () =>
+      savedNotesIds.map(({ id, name, added_at }) => ({
+        document_id: id,
+        document_name: name,
+        added_at,
+      })),
     [savedNotesIds]
   );
 
@@ -29,11 +36,8 @@ export function useSavedNotes() {
     [savedNotesIds]
   );
 
-  const saveNote = useCallback(
-    async (documentId: string, documentName: string): Promise<boolean> => {
-      if (savedNotesIds.some((note) => note.id === documentId)) return true;
-
-      const updatedIds = [...savedNotesIds, { id: documentId, name: documentName }];
+  const updateNotesIds = useCallback(
+    async (updatedIds: typeof savedNotesIds, logContext: string): Promise<boolean> => {
       const previous = appConfig;
       setAppConfig({ ...appConfig, notes_ids: updatedIds });
 
@@ -43,7 +47,7 @@ export function useSavedNotes() {
             request_type: 'user',
             data: { notes_ids: updatedIds },
           } as unknown as TPatchVoiceApiV2ConfigRequest),
-        'update config - save note'
+        logContext
       );
 
       if (res.status_code >= 200 && res.status_code < 300) {
@@ -54,8 +58,31 @@ export function useSavedNotes() {
       setAppConfig(previous);
       return false;
     },
-    [appConfig, savedNotesIds, setAppConfig, queryClient]
+    [appConfig, setAppConfig, queryClient]
   );
 
-  return { notes, isNoteSaved, saveNote };
+  const saveNote = useCallback(
+    async (documentId: string, documentName: string): Promise<boolean> => {
+      if (savedNotesIds.some((note) => note.id === documentId)) return true;
+
+      const updatedIds = [
+        ...savedNotesIds,
+        { id: documentId, name: documentName, added_at: new Date().toISOString() },
+      ];
+      return updateNotesIds(updatedIds, 'update config - save note');
+    },
+    [savedNotesIds, updateNotesIds]
+  );
+
+  const removeNote = useCallback(
+    async (documentId: string): Promise<boolean> => {
+      if (!savedNotesIds.some((note) => note.id === documentId)) return true;
+
+      const updatedIds = savedNotesIds.filter((note) => note.id !== documentId);
+      return updateNotesIds(updatedIds, 'update config - remove note');
+    },
+    [savedNotesIds, updateNotesIds]
+  );
+
+  return { notes, isNoteSaved, saveNote, removeNote };
 }

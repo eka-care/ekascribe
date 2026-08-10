@@ -41,17 +41,17 @@ const ConfirmationDialog = ({
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="w-[calc(100%-2rem)] max-w-[420px] border-border mx-auto">
-        <AlertDialogHeader>
-          <AlertDialogTitle className={`text-base sm:text-lg ${titleClassName}`}>{title}</AlertDialogTitle>
+      <AlertDialogContent className="w-[calc(100%-2rem)] max-w-[420px] border-border mx-auto p-6 gap-4 rounded-md">
+        <AlertDialogHeader className="gap-2">
+          <AlertDialogTitle className={`text-lg font-semibold ${titleClassName}`}>{title}</AlertDialogTitle>
           <AlertDialogDescription className={`text-sm ${descriptionClassName}`}>{description}</AlertDialogDescription>
         </AlertDialogHeader>
-        <AlertDialogFooter className="flex-col-reverse sm:flex-row gap-0 sm:gap-2">
-          <AlertDialogCancel className="cursor-pointer w-full sm:w-auto">
+        <AlertDialogFooter className="flex-row gap-2">
+          <AlertDialogCancel className="cursor-pointer min-w-20 rounded-lg text-primary! hover:text-primary!">
             {cancelText}
           </AlertDialogCancel>
           <AlertDialogAction
-            className={`cursor-pointer w-full sm:w-auto ${
+            className={`cursor-pointer min-w-20 rounded-lg ${
               variant === 'destructive' ? 'bg-destructive text-white hover:bg-destructive/90' : ''
             }`}
             onClick={handleConfirm}
