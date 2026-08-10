@@ -18,6 +18,10 @@ spec:
         app.kubernetes.io/name: ekascribe-web
         app.kubernetes.io/part-of: ekascribe
     spec:
+      hostAliases:
+        - ip: "10.185.27.69"
+          hostnames:
+            - "varta-model.bharatai.gov.in"    
       imagePullSecrets:
         - name: ekascribe-regcred
       # Same reasoning as the api: spread the two replicas across nodes when
@@ -35,7 +39,7 @@ spec:
         # Container name is `web` -- deploy/push.sh prints
         # `kubectl set image deploy/ekascribe-web web=...` to pin a tag.
         - name: web
-          image: ekacare/ekascribe:web-latest
+          image: ekacare/ekascribe:web-b3eefb7
           imagePullPolicy: Always
           ports:
             - name: http
@@ -44,7 +48,7 @@ spec:
           # when the image is built (deploy/Dockerfile.web), so runtime env
           # would have no effect. To change the API host the web app talks to,
           # rebuild:
-          #   NEXT_PUBLIC_API_HOST=https://api.example.com ./deploy/push.sh web
+          #   NEXT_PUBLIC_API_HOST=https://api.example.com ./deploy/push.sh v1.2.3
           env:
             - name: NODE_ENV
               value: production

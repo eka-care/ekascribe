@@ -43,6 +43,10 @@ spec:
         app.kubernetes.io/name: ekascribe-api
         app.kubernetes.io/part-of: ekascribe
     spec:
+      hostAliases:
+        - ip: "10.185.27.69"
+          hostnames:
+            - "varta-model.bharatai.gov.in"    
       imagePullSecrets:
         - name: ekascribe-regcred
       # Without this the scheduler is free to place both replicas on one node,
@@ -84,7 +88,7 @@ spec:
         # Container name is `api` -- deploy/push.sh prints
         # `kubectl set image deploy/ekascribe-api api=...` to pin a tag.
         - name: api
-          image: ekacare/ekascribe:api-latest
+          image: ekacare/ekascribe:api-b3eefb7
           imagePullPolicy: Always
           ports:
             - name: http
