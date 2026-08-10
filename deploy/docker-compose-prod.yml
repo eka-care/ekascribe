@@ -1,13 +1,11 @@
 # Scribe — PROD stack for the Bharat Grid VM.
-#   Infra-managed SSL fronts the published ports:
-#     https://bharat-net.dev.eka.care      -> web  :3000
-#     https://bharat-backend.dev.eka.care  -> api  :8000
-#   SELF_URL / WEB_URL default to those domains; the VM .env can override.
-#   NEXT_PUBLIC_* are inlined into the web bundle at BUILD time — rebuild web
-#   whenever SELF_URL/WEB_URL change.
+#   ONE app container: the api serves both the API and the web UI on :8000,
+#   fronted by infra-managed SSL (https://bharat-backend.dev.eka.care).
+#   The web bundle is a static export with relative URLs — nothing is baked in,
+#   so no rebuild is needed when the domain changes.
 #
 #   First deploy on the VM:
-#     docker compose -f deploy/docker-compose-prod.yml down -v --remove-orphans  # clears any old stack (incl. retired caddy)
+#     docker compose -f deploy/docker-compose-prod.yml down -v --remove-orphans  # clears any old stack (incl. retired web/caddy)
 #     docker compose -f deploy/docker-compose-prod.yml build
 #     docker compose -f deploy/docker-compose-prod.yml up -d postgres
 #     uv run python scripts/setup.py            # schema + 3 seed templates
@@ -44,13 +42,12 @@ services:
       DATABASE_URL: postgresql://scribe:scribe@postgres:5432/scribe
       ECHO_PG_HOST: postgres
       SELF_URL: ${SELF_URL:-https://bharat-backend.dev.eka.care}
-      WEB_URL: ${WEB_URL:-https://bharat-net.dev.eka.care}
       STORAGE_ROOT: /data/storage
     volumes:
       - storage:/data/storage
       - logs:/data/logs
     ports:
-      - "8000:8000"   # fronted by infra SSL (https://bharat-backend.dev.eka.care)
+      - "8000:8000"   # API + web UI, fronted by infra SSL (https://bharat-backend.dev.eka.care)
     depends_on:
       postgres:
         condition: service_healthy
@@ -85,22 +82,6 @@ services:
       - logs:/data/logs
     depends_on:
       postgres:
-        condition: service_healthy
-
-  web:
-    build:
-      context: ..
-      dockerfile: deploy/Dockerfile.web
-      args:
-        NEXT_PUBLIC_API_HOST: ${SELF_URL:-https://bharat-backend.dev.eka.care}
-        NEXT_PUBLIC_WEB_HOST: ${WEB_URL:-https://bharat-net.dev.eka.care}
-    restart: unless-stopped
-    environment:
-      NEXT_PUBLIC_API_HOST: ${SELF_URL:-https://bharat-backend.dev.eka.care}
-    ports:
-      - "3000:3000"   # fronted by infra SSL (https://bharat-net.dev.eka.care)
-    depends_on:
-      api:
         condition: service_healthy
 
 volumes:

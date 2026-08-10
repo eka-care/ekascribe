@@ -10,7 +10,7 @@ One command builds everything (installs all deps), initializes the DB + seeds
 templates, and starts the full stack in Docker (in-process default — no worker):
 
 ```bash
-make start          # Postgres + API (:8000) + web (:3000)
+make start          # Postgres + one app container: API + web UI (:8000)
 ```
 
 Add your keys to `.env` first (the command creates one from `.env.example` if
@@ -24,7 +24,7 @@ uv sync --all-packages && npm install
 docker compose -f deploy/docker-compose-local.yml up -d postgres
 make setup          # writes .env (add keys, re-run), runs migrations + seeds
 make api            # http://localhost:8000
-make web            # http://localhost:3000
+make web            # http://localhost:3000 (dev server, proxies API to :8000)
 ```
 
 ## Execution modes

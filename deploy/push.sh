@@ -2,13 +2,14 @@
 #
 # Build and push ekascribe images to Docker Hub.
 #
-#   ./deploy/push.sh v1.2.3                build + push api and web at v1.2.3
+#   ./deploy/push.sh v1.2.3                build + push the api image (API + web UI)
 #   PUSH=false ./deploy/push.sh v1.2.3     build locally, don't push
-#   LATEST=false ./deploy/push.sh v1.2.3   skip the :api-latest / :web-latest tags
+#   LATEST=false ./deploy/push.sh v1.2.3   skip the :api-latest tag
 #
 # Everything lands in ONE repo with component-prefixed tags, e.g.
-#   ekacare/ekascribe:api-1a2b3c4   ekacare/ekascribe:web-1a2b3c4
-#   ekacare/ekascribe:api-latest    ekacare/ekascribe:web-latest
+#   ekacare/ekascribe:api-1a2b3c4   ekacare/ekascribe:api-latest
+# The api image also contains the static web bundle (relative URLs — nothing
+# baked in), so there is no separate web image.
 #
 # The repo is private -- `docker login` first, and the cluster needs a matching
 # image pull secret (see deploy/k8s/README.md).
@@ -22,16 +23,7 @@ LATEST="${LATEST:-true}"
 PLATFORMS="${PLATFORMS:-linux/amd64}"
 BUILDER_NAME="${BUILDER_NAME:-ekascribe-builder}"
 
-# NEXT_PUBLIC_* are inlined into the JS bundle at BUILD time by Next.js
-# (deploy/Dockerfile.web) -- setting them at runtime in k8s does nothing. The
-# defaults match `kubectl port-forward`, which is how this deployment is
-# reached; override them once the API is behind a real hostname.
-
-NEXT_PUBLIC_API_HOST="${NEXT_PUBLIC_API_HOST:-http://varta.bharatai.gov.in/api}"
-NEXT_PUBLIC_WEB_HOST="${NEXT_PUBLIC_WEB_HOST:-http://varta.bharatai.gov.in}"
-NEXT_PUBLIC_EKA_HOST="${NEXT_PUBLIC_EKA_HOST:-http://varta.bharatai.gov.in/api}"
-
-ALL_COMPONENTS=(api web)
+ALL_COMPONENTS=(api)
 
 info() { printf '>> %s\n' "$*"; }
 warn() { printf 'warning: %s\n' "$*" >&2; }
@@ -41,23 +33,20 @@ usage() {
   cat <<'EOF'
 usage: ./deploy/push.sh <tag>
 
-  <tag>   image tag, e.g. v1.2.3 or 1a2b3c4. Both components are always built:
-            ekacare/ekascribe:api-<tag>   ekacare/ekascribe:web-<tag>
+  <tag>   image tag, e.g. v1.2.3 or 1a2b3c4. Builds the api image
+          (API + static web UI): ekacare/ekascribe:api-<tag>
 
 env overrides:
   PUSH=false            build only, don't push
-  LATEST=false          don't also tag :api-latest / :web-latest
+  LATEST=false          don't also tag :api-latest
   PLATFORMS=...         default linux/amd64; a comma-separated list uses buildx
   DOCKERHUB_REPO=...    default ekacare/ekascribe
-  NEXT_PUBLIC_API_HOST= baked into the web bundle at build time
-  NEXT_PUBLIC_WEB_HOST= baked into the web bundle at build time
 EOF
 }
 
 dockerfile_for() {
   case "$1" in
     api)    printf '%s\n' "$REPO_ROOT/deploy/Dockerfile.api" ;;
-    web)    printf '%s\n' "$REPO_ROOT/deploy/Dockerfile.web" ;;
     *)      return 1 ;;
   esac
 }
@@ -107,11 +96,6 @@ build_component() {
   # ships) treats "${empty[@]}" as unbound under `set -u`, and api passes no
   # build args.
   local build_args=()
-  if [[ "$component" == "web" ]]; then
-    build_args+=(--build-arg "NEXT_PUBLIC_API_HOST=${NEXT_PUBLIC_API_HOST}")
-    build_args+=(--build-arg "NEXT_PUBLIC_WEB_HOST=${NEXT_PUBLIC_WEB_HOST}")
-    info "web API host baked at build time: $NEXT_PUBLIC_API_HOST"
-  fi
 
   if [[ "$PLATFORMS" == *,* ]]; then
     # Multi-arch images can't be loaded into the local daemon -- buildx pushes

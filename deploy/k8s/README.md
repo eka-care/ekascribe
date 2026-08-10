@@ -1,7 +1,7 @@
 # ekascribe on Kubernetes
 
-Flat manifests for the api + web services in namespace `eka-care`. Plain
-`kubectl` — no kustomize, no Helm.
+Flat manifests for the api service (which also serves the static web UI) in
+namespace `eka-care`. Plain `kubectl` — no kustomize, no Helm.
 
 **What this does not deploy:** the pipeline worker and any ingress. Access is
 via `kubectl port-forward`. Postgres *is* included — a single-replica
@@ -16,8 +16,7 @@ RDS or another managed instance, and skip `04-`/`05-`.
 | `04-postgres-service.yaml` | Headless Service `ekascribe-postgres` |
 | `05-postgres-statefulset.yaml` | Postgres 16, 1 replica, 20Gi PVC |
 | `06-migrate-job.yaml` | Schema + seed data, run once before the workloads |
-| `10-` / `11-` | api Deployment + ClusterIP Service |
-| `20-` / `21-` | web Deployment + ClusterIP Service |
+| `10-` / `11-` | api Deployment + ClusterIP Service (API + web UI on :8000) |
 
 One database serves everything: the app tables, the procrastinate queue
 (`QUEUE_BACKEND=postgres`), session state (`STATE_BACKEND=postgres`), and the
@@ -97,15 +96,11 @@ No ingress — everything is ClusterIP:
 kubectl -n eka-care port-forward svc/ekascribe-api 8000:8000
 ```
 
-```bash
-kubectl -n eka-care port-forward svc/ekascribe-web 3000:3000
-```
-
 `curl localhost:8000/healthz` should return `{"status":"ok","env":"prod"}`.
 
 ## Pinning image tags
 
-Manifests default to `api-latest` / `web-latest` with `imagePullPolicy: Always`
+Manifests default to `api-latest` with `imagePullPolicy: Always`
 so a fresh `apply` picks up whatever was pushed last. For anything you care
 about, pin the immutable sha tag — `deploy/push.sh` prints these commands:
 
@@ -176,7 +171,7 @@ is already `postgres`, so procrastinate is ready for it.
 processes inside a single pod (a job must stay visible to the process that
 scheduled it), and is unrelated to replica count.
 
-Both api and web set soft pod anti-affinity so their replicas spread across
+The api Deployment sets soft pod anti-affinity so its replicas spread across
 nodes. It is `preferred`, not `required` — under node pressure a pod will
 co-locate rather than sit Pending, which quietly costs you the HA. Worth
 checking with `kubectl -n eka-care get pods -o wide` after any capacity change.

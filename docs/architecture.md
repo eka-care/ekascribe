@@ -57,7 +57,8 @@ semantics, versioned file layouts). Agents/prompts drive all structuring.
 
 ## Frontend (apps/web)
 
-Hosts derive from `NEXT_PUBLIC_API_HOST` (src/config/hosts.ts), which also
+Hosts are same-origin relative URLs (src/config/hosts.ts) — the static export
+is served by the api itself, so no host is baked into the bundle. hosts.ts also
 publishes `globalThis.__SCRIBE_HOSTS__` for the vendored ekascribe-ts-sdk.
 The alliance SDK's SharedWorker is self-hosted (`public/msa/`). Non-scribe
 features and all trackers are env-gated (src/config/features.ts).

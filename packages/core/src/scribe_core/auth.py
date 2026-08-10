@@ -89,10 +89,16 @@ class DevAuthMiddleware(BaseHTTPMiddleware):
         "/voice/v1/blob",
     )
 
+    # Everything the API owns lives under these prefixes; any other path is a
+    # static web-UI asset (HTML shells, JS chunks — no data) and needs no token.
+    API_PREFIXES = ("/voice", "/connect-auth")
+
     async def dispatch(self, request: Request, call_next):
         s = get_settings()
         path = request.url.path
-        exempt = path.startswith(self.EXEMPT_PREFIXES)
+        exempt = path.startswith(self.EXEMPT_PREFIXES) or not path.startswith(
+            self.API_PREFIXES
+        )
 
         if s.dev_auth_token and not exempt:
             auth = request.headers.get("authorization", "")

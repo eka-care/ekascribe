@@ -1,4 +1,19 @@
-# scribe API
+# scribe API + static web UI (single container)
+
+# Stage 1: build the Next.js static export (apps/web out/). Hosts are relative
+# (same-origin), so no NEXT_PUBLIC_* build args — the bundle works on any domain.
+FROM node:20-slim AS web-build
+WORKDIR /repo
+COPY package.json .npmrc ./
+COPY apps/web/package.json apps/web/package.json
+COPY packages/ui-lib/package.json packages/ui-lib/package.json
+COPY packages/scribe-client-sdk packages/scribe-client-sdk
+RUN npm install --no-audit --no-fund
+COPY packages/ui-lib packages/ui-lib
+COPY apps/web apps/web
+RUN cd apps/web && npm run build
+
+# Stage 2: the api, which also serves the exported bundle (scribe/web_static.py)
 FROM python:3.11-slim
 
 # ffmpeg: pydub/VAD audio chunking; git: echo-sdk installs from git tag
@@ -39,8 +54,9 @@ RUN printf '/app/apps/api/src\n' > /app/.venv/lib/python3.11/site-packages/scrib
 COPY templates ./templates
 COPY scripts ./scripts
 COPY .env.example ./
+COPY --from=web-build /repo/apps/web/out /app/web-static
 
-ENV STORAGE_ROOT=/data/storage LOG_DIR=/data/logs
+ENV STORAGE_ROOT=/data/storage LOG_DIR=/data/logs WEB_DIST_DIR=/app/web-static
 ENV PYTHONPATH=/app/apps/api/src
 EXPOSE 8000
 # Chunk coordination lives in Postgres (audio_chunks claims), so multiple

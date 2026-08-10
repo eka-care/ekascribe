@@ -21,23 +21,27 @@ const nextConfig: NextConfig = {
   experimental: {
     typedRoutes: true,
   },
-  output: 'standalone',
+  // Static export: the bundle in out/ is served by the FastAPI api container
+  // (apps/api web_static.py), which also owns the cache headers the old
+  // headers() block set here. Export doesn't support headers()/rewrites().
+  output: 'export',
+  // The export pipeline has no image-optimizer server; all images are local
+  // /assets/* files, so plain <img> behavior is fine.
+  images: { unoptimized: true },
   transpilePackages: ['@eka-care/medical-records-ui'],
   // StrictMode's dev double-mount fires the AG-UI run POST twice, creating ghost documents
   reactStrictMode: false,
-  // Prevent browser caching - forces fresh content on every load
-  async headers() {
+  // Dev-only API proxy: hosts.ts uses relative URLs (same-origin as the API in
+  // prod), so `next dev` on :3000 forwards API paths to the local API on :8000.
+  // `next build` with output:'export' ignores rewrites; `next dev` applies them.
+  async rewrites() {
     return [
+      { source: '/voice/:path*', destination: 'http://localhost:8000/voice/:path*' },
       {
-        // exclude static files and images from caching to avoid re-rendering of the page by browser on every click
-        source: '/((?!_next/static|_next/image|favicon.ico).*)',
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
-          },
-        ],
+        source: '/connect-auth/:path*',
+        destination: 'http://localhost:8000/connect-auth/:path*',
       },
+      { source: '/healthz', destination: 'http://localhost:8000/healthz' },
     ];
   },
   webpack: (config, { isServer }) => {
@@ -53,7 +57,7 @@ const nextConfig: NextConfig = {
     const platformFamily =
       (process.env.NEXT_PUBLIC_APP_SOURCE ?? 'web') === 'web' ? 'web' : 'electron';
 
-    console.log('[next.config] NEXT_PUBLIC_APP_SOURCE:', process.env.NEXT_PUBLIC_APP_SOURCE, '| platformFamily:', platformFamily, '| NEXT_PUBLIC_API_HOST:', process.env.NEXT_PUBLIC_API_HOST);
+    console.log('[next.config] NEXT_PUBLIC_APP_SOURCE:', process.env.NEXT_PUBLIC_APP_SOURCE, '| platformFamily:', platformFamily);
 
     config.resolve.alias = {
       ...config.resolve.alias,
