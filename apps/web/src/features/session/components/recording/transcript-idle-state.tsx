@@ -33,7 +33,7 @@ function TranscriptIdleState() {
           <div className="flex flex-col gap-2">
             <span className="text-sm font-medium text-[#1A1A1A] hidden sm:flex">Add context</span>
             <span className="text-xs text-[#767676]">
-              Link past sessions or attach relevant files before you record.
+              Add any background details or instructions before you record.
             </span>
           </div>
         </div>

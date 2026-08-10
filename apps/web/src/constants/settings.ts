@@ -40,14 +40,9 @@ export const SUPPORTED_OUTPUT_FORMATS =
 
 export const CONSULTATION_MODES: TPreferenceItem[] = [
   {
-    id: 'consultation',
-    name: 'Consultation',
-    desc: 'Eka Scribe will listen to your conversation and create clinical notes',
-  },
-  {
     id: 'dictation',
     name: 'Dictation',
-    desc: 'Dictate your notes to Eka Scribe and create clinical notes',
+    desc: 'Dictate your notes and create structured notes',
   },
 ];
 

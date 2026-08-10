@@ -13,7 +13,6 @@ import { SessionDocument, type SessionDocumentHandle } from './tabs/session-docu
 import { useSessionView } from '../hooks/use-session-view';
 import { SESSION_PHASE } from '@/constants/enums';
 import type { TSessionTab } from './session-tab-row';
-import type { TPastSessionHistoryData } from '@/constants/types';
 import type { ContextTabContentHandle } from './tabs/context-tab-content';
 
 const EMPTY_TRANSCRIPT: never[] = [];
@@ -27,8 +26,6 @@ interface SessionContentProps {
   autoStreamDocId: string | null;
   onStreamFinished: (tabId: string) => void;
   onStreamDocumentId: (tabId: string, docId: string) => void;
-  linkedSessions: TPastSessionHistoryData[];
-  onRemoveLinkedSession: (txnId: string) => void;
   streamRef: React.RefObject<SessionDocumentHandle | null>;
   documentRef: React.RefObject<SessionDocumentHandle | null>;
   contextRef: React.RefObject<ContextTabContentHandle | null>;
@@ -43,8 +40,6 @@ const SessionContent = ({
   autoStreamDocId,
   onStreamFinished,
   onStreamDocumentId,
-  linkedSessions,
-  onRemoveLinkedSession,
   streamRef,
   documentRef,
   contextRef,
@@ -93,12 +88,7 @@ const SessionContent = ({
       {/* Context tab — conditional mount, unmounts on tab switch */}
       {isContextTab && (
         <div className="flex flex-col flex-1 min-h-0">
-          <ContextTabContent
-            ref={contextRef}
-            sessionId={sessionId}
-            linkedSessions={linkedSessions}
-            onRemoveLinkedSession={onRemoveLinkedSession}
-          />
+          <ContextTabContent ref={contextRef} sessionId={sessionId} />
         </div>
       )}
 

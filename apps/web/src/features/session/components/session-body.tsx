@@ -11,7 +11,6 @@ import { useCapabilities } from '@/platform';
 import type { SessionDocumentHandle } from './tabs/session-document';
 import { TabFooter } from './tabs/tab-footer';
 import {
-  getContextFooterConfig,
   getDocumentFooterConfig,
   getTranscriptFooterConfig,
   getErrorFooterConfig,
@@ -20,12 +19,9 @@ import {
 import type { TabFooterConfig } from '../config/tab-footer-config';
 import { useErrorHandlers } from '../hooks/use-error-handlers';
 import { useSessionLifecycle } from '../hooks/use-session-lifecycle';
-import { useSessionContext } from '../hooks/context/use-session-context';
 import { useContextEditor } from '../hooks/context/use-context-editor';
 import { useSessionTabs } from '../hooks/use-session-tabs';
 import { useSessionView } from '../hooks/use-session-view';
-import LinkPastSessionsDialog from './dialogs/link-past-sessions-dialog';
-import type { TPastSessionHistoryData } from '@/constants/types';
 import { copyMarkdownToClipboard } from '../utils/copy-output-utils';
 import { toast } from 'sonner';
 import { ContextTabContentHandle } from './tabs/context-tab-content';
@@ -50,9 +46,6 @@ const SessionBody = ({ sessionId, onAddTranscript, isLimitExceeded }: SessionBod
   );
   const transcriptDocs = useVoice2RxStore(
     (s) => s.sessionV2ContentById[sessionId]?.transcript ?? EMPTY_TRANSCRIPT
-  );
-  const patientOid = useVoice2RxStore(
-    (s) => s.sessionV2ContentById[sessionId]?.patient_details?.oid
   );
   const selectedPatientDetails = useVoice2RxStore(
     (s) => s.sessionV2ContentById[sessionId]?.patient_details ?? null
@@ -98,40 +91,6 @@ const SessionBody = ({ sessionId, onAddTranscript, isLimitExceeded }: SessionBod
   const { handleTryAgain, handleDiscard, handleContinueRecording } = useErrorHandlers(sessionId);
   const { endRecording } = useSessionLifecycle();
 
-  const {
-    linkedSessions,
-    isPatientSelected,
-    fetchPatientSessions,
-    handleAddLinkedSessions,
-    handleRemoveLinkedSession,
-  } = useSessionContext({ sessionId, patientOid });
-
-  const [showLinkDialog, setShowLinkDialog] = useState(false);
-  const [patientSessions, setPatientSessions] = useState<TPastSessionHistoryData[]>([]);
-  const [loadingPatientSessions, setLoadingPatientSessions] = useState(false);
-
-  // Opens link dialog with fetched patient sessions
-  const handleOpenLinkDialog = useCallback(async () => {
-    if (!patientOid) return;
-    setShowLinkDialog(true);
-    setLoadingPatientSessions(true);
-    try {
-      const sessions = await fetchPatientSessions();
-      setPatientSessions(sessions);
-    } finally {
-      setLoadingPatientSessions(false);
-    }
-  }, [patientOid, fetchPatientSessions]);
-
-  // Links selected sessions then closes the dialog
-  const handleAddAndClose = useCallback(
-    async (sessions: TPastSessionHistoryData[]) => {
-      setShowLinkDialog(false);
-      await handleAddLinkedSessions(sessions);
-    },
-    [handleAddLinkedSessions]
-  );
-
   const isContextTab = activeTab === 'context';
   const isTranscriptTab = activeTab === 'transcript';
   const isStreamTab = activeTab.startsWith('stream:');
@@ -152,9 +111,6 @@ const SessionBody = ({ sessionId, onAddTranscript, isLimitExceeded }: SessionBod
   const handleTabChange = useCallback(
     async (tabId: string) => {
       clearAutoStreamDocId();
-      if (isContextTab) {
-        setShowLinkDialog(false);
-      }
       if (isStreamTab && finishedStreamTabs.has(activeTab)) {
         streamRef.current?.save();
       } else if (activeDoc) {
@@ -197,7 +153,6 @@ const SessionBody = ({ sessionId, onAddTranscript, isLimitExceeded }: SessionBod
   const renderAddContent = (close: () => void) => (
     <AddOrConvertPopover
       sessionId={sessionId}
-      patientOid={patientOid}
       close={close}
       addPendingTab={addPendingTab}
       removePendingTab={removePendingTab}
@@ -222,20 +177,6 @@ const SessionBody = ({ sessionId, onAddTranscript, isLimitExceeded }: SessionBod
       showGenerateTranscriptOption={showGenerateTranscript}
     />
   );
-
-  // Dialog overlays rendered above the context footer
-  const contextOverlay = showLinkDialog ? (
-    <div className="absolute bottom-full left-2 mb-2 z-10">
-      <LinkPastSessionsDialog
-        patientName={selectedPatientDetails?.username || ''}
-        sessions={patientSessions}
-        loading={loadingPatientSessions}
-        onClose={() => setShowLinkDialog(false)}
-        onAddContext={handleAddAndClose}
-        alreadyLinkedIds={linkedSessions.map((s) => s.txn_id)}
-      />
-    </div>
-  ) : undefined;
 
   // Builds footer config based on active tab type and session phase
   const activeDocStatus = isTranscriptTab ? activeTranscriptDoc?.status : activeDoc?.status;
@@ -275,12 +216,7 @@ const SessionBody = ({ sessionId, onAddTranscript, isLimitExceeded }: SessionBod
       }
 
       case 'context':
-        return getContextFooterConfig({
-          onLinkPastSessions: handleOpenLinkDialog,
-          isPatientSelected,
-          saveStatus,
-          overlay: contextOverlay,
-        });
+        return null;
 
       case 'transcript':
         return getTranscriptFooterConfig({
@@ -349,8 +285,6 @@ const SessionBody = ({ sessionId, onAddTranscript, isLimitExceeded }: SessionBod
           autoStreamDocId={autoStreamDocId}
           onStreamFinished={handleStreamFinished}
           onStreamDocumentId={handleStreamDocumentId}
-          linkedSessions={linkedSessions}
-          onRemoveLinkedSession={handleRemoveLinkedSession}
           streamRef={streamRef}
           documentRef={documentRef}
           contextRef={contextRef}

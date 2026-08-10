@@ -617,11 +617,25 @@ function buildDocumentHtml(
 
   // Built-in neutral branding used when the deployment hasn't configured
   // its own header/footer images.
+  const printedOn = new Date().toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
   const defaultHeaderHtml = `<div class="print-header-frame print-brand-header">
-      <svg width="26" height="26" viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="scribe-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#215FFF"/><stop offset="1" stop-color="#4535B0"/></linearGradient></defs><rect width="28" height="28" rx="7" fill="url(#scribe-g)"/><g stroke="#fff" stroke-width="2.2" stroke-linecap="round"><line x1="8" y1="11" x2="8" y2="17"/><line x1="12" y1="8" x2="12" y2="20"/><line x1="16" y1="10" x2="16" y2="18"/><line x1="20" y1="12" x2="20" y2="16"/></g></svg>
-      <span class="print-brand-name">scribe</span>
+      <div class="print-brand-left">
+        <svg width="30" height="30" viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="scribe-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#215FFF"/><stop offset="1" stop-color="#4535B0"/></linearGradient></defs><rect width="28" height="28" rx="7" fill="url(#scribe-g)"/><g stroke="#fff" stroke-width="2.2" stroke-linecap="round"><line x1="8" y1="11" x2="8" y2="17"/><line x1="12" y1="8" x2="12" y2="20"/><line x1="16" y1="10" x2="16" y2="18"/><line x1="20" y1="12" x2="20" y2="16"/></g></svg>
+        <div class="print-brand-text">
+          <span class="print-brand-name">scribe</span>
+          <span class="print-brand-tagline">Session notes</span>
+        </div>
+      </div>
+      <span class="print-brand-date">${printedOn}</span>
     </div>`;
-  const defaultFooterHtml = `<div class="print-footer-frame print-brand-footer">Generated with scribe</div>`;
+  const defaultFooterHtml = `<div class="print-footer-frame print-brand-footer">
+      <span>Generated with scribe</span>
+      <span>${printedOn}</span>
+    </div>`;
 
   const headerImgTag = headerImage
     ? `<div class="print-header-frame"><img class="print-hf-img print-header-img" src="${headerImage}" /></div>`
@@ -642,6 +656,58 @@ function buildDocumentHtml(
       background: white;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
+    }
+    .print-brand-header {
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 28px;
+      box-sizing: border-box;
+      background: white;
+      border-top: 3px solid #215FFF;
+      border-bottom: 1px solid #E5E7EB;
+    }
+    .print-brand-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .print-brand-text {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    .print-brand-name {
+      font-size: 19px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: #1A1A1A;
+      line-height: 1.15;
+    }
+    .print-brand-tagline {
+      font-size: 9px;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #9CA3AF;
+      line-height: 1.2;
+    }
+    .print-brand-date {
+      font-size: 11px;
+      color: #6B7280;
+    }
+    .print-brand-footer {
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 28px;
+      box-sizing: border-box;
+      border-top: 1px solid #E5E7EB;
+      font-size: 9.5px;
+      color: #9CA3AF;
+      background: white;
     }
     .print-patient-line {
       display: flex;
@@ -831,32 +897,6 @@ function buildDocumentHtml(
   <style>
     ${sharedStyles}
     ${compactStyles}
-    .print-brand-header {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 14px 24px 10px;
-      border-bottom: 1px solid #E5E7EB;
-      box-sizing: border-box;
-      background: white;
-    }
-    .print-brand-name {
-      font-size: 20px;
-      font-weight: 700;
-      letter-spacing: -0.02em;
-      color: #1A1A1A;
-    }
-    .print-brand-footer {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding-top: 8px;
-      border-top: 1px solid #E5E7EB;
-      box-sizing: border-box;
-      font-size: 10px;
-      color: #9CA3AF;
-      background: white;
-    }
     .print-header-frame {
       width: ${headerWidth};
       max-width: 100%;

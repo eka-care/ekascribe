@@ -1,7 +1,6 @@
 import { type ReactNode } from 'react';
 import {
   Copy,
-  Layers,
   Play,
   Printer,
   RotateCcwIcon,
@@ -40,34 +39,6 @@ export type TabFooterConfig = {
 };
 
 // --- Config builders ---
-
-export function getContextFooterConfig({
-  onLinkPastSessions,
-  isPatientSelected,
-  saveStatus,
-  overlay,
-}: {
-  onLinkPastSessions: () => void;
-  isPatientSelected: boolean;
-  saveStatus: SaveStatusState;
-  overlay?: ReactNode;
-}): TabFooterConfig {
-  return {
-    saveStatus,
-    buttons: [
-      {
-        key: 'link',
-        label: 'Link past sessions',
-        icon: <Layers className="w-4 h-4 text-primary" />,
-        onClick: onLinkPastSessions,
-        disabled: !isPatientSelected,
-        disabledTooltip: 'Add a patient to this session first',
-        buttonStyle: 'link',
-      },
-    ],
-    overlay,
-  };
-}
 
 export function getDocumentFooterConfig({
   onCopy,

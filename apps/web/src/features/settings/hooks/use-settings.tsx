@@ -89,7 +89,7 @@ export const useSettings = () => {
       input_languages: [defaultLanguage],
       output_language: 'en-IN',
       output_format_template: [SUPPORTED_OUTPUT_FORMATS[0]],
-      consultation_mode: CONSULTATION_MODES[0].id,
+      consultation_mode: 'dictation',
       use_audio_cues: false,
       auto_download: false,
       model_type: MODEL_TYPE.PRO,
@@ -180,8 +180,7 @@ export const useSettings = () => {
             input_languages: validatedLanguages,
             output_language: '',
             output_format_template: validatedOutputFormats,
-            consultation_mode:
-              previousSelectedPreferences?.consultation_mode ?? CONSULTATION_MODES[0].id,
+            consultation_mode: 'dictation',
             use_audio_cues: previousSelectedPreferences?.use_audio_cues ?? false,
             auto_download: previousSelectedPreferences?.auto_download ?? false,
             model_type: previousSelectedPreferences?.model_type ?? MODEL_TYPE.PRO,

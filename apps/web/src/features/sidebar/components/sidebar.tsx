@@ -286,7 +286,7 @@ const CustomSidebar = () => {
             </button>
           </div>
         ) : (
-          <div className="flex items-center justify-between px-2 pt-2 pb-0">
+          <div className="flex items-center justify-between px-2 py-2">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#215FFF] to-[#4535B0] flex items-center justify-center shadow-sm shrink-0">
                 <AudioLines className="w-5 h-5 text-white" strokeWidth={2.2} />
@@ -316,7 +316,7 @@ const CustomSidebar = () => {
       <SidebarContent className="overflow-y-auto">
         {!isCollapsed ? (
           <div className="flex flex-col h-full">
-            <div className="px-3">
+            <div className="px-3 pb-2">
               <Button
                 variant="outline"
                 onClick={handleNewSessionClick}
@@ -466,7 +466,7 @@ const CustomSidebar = () => {
           {/* Bottom tab bar */}
           <div
             className={`flex items-start px-2 pb-3 ${
-              isCollapsed ? 'flex-col gap-1 border-t border-[#D1D1D1] pt-2' : 'justify-between pt-4'
+              isCollapsed ? 'flex-col gap-1 border-t border-[#D1D1D1] pt-2' : 'gap-2 pt-4'
             }`}
           >
             {/* Profile */}

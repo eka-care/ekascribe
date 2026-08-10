@@ -62,28 +62,28 @@ export function EditPreferencesDialog({
     model_training_consent: { value: true, editable: false },
   });
 
-  // On open, seed the form from this session's resolved config (session v2 content). The
-  // displayed fields come from session_config; non-displayed fields stay from the user's defaults.
+  // Seed form on dialog open — reads store snapshot to avoid re-seeding mid-edit.
   useEffect(() => {
     if (!open) return;
 
     const sessionConfig =
       useVoice2RxStore.getState().sessionV2ContentById[sessionID]?.session_config;
+    const userPrefs = useVoice2RxStore.getState().userLevelPreferences;
 
     // Brand-new session with no saved config yet — seed with the user's defaults.
     if (!sessionConfig) {
-      setLocalPreferences(userLevelPreferences);
+      setLocalPreferences(userPrefs);
       return;
     }
 
     setLocalPreferences({
-      ...userLevelPreferences,
+      ...userPrefs,
       input_languages: sessionConfig.input_languages,
       output_format_template: sessionConfig.output_format_template,
-      model_type: (sessionConfig.model_type as MODEL_TYPE) ?? userLevelPreferences.model_type,
+      model_type: (sessionConfig.model_type as MODEL_TYPE) ?? userPrefs.model_type,
       auto_detect_language: sessionConfig.input_languages.some((l) => l.id === 'auto_detect'),
     });
-  }, [open, sessionID, userLevelPreferences]);
+  }, [open, sessionID]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
