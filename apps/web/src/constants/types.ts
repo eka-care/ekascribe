@@ -148,8 +148,6 @@ export type TPastSessionHistory = TPastSessionHistoryData[];
 
 export type TPastSessionHistoryData = {
   created_at: string;
-  /** Session title from additional_data, lifted by the history API. */
-  title?: string;
   b_id: string;
   user_status: string;
   processing_status: string;
