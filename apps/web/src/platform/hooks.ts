@@ -15,7 +15,6 @@ import type {
   IPrinter,
   IStorage,
   ISystem,
-  IWhatsApp,
   PlatformImplementations,
 } from './contracts';
 import { getFlavour } from './registry';
@@ -65,11 +64,6 @@ export function usePrinter(): IPrinter | undefined {
 /** OS notifications. `undefined` if the family doesn't register it. */
 export function useNotifier(): INotifier | undefined {
   return usePlatformContext().platform.notifier;
-}
-
-/** WhatsApp linked-device messaging. `undefined` unless a host bridge registers it (desktop). */
-export function useWhatsApp(): IWhatsApp | undefined {
-  return usePlatformContext().platform.whatsapp;
 }
 
 /** Audio capture (mic permission, device listing, visualizer stream). Always registered. */

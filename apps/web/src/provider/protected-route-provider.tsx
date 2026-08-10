@@ -8,11 +8,8 @@ import {
   handleUserClearStoreAfterLogout,
   handleUserLogout,
 } from '@/utils/user-auth-logout-utility-methods';
-import { ONBOARDING_STEP } from '@/constants/enums';
-import { FEATURES } from '@/config/features';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import useGetWhoAmI from '@/shared-hooks/use-get-who-am-i';
-import useOnboardingManager from '@/features/onboarding/hooks/use-onboarding-manager';
 import UIHydrationComponent from '@/shared-components/ui-hydration-component';
 import OfflineScreen from '@/shared-components/offline-screen';
 import useOnlineStatus from '@/shared-hooks/use-online-status';
@@ -25,28 +22,16 @@ type Props = {
   children: React.ReactNode;
 };
 
-// Routes that render without authentication — no whoami/onboarding fetch or gating.
+// Routes that render without authentication — no whoami fetch or gating.
 const PUBLIC_ROUTES = ['/ekascribe', '/mic-permission'];
 
 const isPublicRoute = (pathname: string): boolean =>
   PUBLIC_ROUTES.some((route) => pathname === route || pathname.startsWith(route + '/'));
 
-const isAllowedRoute = (pathname: string, step: ONBOARDING_STEP | null): boolean => {
-  // The /onboarding page owns its own gate — let it decide internally.
-  if (pathname.startsWith('/onboarding')) return true;
-  // Onboarding disabled for on-prem (plan decision #8): no route requires it,
-  // so never force the onboarding redirect (which would loop against the
-  // onboarding page's own "feature off → /new-session" gate).
-  if (!FEATURES.onboarding) return true;
-  // First-time users (no step) must enter onboarding before the main app.
-  if (!step) return false;
-  return true;
-};
-
 const ProtectedRouteProvider = ({ children }: Props) => {
   const pathname = usePathname();
 
-  // Public routes skip auth entirely — the guard (and its whoami/onboarding hooks) never mounts.
+  // Public routes skip auth entirely — the guard (and its whoami hook) never mounts.
   if (isPublicRoute(pathname)) return <>{children}</>;
 
   return <ProtectedRouteGuard>{children}</ProtectedRouteGuard>;
@@ -62,17 +47,9 @@ const ProtectedRouteGuard = ({ children }: Props) => {
     isError: isWhoAmIError,
     refetch: refetchWhoAmI,
   } = useGetWhoAmI();
-  const { isLoading: isLoadingOnboarding } = useOnboardingManager();
   const isOnline = useOnlineStatus();
 
-  // Read onboarding_state from store (updated synchronously by components)
-  const onboarding_step = useVoice2RxStore((state) => state.onboarding_state);
   const loggedInUserUuid = loggedInUserData?.uuid;
-
-  const isRouteAllowed = useMemo(
-    () => isAllowedRoute(pathname, onboarding_step),
-    [pathname, onboarding_step]
-  );
 
   const onUserLogout = useCallback(async () => {
     await handleUserLogout();
@@ -110,17 +87,11 @@ const ProtectedRouteGuard = ({ children }: Props) => {
     }
   }, [loggedInUserUuid, isLoadingWhoAmI, isWhoAmIError, isOnline]);
 
-  // Effect 2: the single redirect authority. Non-onboarded users go to onboarding; onboarded
-  // users landing on '/' resume their current session, else open the latest, else start fresh.
+  // Effect 2: the single redirect authority. Users landing on '/' resume their
+  // current session, else open the latest, else start fresh.
   useEffect(() => {
-    if (isLoadingWhoAmI || isLoadingOnboarding) return;
+    if (isLoadingWhoAmI) return;
     if (!loggedInUserUuid) return;
-
-    if (!isRouteAllowed) {
-      const queryString = new URLSearchParams(window.location.search).toString();
-      router.replace((queryString ? `/onboarding?${queryString}` : '/onboarding') as any);
-      return;
-    }
 
     if (pathname === '/' && !entryResolvedRef.current) {
       entryResolvedRef.current = true;
@@ -138,14 +109,14 @@ const ProtectedRouteGuard = ({ children }: Props) => {
         }
       })();
     }
-  }, [loggedInUserUuid, isRouteAllowed, pathname, router, isLoadingWhoAmI, isLoadingOnboarding]);
+  }, [loggedInUserUuid, pathname, router, isLoadingWhoAmI]);
 
   if (!isLoadingWhoAmI && !loggedInUserUuid && (isWhoAmIError || !isOnline)) {
     return <OfflineScreen onRetry={refetchWhoAmI} />;
   }
 
   // Store hydration is already guaranteed by ScreenContainer; wait only on auth data here.
-  const shouldShowLoading = isLoadingWhoAmI || isLoadingOnboarding;
+  const shouldShowLoading = isLoadingWhoAmI;
 
   if (shouldShowLoading) {
     return <UIHydrationComponent />;

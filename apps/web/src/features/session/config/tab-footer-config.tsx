@@ -7,7 +7,6 @@ import {
   Square,
   Trash2,
 } from 'lucide-react';
-import WhatsAppIcon from '@/shared-components/whatsapp-icon';
 
 // --- Types ---
 
@@ -39,24 +38,15 @@ export type TabFooterConfig = {
 export function getDocumentFooterConfig({
   onCopy,
   onPrint,
-  onSendWhatsApp,
   saveStatus,
   copyDisabled,
   printDisabled,
-  whatsappDisabled,
-  whatsappTooltip,
-  whatsappDisabledTooltip,
 }: {
   onCopy: () => void;
   onPrint: () => void;
-  /** When provided (WhatsApp capability active), adds a "Share" button. */
-  onSendWhatsApp?: () => void;
   saveStatus: SaveStatusState;
   copyDisabled?: boolean;
   printDisabled?: boolean;
-  whatsappDisabled?: boolean;
-  whatsappTooltip?: string;
-  whatsappDisabledTooltip?: string;
 }): TabFooterConfig {
   return {
     saveStatus,
@@ -78,20 +68,6 @@ export function getDocumentFooterConfig({
         disabled: printDisabled,
         className: 'text-primary bg-white border border-[#D1D1D1] hover:bg-[#F5F5F5]',
       },
-      ...(onSendWhatsApp
-        ? [
-            {
-              key: 'whatsapp',
-              label: 'Share',
-              icon: <WhatsAppIcon className="w-4 h-4 text-[#25D366]" />,
-              onClick: onSendWhatsApp,
-              disabled: whatsappDisabled,
-              tooltip: whatsappTooltip,
-              disabledTooltip: whatsappDisabledTooltip,
-              className: 'text-primary bg-white border border-[#D1D1D1] hover:bg-[#F5F5F5]',
-            } as FooterButton,
-          ]
-        : []),
     ],
   };
 }

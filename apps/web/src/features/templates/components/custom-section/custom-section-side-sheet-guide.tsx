@@ -1,9 +1,9 @@
 import { Card, CardContent } from '@ui/src';
 
 const templateCreationTips = [
-  'Start with a brief consultation overview.',
-  'Use markdown headings (## History, ## Plan) to define sections.',
-  'List key items to capture (eg. symptoms, medications, advice).',
+  'Start with a brief session overview.',
+  'Use markdown headings (## Summary, ## Action Items) to define sections.',
+  'List key items to capture (eg. key points, decisions, follow-ups).',
   'Specify phrasing preferences and what to avoid.',
 ];
 
@@ -22,7 +22,7 @@ const CustomSectionSideSheetGuide = () => {
         <div className="space-y-1.5">
           <p className="text-sm font-semibold">How Templates Work</p>
           <p className="text-xs sm:text-sm text-muted-foreground">
-            EkaScribe will use these instructions as a guide whenever you record a session with this
+            Varta will use these instructions as a guide whenever you record a session with this
             template. Describe what you want to see in the final note, rather than filling fixed
             fields.
           </p>

@@ -2,7 +2,6 @@ import type {
   IDesktopSettings,
   NotificationPreferences,
   ShortcutPreferences,
-  WhatsAppAutoSendPreferences,
 } from '../contracts/desktop-settings';
 
 const DEFAULT_NOTIFICATION_PREFS: NotificationPreferences = {
@@ -14,12 +13,6 @@ const DEFAULT_NOTIFICATION_PREFS: NotificationPreferences = {
 const DEFAULT_SHORTCUT_PREFS: ShortcutPreferences = {
   enabled: true,
   shortcut: 'Ctrl + S',
-};
-
-const DEFAULT_WA_PREFS: WhatsAppAutoSendPreferences = {
-  send_via_linked_device: true,
-  auto_send_rate_limit: 1,
-  allow_partner_emr_auto_send: true,
 };
 
 export const desktopSettingsElectron: IDesktopSettings = {
@@ -51,24 +44,4 @@ export const desktopSettingsElectron: IDesktopSettings = {
     return window.desktopSettingsApi.updateShortcutPreferences(prefs);
   },
 
-  async getWhatsAppAutoSendPrefs() {
-    if (typeof window.desktopSettingsApi?.getWhatsAppAutoSendPrefs !== 'function') {
-      return DEFAULT_WA_PREFS;
-    }
-    return window.desktopSettingsApi.getWhatsAppAutoSendPrefs();
-  },
-
-  async updateWhatsAppAutoSendPrefs(prefs) {
-    if (typeof window.desktopSettingsApi?.updateWhatsAppAutoSendPrefs !== 'function') {
-      return { ...DEFAULT_WA_PREFS, ...prefs };
-    }
-    return window.desktopSettingsApi.updateWhatsAppAutoSendPrefs(prefs);
-  },
-
-  onWhatsAppPrefsUpdated(callback) {
-    if (typeof window.desktopSettingsApi?.onWhatsAppPrefsUpdated !== 'function') {
-      return () => {};
-    }
-    return window.desktopSettingsApi.onWhatsAppPrefsUpdated(callback);
-  },
 };

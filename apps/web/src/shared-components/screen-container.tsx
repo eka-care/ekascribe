@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
-import Image from 'next/image';
 import { SidebarProvider, SidebarTrigger } from '@ui/src';
 import StickyBanner from './sticky-banner';
 import UIHydrationComponent from '@/shared-components/ui-hydration-component';
@@ -19,7 +18,7 @@ import { MIXPANEL_EVENT_NAME } from '@/constants/enums';
 
 initEkaScribe(EKA_SCRIBE_DEFAULT_CONFIG);
 
-const noSidebarRoutes = ['/ekascribe', '/onboarding', '/mic-permission'];
+const noSidebarRoutes = ['/ekascribe', '/mic-permission'];
 
 const ScreenContainer = ({ children }: { children: React.ReactNode }) => {
   useBeforeUnload();
@@ -69,7 +68,15 @@ const ScreenContainer = ({ children }: { children: React.ReactNode }) => {
     >
       <header className="fixed top-0 left-0 right-0 z-50 h-14 flex items-center space-x-1 px-2 bg-background border-b border-border md:hidden">
         <SidebarTrigger className="cursor-pointer" />
-        <Image src="/assets/eka-logo-desktop.svg" alt="logo" width={90} height={85} />
+        <div className="flex items-center gap-2 pl-1">
+          <img src="/assets/logo-mark.png" alt="varta" className="w-8 h-8" />
+          <div className="flex flex-col justify-center">
+            <span className="text-lg font-bold tracking-tight text-[#1A1A1A] leading-5">varta</span>
+            <span className="text-[9px] italic font-medium tracking-wide text-[#767676] leading-3">
+              powered by @eka.care
+            </span>
+          </div>
+        </div>
       </header>
 
       <div className="flex w-full h-full pt-14 md:pt-0">

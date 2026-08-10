@@ -44,7 +44,7 @@ const MicPermissionScreen = () => {
           >
             <Mic size={13} strokeWidth={2.4} />
           </span>
-          EkaScribe
+          Varta
           <span className="w-1.5 h-1.5 rounded-full bg-[#0B8A5A] ml-0.5" />
           <span className="text-[#5A6075] font-normal">Microphone setup</span>
         </div>
@@ -64,8 +64,8 @@ const MicPermissionScreen = () => {
         {/* Lede */}
         <p className="text-[17px] max-[680px]:text-[15.5px] leading-[1.55] text-[#5A6075] mb-10 max-w-[440px] text-pretty">
           Your browser is showing a permission popup in the top-left corner. Click{' '}
-          <strong className="font-semibold">Allow</strong> to let EkaScribe listen during
-          consultations.
+          <strong className="font-semibold">Allow</strong> to let Varta listen during
+          sessions.
         </p>
 
         {/* Hint pill */}
@@ -89,7 +89,7 @@ const MicPermissionScreen = () => {
             rel="noopener noreferrer"
             className="text-[#2F5BFF] font-medium no-underline inline-flex items-center gap-[5px] hover:text-[#1E46E0] group"
           >
-            Explore EkaScribe
+            Explore Varta
             <ArrowUpRight
               size={11}
               strokeWidth={2.2}

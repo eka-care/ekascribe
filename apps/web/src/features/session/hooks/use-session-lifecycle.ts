@@ -75,7 +75,7 @@ export function useSessionLifecycle() {
             input_languages: userLevelPreferences.input_languages,
             output_format_template: userLevelPreferences.output_format_template,
             consultation_mode: 'dictation',
-            model_type: userLevelPreferences.model_type,
+            model_type: 'pro',
           };
 
           // Initialize content and recording ID early so the session screen renders
@@ -102,7 +102,7 @@ export function useSessionLifecycle() {
             _flavour: getFlavour(),
             input_languages: userLevelPreferences.input_languages,
             output_format_template: userLevelPreferences.output_format_template,
-            model_type: userLevelPreferences.model_type,
+            model_type: 'pro',
             consultation_mode: 'dictation',
           };
 
@@ -113,7 +113,7 @@ export function useSessionLifecycle() {
                   session_id: sessionId,
                   templates: outputTemplates,
                   language_hint: inputLanguage,
-                  model: userLevelPreferences.model_type,
+                  model: 'pro',
                   transcript_language: userLevelPreferences.output_language || 'en-IN',
                   upload_type,
                   communication_protocol: 'http',

@@ -20,8 +20,8 @@ const geistSans = { variable: GeistSans.variable };
 const geistMono = { variable: GeistMono.variable };
 
 export const metadata: Metadata = {
-  title: 'ekascribe.ai',
-  description: 'ekascribe.ai - AI-powered voice transcription for healthcare',
+  title: 'varta',
+  description: 'Varta - AI-powered voice transcription and note taking',
   other: {
     'apple-itunes-app': 'app-id=6756741683',
   },

@@ -11,7 +11,6 @@ import type { IStorage } from './storage';
 import type { INotifier } from './notifier';
 import type { IPrinter } from './printer';
 import type { ISystem } from './system';
-import type { IWhatsApp } from './whatsapp';
 
 /**
  * The full capability map. A platform implementation family provides a subset of these;
@@ -34,7 +33,6 @@ export interface Platform {
   printer: IPrinter;
   storage: IStorage;
   system: ISystem;
-  whatsapp: IWhatsApp;
 }
 
 /**
@@ -61,12 +59,4 @@ export type {
   IDesktopSettings,
   NotificationPreferences,
   ShortcutPreferences,
-  WhatsAppAutoSendPreferences,
 } from './desktop-settings';
-export type {
-  IWhatsApp,
-  WhatsAppStatus,
-  WhatsAppStatusInfo,
-  SendWhatsAppDocumentPayload,
-  SendWhatsAppDocumentResult,
-} from './whatsapp';

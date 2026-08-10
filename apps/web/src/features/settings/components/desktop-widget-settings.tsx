@@ -1,12 +1,11 @@
 'use client';
 
 import { Card, CardContent, CardHeader, Label, Switch } from '@ui/src';
-import { AlertTriangle, ArrowRight, MessageSquare, MonitorCog } from 'lucide-react';
+import { MonitorCog } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import PreferenceCard from '@/features/settings/components/preference-card';
 import SingleSelectInput from '@/shared-components/input/single-select-input';
-import WhatsAppIcon from '@/shared-components/whatsapp-icon';
-import { useDesktopSettings, useWhatsApp } from '@/platform';
+import { useDesktopSettings } from '@/platform';
 
 export type NotificationPrefs = {
   joinVideoConferencingAndStartTranscribing: boolean;
@@ -112,21 +111,8 @@ const WIDGET_ROWS: {
   },
 ];
 
-type WhatsAppAutoSendPrefs = {
-  send_via_linked_device: boolean;
-  auto_send_rate_limit: number;
-  allow_partner_emr_auto_send: boolean;
-};
-
-const DEFAULT_WHATSAPP_PREFS: WhatsAppAutoSendPrefs = {
-  send_via_linked_device: true,
-  auto_send_rate_limit: 1,
-  allow_partner_emr_auto_send: true,
-};
-
 export function useDesktopWidgetSettings(onClose: () => void) {
   const desktopSettings = useDesktopSettings();
-  const whatsapp = useWhatsApp();
 
   const [platform] = useState<Platform>(() => detectPlatform());
   const defaultPreset = getDefaultPreset(platform);
@@ -141,8 +127,6 @@ export function useDesktopWidgetSettings(onClose: () => void) {
   const [savedShortcutEnabled, setSavedShortcutEnabled] = useState(true);
   const [savedShortcut, setSavedShortcut] = useState(defaultPreset);
   const [isSavingShortcut, setIsSavingShortcut] = useState(false);
-  const [whatsAppPrefs, setWhatsAppPrefs] = useState<WhatsAppAutoSendPrefs>(DEFAULT_WHATSAPP_PREFS);
-  const [whatsAppStatus, setWhatsAppStatus] = useState<'connected' | 'connecting' | 'disconnected'>('disconnected');
   const isMountedRef = useRef(true);
 
   useEffect(() => {
@@ -150,19 +134,15 @@ export function useDesktopWidgetSettings(onClose: () => void) {
     const load = async () => {
       try {
         if (!desktopSettings) return;
-        const [loadedPrefs, loadedShortcut, loadedWhatsApp, waStatus] = await Promise.all([
+        const [loadedPrefs, loadedShortcut] = await Promise.all([
           desktopSettings.getNotificationPreferences(),
           desktopSettings.getShortcutPreferences().catch((error: unknown) => {
             console.error('[Settings] failed to load shortcut preferences', error);
             return null;
           }),
-          desktopSettings.getWhatsAppAutoSendPrefs().catch(() => null),
-          whatsapp?.getStatus().catch(() => null),
         ]);
         if (!isMountedRef.current) return;
         if (loadedPrefs) setPrefs(loadedPrefs);
-        if (loadedWhatsApp) setWhatsAppPrefs(loadedWhatsApp);
-        if (waStatus?.status) setWhatsAppStatus(waStatus.status as 'connected' | 'connecting' | 'disconnected');
         if (loadedShortcut) {
           const combo =
             typeof loadedShortcut.shortcut === 'string' &&
@@ -229,48 +209,6 @@ export function useDesktopWidgetSettings(onClose: () => void) {
         });
       return optimistic;
     });
-  }, [desktopSettings]);
-
-  useEffect(() => {
-    if (!desktopSettings) return;
-    const unsub = desktopSettings.onWhatsAppPrefsUpdated((prefs: WhatsAppAutoSendPrefs) => {
-      if (isMountedRef.current) setWhatsAppPrefs(prefs);
-    });
-    return () => unsub?.();
-  }, [desktopSettings]);
-
-  useEffect(() => {
-    if (!whatsapp) return;
-    const unsub = whatsapp.onStatusChange?.((status: string) => {
-      if (!isMountedRef.current) return;
-      setWhatsAppStatus(status as 'connected' | 'connecting' | 'disconnected');
-      if (status === 'disconnected') {
-        const cleared = { send_via_linked_device: false, allow_partner_emr_auto_send: false };
-        setWhatsAppPrefs((prev) => ({ ...prev, ...cleared }));
-        desktopSettings?.updateWhatsAppAutoSendPrefs(cleared)?.catch(() => {});
-      }
-      if (status === 'connected') {
-        const defaults = { send_via_linked_device: true, allow_partner_emr_auto_send: true };
-        setWhatsAppPrefs((prev) => ({ ...prev, ...defaults }));
-        desktopSettings?.updateWhatsAppAutoSendPrefs(defaults)?.catch(() => {});
-      }
-    });
-    return () => unsub?.();
-  }, [whatsapp, desktopSettings]);
-
-  const handleWhatsAppPrefChange = useCallback((partial: Partial<WhatsAppAutoSendPrefs>) => {
-    let snapshot: WhatsAppAutoSendPrefs | undefined;
-    setWhatsAppPrefs((prev) => {
-      snapshot = prev;
-      return { ...prev, ...partial };
-    });
-    desktopSettings?.updateWhatsAppAutoSendPrefs(partial)
-      ?.then((resolved: WhatsAppAutoSendPrefs) => {
-        if (isMountedRef.current) setWhatsAppPrefs(resolved);
-      })
-      ?.catch(() => {
-        if (isMountedRef.current && snapshot) setWhatsAppPrefs(snapshot);
-      });
   }, [desktopSettings]);
 
   const handleEnableHotkey = () => setHotkeyEnabled((prev) => !prev);
@@ -345,9 +283,6 @@ export function useDesktopWidgetSettings(onClose: () => void) {
       onResetToDefault: handleResetToDefault,
       prefs,
       onTogglePref: togglePref,
-      whatsAppPrefs,
-      whatsAppStatus,
-      onWhatsAppPrefChange: handleWhatsAppPrefChange,
     },
     isSavingShortcut,
     canSaveShortcut,
@@ -371,10 +306,6 @@ type DesktopWidgetSettingsProps = {
   onResetToDefault: () => void;
   prefs: NotificationPrefs;
   onTogglePref: (key: NotificationPrefKey) => void;
-  whatsAppPrefs: WhatsAppAutoSendPrefs;
-  whatsAppStatus: 'connected' | 'connecting' | 'disconnected';
-  onWhatsAppPrefChange: (partial: Partial<WhatsAppAutoSendPrefs>) => void;
-  onConnectWhatsApp?: () => void;
 };
 
 const DesktopWidgetSettings = ({
@@ -392,121 +323,11 @@ const DesktopWidgetSettings = ({
   onResetToDefault,
   prefs,
   onTogglePref,
-  whatsAppPrefs,
-  whatsAppStatus,
-  onWhatsAppPrefChange,
-  onConnectWhatsApp,
 }: DesktopWidgetSettingsProps) => {
   const [isCustomKeyHovered, setIsCustomKeyHovered] = useState(false);
-  const [rateLimitDraft, setRateLimitDraft] = useState<string>(
-    String(whatsAppPrefs.auto_send_rate_limit),
-  );
-
-  useEffect(() => {
-    const parsed = parseInt(rateLimitDraft, 10);
-    if (parsed !== whatsAppPrefs.auto_send_rate_limit) {
-      setRateLimitDraft(String(whatsAppPrefs.auto_send_rate_limit));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [whatsAppPrefs.auto_send_rate_limit]);
-
-  const commitRateLimit = () => {
-    const parsed = parseInt(rateLimitDraft, 10);
-    const clamped = isNaN(parsed)
-      ? whatsAppPrefs.auto_send_rate_limit
-      : Math.min(5, Math.max(1, parsed));
-    setRateLimitDraft(String(clamped));
-    if (clamped !== whatsAppPrefs.auto_send_rate_limit) {
-      onWhatsAppPrefChange({ auto_send_rate_limit: clamped });
-    }
-  };
 
   return (
     <>
-      <div className="col-span-2">
-        <PreferenceCard
-          CardIcon={<MessageSquare className="w-4 h-4" />}
-          title="WhatsApp Auto Send"
-          description="Configure sending prescriptions and patient documents through WhatsApp after consultation completion."
-        >
-          {whatsAppStatus !== 'connected' && (
-            <div className="rounded-lg bg-[#ecfdf4] border border-[#008055]/30 px-4 py-3 mb-4 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div
-                  className="w-7 h-7 rounded-md flex items-center justify-center shrink-0"
-                  style={{ background: 'linear-gradient(to top, #20b038, #60d66a)' }}
-                >
-                  <WhatsAppIcon className="w-4 h-4 text-white" />
-                </div>
-                <p className="text-xs text-[#1a1a1a]">Connect WhatsApp to enable auto-send features.</p>
-              </div>
-              {onConnectWhatsApp && (
-                <button
-                  onClick={onConnectWhatsApp}
-                  className="text-xs font-medium text-[#008055] flex items-center gap-1 cursor-pointer bg-transparent border-none p-0 hover:underline shrink-0"
-                >
-                  Connect now
-                  <ArrowRight className="w-3 h-3" />
-                </button>
-              )}
-            </div>
-          )}
-          <div className="flex items-center justify-between py-3.5 border-b border-muted">
-            <div className="pr-4">
-              <Label className="text-sm font-medium leading-5">Send via WhatsApp</Label>
-              <p className="text-xs text-muted-foreground mt-0.5">Enable Send via WhatsApp on EkaScribe Desktop App</p>
-              <p className="text-xs text-muted-foreground">(Enabled by default)</p>
-            </div>
-            <Switch
-              checked={whatsAppStatus === 'connected' && whatsAppPrefs.send_via_linked_device}
-              disabled={whatsAppStatus !== 'connected'}
-              onCheckedChange={(checked) => onWhatsAppPrefChange({ send_via_linked_device: checked })}
-              className={SWITCH_CLASS}
-            />
-          </div>
-          <div className="flex items-center justify-between py-3.5">
-            <div className="pr-4">
-              <Label className="text-sm font-medium leading-5">Allow Auto Send on Partner EMR/EHR</Label>
-              <p className="text-xs text-muted-foreground mt-0.5">Enable automatic WhatsApp sending for consultations completed through connected EMR/EHR systems.</p>
-            </div>
-            <Switch
-              checked={whatsAppStatus === 'connected' && whatsAppPrefs.allow_partner_emr_auto_send}
-              disabled={whatsAppStatus !== 'connected'}
-              onCheckedChange={(checked) => onWhatsAppPrefChange({ allow_partner_emr_auto_send: checked })}
-              className={SWITCH_CLASS}
-            />
-          </div>
-          {whatsAppStatus === 'connected' && whatsAppPrefs.allow_partner_emr_auto_send && (
-            <div className="pt-1 pb-3.5 flex flex-col gap-2">
-              <div className="flex items-center gap-3">
-                <Label className="text-sm font-medium leading-5 whitespace-nowrap">Rate limit</Label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={rateLimitDraft}
-                  onChange={(e) => {
-                    const digitsOnly = e.target.value.replace(/\D/g, '');
-                    setRateLimitDraft(digitsOnly);
-                  }}
-                  onBlur={commitRateLimit}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.currentTarget.blur();
-                    }
-                  }}
-                  className="w-14 px-2.5 py-1.5 text-sm text-center border border-border rounded-md"
-                />
-                <span className="text-xs text-muted-foreground">messages per minute (max 5)</span>
-              </div>
-              <p className="text-xs text-amber-600 leading-relaxed flex items-start gap-1">
-                <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-                Increasing this limit raises the risk of your WhatsApp account being flagged by Meta for unauthorized automation. Keep it low.
-              </p>
-            </div>
-          )}
-        </PreferenceCard>
-      </div>
-
       <div className="col-span-2">
         <Card className="border-border py-4 w-full">
           <CardHeader className="px-4 gap-0">
@@ -517,7 +338,7 @@ const DesktopWidgetSettings = ({
                   <p className="font-semibold text-sm leading-5">Quick access shortcut</p>
                 </div>
                 <div className="text-xs text-muted-foreground leading-4">
-                  Trigger the EkaScribe widget from anywhere on your desktop
+                  Trigger the Varta widget from anywhere on your desktop
                 </div>
               </div>
               <Switch

@@ -198,7 +198,7 @@ function TranscriptStep({
       <DialogHeader className="gap-1">
         <DialogTitle className="text-xl text-center font-semibold">Add transcript</DialogTitle>
         <DialogDescription className="text-sm text-center text-muted-foreground">
-          Paste your consultation transcript below.
+          Paste your session transcript below.
         </DialogDescription>
       </DialogHeader>
 
@@ -273,7 +273,7 @@ function VoiceStep({
           Upload voice recording
         </DialogTitle>
         <DialogDescription className="text-sm text-center text-muted-foreground">
-          Upload an audio file from a previous consultation.
+          Upload an audio file from a previous session.
         </DialogDescription>
       </DialogHeader>
 

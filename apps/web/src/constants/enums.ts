@@ -76,7 +76,7 @@ export enum TEMPLATE_ID {
 }
 
 export enum TEMPLATE_WARNINGS_MSG {
-  PARTIAL_OUTPUT = 'Some part of the consultation could not be processed. Please review the output.',
+  PARTIAL_OUTPUT = 'Some part of the recording could not be processed. Please review the output.',
   NO_MEDICAL_CONTEXT = 'No relevant content for this output type was generated from the processed recording for this template.',
 }
 
@@ -194,24 +194,3 @@ export enum SESSION_PHASE {
   ERROR = 'error',
 }
 
-export enum ONBOARDING_STEP {
-  // v2 flow: welcome → preferences → setup-check → complete → /new-session
-  ONBOARDING_STARTED = 'onboarding_started',
-  WELCOME_COMPLETED = 'welcome_completed',
-  PREFERENCES_COMPLETED = 'preferences_completed',
-  SETUP_CHECK_COMPLETED = 'setup_check_completed',
-  ONBOARDING_COMPLETED = 'onboarding_completed',
-  SKIP_SETUP = 'skip_setup',
-
-  CUSTOMISATION_PENDING = 'customisation_pending',
-  CUSTOMISATION_ADDED = 'customisation_added',
-  CUSTOMISATION_SKIPPED = 'customisation_skipped',
-  START_SETUP = 'start_setup',
-  MICROPHONE_PERMISSION_GRANTED = 'microphone_permission_granted',
-  SYSTEM_COMPATIBILITY_CHECK_COMPLETED = 'system_compatibility_check_completed',
-  CONSULT_LANGUAGE_ADDED = 'consult_language_added',
-  DEMO_SESSION_STARTED = 'demo_session_started',
-  DEMO_SESSION_COMPLETED = 'demo_session_completed',
-  DEMO_READ_SCRIPT = 'demo_read_script',
-  DEMO_RECORD_SESSION = 'demo_record_session',
-}

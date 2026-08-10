@@ -107,20 +107,6 @@ interface ScribeApi {
   reportStatus?(status: string): void;
 }
 
-interface WhatsappApi {
-  connect?(): Promise<void>;
-  disconnect?(): Promise<void>;
-  getStatus?(): Promise<{ status: string; phoneNumber?: string }>;
-  sendDocument?(payload: {
-    phoneNumber: string;
-    pdfBuffer: ArrayBuffer;
-    fileName: string;
-    caption?: string;
-  }): Promise<{ success: boolean; error?: string }>;
-  onQrCode?(callback: (qr: string) => void): () => void;
-  onStatusChange?(callback: (status: string) => void): () => void;
-}
-
 interface DesktopSettingsApi {
   onUpdateAvailable?(callback: (info: { version: string }) => void): () => void;
   onUpdateProgress?(callback: (info: { percent: number }) => void): () => void;
@@ -147,29 +133,6 @@ interface DesktopSettingsApi {
   updateShortcutPreferences?(
     prefs: Partial<{ enabled: boolean; shortcut: string }>
   ): Promise<{ enabled: boolean; shortcut: string }>;
-  getWhatsAppAutoSendPrefs?(): Promise<{
-    send_via_linked_device: boolean;
-    auto_send_rate_limit: number;
-    allow_partner_emr_auto_send: boolean;
-  }>;
-  updateWhatsAppAutoSendPrefs?(
-    prefs: Partial<{
-      send_via_linked_device: boolean;
-      auto_send_rate_limit: number;
-      allow_partner_emr_auto_send: boolean;
-    }>
-  ): Promise<{
-    send_via_linked_device: boolean;
-    auto_send_rate_limit: number;
-    allow_partner_emr_auto_send: boolean;
-  }>;
-  onWhatsAppPrefsUpdated?(
-    callback: (prefs: {
-      send_via_linked_device: boolean;
-      auto_send_rate_limit: number;
-      allow_partner_emr_auto_send: boolean;
-    }) => void
-  ): () => void;
 }
 
 interface LogApi {
@@ -193,7 +156,6 @@ declare global {
     authApi?: AuthApi;
     recordingApi?: RecordingApi;
     scribeApi?: ScribeApi;
-    whatsappApi?: WhatsappApi;
     desktopSettingsApi?: DesktopSettingsApi;
     logApi?: LogApi;
   }

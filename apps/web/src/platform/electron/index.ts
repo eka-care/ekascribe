@@ -12,7 +12,6 @@ import { notifierElectron } from './notifier';
 import { printerElectron } from './printer';
 import { storageElectron } from './storage';
 import { systemElectron } from './system';
-import { whatsappElectron } from './whatsapp';
 
 /**
  * Electron implementation family — thin adapters that call `window.*Api` (typed by
@@ -42,7 +41,4 @@ export const implementations: PlatformImplementations = {
   printer: printerElectron,
   storage: storageElectron,
   system: systemElectron,
-  // WhatsApp has no browser fallback — register only when the host ships the bridge, so the
-  // `whatsapp-linked-device` descriptor stays false (and its UI hides) otherwise.
-  ...(typeof window !== 'undefined' && window.whatsappApi ? { whatsapp: whatsappElectron } : {}),
 };
