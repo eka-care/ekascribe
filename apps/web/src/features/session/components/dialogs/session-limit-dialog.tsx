@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogTitle, Button } from '@ui/src';
 const BULLET_ITEMS = [
   {
     title: 'Unlimited sessions',
-    description: 'Record and transcribe as many consultations as you need',
+    description: 'Record and transcribe as many sessions as you need',
   },
   {
     title: 'Multiple note formats',

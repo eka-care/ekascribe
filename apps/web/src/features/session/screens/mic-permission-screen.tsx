@@ -65,7 +65,7 @@ const MicPermissionScreen = () => {
         <p className="text-[17px] max-[680px]:text-[15.5px] leading-[1.55] text-[#5A6075] mb-10 max-w-[440px] text-pretty">
           Your browser is showing a permission popup in the top-left corner. Click{' '}
           <strong className="font-semibold">Allow</strong> to let Varta listen during
-          consultations.
+          sessions.
         </p>
 
         {/* Hint pill */}

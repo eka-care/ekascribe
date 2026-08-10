@@ -444,7 +444,7 @@ function BlankState({ documentName }: { documentName?: string }) {
         {documentName || 'Note'} is generating
       </h3>
       <p className="text-[13.5px] text-[#64748b] max-w-[360px] text-center">
-        It will render here once the consultation transcript is processed.
+        It will render here once the session transcript is processed.
       </p>
     </div>
   );

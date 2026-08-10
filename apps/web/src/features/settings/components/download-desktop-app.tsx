@@ -56,8 +56,7 @@ const DownloadDesktopApp = () => {
         <div className="flex flex-col gap-1">
           <p className="font-semibold text-base leading-6">Download Varta for Desktop</p>
           <p className="text-sm text-muted-foreground leading-5">
-            Runs natively on desktop, supports teleconsultations, requires no browser, and syncs
-            instantly across devices.
+            Runs natively on desktop, requires no browser, and syncs instantly across devices.
           </p>
         </div>
 
