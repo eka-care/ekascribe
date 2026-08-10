@@ -69,7 +69,7 @@ const SearchableCombobox = ({
           aria-expanded={open}
           className={cn(
             className,
-            'flex items-center text-secondary-foreground shadow-xs border-border rounded-md w-full px-4 py-2 h-auto justify-between onboarding-select-class'
+            'flex items-center text-secondary-foreground shadow-xs border-border rounded-md w-full px-4 py-2 h-auto justify-between'
           )}
         >
           <span className={cn('truncate', !selectedOption && 'text-muted-foreground')}>{selectedOption ? selectedOption.name : placeholder}</span>

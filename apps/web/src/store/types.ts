@@ -1,4 +1,3 @@
-import { ONBOARDING_STEP } from '@/constants/enums';
 import {
   TAppConfig,
   TLoggedInUserDetails,
@@ -20,8 +19,7 @@ export type TWarningScreen =
   | 'template'
   | 'output_summary'
   | 'upload_transcription'
-  | 'upload_audio'
-  | 'onboarding';
+  | 'upload_audio';
 
 type TStore = {
   workspaceID: string;
@@ -108,9 +106,6 @@ type TStore = {
   }) => void;
   clearBannerInfo: () => void;
 
-  onboarding_state: ONBOARDING_STEP | null;
-  setOnboardingState: (state: ONBOARDING_STEP) => void;
-  clearOnboardingState: () => void;
 
 
   autoStartRecording: boolean;

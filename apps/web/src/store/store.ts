@@ -206,9 +206,6 @@ const useVoice2RxStore = create<TStore>()(
           showForAllUsers: true,
         }),
 
-      onboarding_state: null,
-      setOnboardingState: (state) => set({ onboarding_state: state }),
-      clearOnboardingState: () => set({ onboarding_state: null }),
 
       autoStartRecording: false,
       setAutoStartRecording: (value) => set({ autoStartRecording: value }),

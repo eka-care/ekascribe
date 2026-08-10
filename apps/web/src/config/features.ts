@@ -16,8 +16,6 @@ export const FEATURES = {
   patientDirectory: flag(process.env.NEXT_PUBLIC_FEATURE_PATIENT_DIRECTORY),
   /** parchi doctor profile (feeds PDF letterhead) */
   doctorProfile: flag(process.env.NEXT_PUBLIC_FEATURE_DOCTOR_PROFILE),
-  /** onboarding screens */
-  onboarding: flag(process.env.NEXT_PUBLIC_FEATURE_ONBOARDING),
 
   // trackers/analytics — all off by default for on-prem
   gtm: flag(process.env.NEXT_PUBLIC_ENABLE_GTM),

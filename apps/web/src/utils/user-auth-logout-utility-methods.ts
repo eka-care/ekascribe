@@ -60,11 +60,9 @@ const handleUserRedirectAfterLogout = () => {
 const handleUserClearStoreAfterLogout = () => {
   resetTracking();
   const clearStore = useVoice2RxStore.getState().clearStore;
-  const clearOnboardingState = useVoice2RxStore.getState().clearOnboardingState;
   const setSelectedMicrophone = useVoice2RxStore.getState().setSelectedMicrophone;
   clearStore();
 
-  clearOnboardingState();
   setSelectedMicrophone(null);
 
   getStorage().local.clear();

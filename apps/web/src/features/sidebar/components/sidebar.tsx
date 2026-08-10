@@ -79,7 +79,6 @@ const CustomSidebar = () => {
   const { createSession } = useSessionLifecycle();
   // Two paths open this dialog:
   // 1. sessionStorage (set by SectionContainer when ?modal=user-defaults arrives)
-  //    — survives redirects through /onboarding where sidebar unmounts
   // 2. URL search param (handled in useEffect below)
   // Cleared ONLY when user dismisses the dialog (onOpenChange → false).
   const [isUserDefaultsOpen, setIsUserDefaultsOpen] = useState(() => {
