@@ -46,7 +46,6 @@ import {
   stopEkascribeWeb,
 } from './managers/ekascribeWebManager';
 import { registerNetworkIpcHandlers } from './managers/networkManager';
-// import { registerWhatsappIpcHandlers, initWhatsAppAutoConnect } from './managers/whatsappManager';
 import { registerPdfIpcHandlers } from './managers/pdfManager';
 import { registerNotificationIpcHandlers, showNotification, showPermissionPromptIfNeeded } from './managers/notificationManager';
 import { registerProxyProtocolHandler, unregisterProxyProtocolHandler } from './managers/proxyManager';
@@ -1224,10 +1223,8 @@ app.on('ready', async () => {
   registerRecordingIpcHandlers();
   registerEkascribeWebIpcHandlers();
   registerNetworkIpcHandlers();
-  // registerWhatsappIpcHandlers();
   registerPdfIpcHandlers();
   registerStorageIpcHandlers();
-  // initWhatsAppAutoConnect();
   registerNotificationIpcHandlers();
   ipcMain.on('app:getVersionSync', (event) => {
     event.returnValue = app.getVersion();
