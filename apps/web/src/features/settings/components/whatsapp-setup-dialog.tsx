@@ -90,12 +90,12 @@ const WhatsAppSetupDialog = ({ open, onOpenChange }: WhatsAppSetupDialogProps) =
 
             <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5 text-foreground">
               <p className="text-[13px] text-foreground/80 leading-relaxed mb-5">
-                Link your WhatsApp account to EkaScribe and send a prescription or clinical note to your patient right after consultation. Setup takes less than a minute, just scan a QR code from your phone. You can link either a personal or a WhatsApp Business account, whichever you already use.
+                Link your WhatsApp account to Varta and send a prescription or clinical note to your patient right after consultation. Setup takes less than a minute, just scan a QR code from your phone. You can link either a personal or a WhatsApp Business account, whichever you already use.
               </p>
 
               <h4 className="text-[13px] font-semibold text-foreground mb-2">What you can do</h4>
               <ul className="text-[13px] text-foreground/80 leading-[1.7] mb-5 pl-[18px] list-disc">
-                <li>Send a prescription (Rx) or clinical note to your patient the moment consultation ends</li>
+                <li>Send a note or document the moment a session ends</li>
                 <li>Reach your patient on WhatsApp from your own number, no new app for them to install</li>
                 <li>No printouts, no email IDs to chase, the note arrives directly in their WhatsApp chat</li>
                 <li>Get reliable delivery through WhatsApp itself, no third-party gateway in between</li>
@@ -114,10 +114,10 @@ const WhatsAppSetupDialog = ({ open, onOpenChange }: WhatsAppSetupDialogProps) =
               <ul className="text-[13px] text-foreground/80 leading-[1.7] mb-5 pl-[18px] list-disc">
                 <li>Works with any personal or WhatsApp Business account</li>
                 <li>Sends from your own number, so the patient sees a familiar sender, you</li>
-                <li>Built only for prescription and clinical note delivery, nothing else</li>
+                <li>Built only for note and document delivery, nothing else</li>
                 <li>Messages go out through WhatsApp directly, with the reliability you already expect</li>
                 <li>Each message stays between you and your patient, never routed through or stored on our servers</li>
-                <li>You can unlink anytime from EkaScribe or from your WhatsApp app</li>
+                <li>You can unlink anytime from Varta or from your WhatsApp app</li>
               </ul>
 
               <div className="border border-border rounded-lg mb-2.5">
@@ -143,11 +143,11 @@ const WhatsAppSetupDialog = ({ open, onOpenChange }: WhatsAppSetupDialogProps) =
                   {disclaimerOpen && (
                     <div className="px-3.5 pb-3.5 text-[12px] text-foreground/80 leading-[1.65] space-y-2.5">
                       <p><strong className="text-foreground font-medium">How it works.</strong> This feature uses an open-source WhatsApp client library and connects through WhatsApp&apos;s official Linked Devices feature. It is not affiliated with, endorsed by, or sponsored by WhatsApp LLC or Meta Platforms, Inc. All product names and trademarks referenced belong to their respective owners.</p>
-                      <p><strong className="text-foreground font-medium">Your data.</strong> Messages travel directly between your device and WhatsApp. EkaScribe does not read, store, or process the contents of your WhatsApp messages, contacts, or chat history on its servers. WhatsApp&apos;s end-to-end encryption stays intact, and message contents remain visible only to you and the recipient.</p>
+                      <p><strong className="text-foreground font-medium">Your data.</strong> Messages travel directly between your device and WhatsApp. Varta does not read, store, or process the contents of your WhatsApp messages, contacts, or chat history on its servers. WhatsApp&apos;s end-to-end encryption stays intact, and message contents remain visible only to you and the recipient.</p>
                       <p><strong className="text-foreground font-medium">Your responsibility.</strong> You are responsible for how this integration is used on your WhatsApp account, including using it only for legitimate clinical communication with patients who have agreed to receive messages from you. You are responsible for following WhatsApp&apos;s terms of service and any laws, regulations, or professional standards that apply to your practice, and for obtaining any patient consent required before sending messages.</p>
-                      <p><strong className="text-foreground font-medium">Service availability.</strong> WhatsApp may restrict, limit, or suspend accounts at its discretion, including accounts that use linked-device integrations. EkaScribe has no control over such actions and is not liable for any resulting interruptions or message delivery issues. Connection stability also depends on your device and network, which are outside EkaScribe&apos;s control.</p>
-                      <p><strong className="text-foreground font-medium">No warranty.</strong> This integration is provided on an &quot;as is&quot; and &quot;as available&quot; basis, without warranties of any kind, express or implied. EkaScribe does not guarantee uninterrupted access, timely delivery, or compatibility with future versions of WhatsApp.</p>
-                      <p><strong className="text-foreground font-medium">Changes.</strong> EkaScribe may update, limit, or discontinue this integration at any time. Continued use after any such change constitutes acceptance of the updated terms.</p>
+                      <p><strong className="text-foreground font-medium">Service availability.</strong> WhatsApp may restrict, limit, or suspend accounts at its discretion, including accounts that use linked-device integrations. Varta has no control over such actions and is not liable for any resulting interruptions or message delivery issues. Connection stability also depends on your device and network, which are outside Varta&apos;s control.</p>
+                      <p><strong className="text-foreground font-medium">No warranty.</strong> This integration is provided on an &quot;as is&quot; and &quot;as available&quot; basis, without warranties of any kind, express or implied. Varta does not guarantee uninterrupted access, timely delivery, or compatibility with future versions of WhatsApp.</p>
+                      <p><strong className="text-foreground font-medium">Changes.</strong> Varta may update, limit, or discontinue this integration at any time. Continued use after any such change constitutes acceptance of the updated terms.</p>
                     </div>
                   )}
                 </div>

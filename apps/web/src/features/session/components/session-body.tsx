@@ -241,7 +241,7 @@ const SessionBody = ({ sessionId, onAddTranscript, isLimitExceeded }: SessionBod
             ? () => {
                 setWhatsappSendDoc({
                   id: activeDoc.document_id,
-                  name: activeDoc.document_name || 'Prescription',
+                  name: activeDoc.document_name || 'Document',
                 });
                 setWhatsappSendOpen(true);
               }

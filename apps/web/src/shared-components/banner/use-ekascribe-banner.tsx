@@ -43,7 +43,7 @@ const CARD_ITEMS: CardItem[] = [
   {
     icon: '/images/use-ekascribe-banner/icon-whatsapp.svg',
     title: 'WhatsApp',
-    subtitle: 'EkaScribe inside Whatsapp',
+    subtitle: 'Varta inside WhatsApp',
     buttonLabel: 'Connect',
   },
 ];
@@ -66,7 +66,7 @@ const UseEkascribeBanner = () => {
       <div className="flex items-start justify-between gap-4 px-4">
         <div className="flex flex-col gap-1">
           <p className="text-foreground font-semibold text-base leading-6">
-            Use EkaScribe
+            Use Varta
             <br />
             everywhere you consult
           </p>

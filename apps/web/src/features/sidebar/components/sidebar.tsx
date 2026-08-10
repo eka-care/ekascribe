@@ -5,7 +5,6 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { Sidebar, SidebarFooter, SidebarHeader, Button, SidebarContent } from '@ui/src';
 
 import {
-  AudioLines,
   ChevronRight,
   ChevronLeft,
   Plus,
@@ -272,9 +271,7 @@ const CustomSidebar = () => {
       <SidebarHeader>
         {isCollapsed ? (
           <div className="flex flex-col items-center gap-1">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#215FFF] to-[#4535B0] flex items-center justify-center shadow-sm">
-              <AudioLines className="w-5 h-5 text-white" strokeWidth={2.2} />
-            </div>
+            <img src="/assets/eka-logo-collapsible.svg" alt="varta" className="w-8 h-8" />
             <button
               className="cursor-pointer hidden md:flex p-1 rounded hover:bg-accent transition-colors"
               onClick={() => {
@@ -288,12 +285,10 @@ const CustomSidebar = () => {
         ) : (
           <div className="flex items-center justify-between px-2 py-2">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#215FFF] to-[#4535B0] flex items-center justify-center shadow-sm shrink-0">
-                <AudioLines className="w-5 h-5 text-white" strokeWidth={2.2} />
-              </div>
+              <img src="/assets/eka-logo-collapsible.svg" alt="varta" className="w-8 h-8 shrink-0" />
               <div className="flex flex-col justify-center">
                 <span className="text-lg font-bold tracking-tight text-[#1A1A1A] leading-5">
-                  scribe
+                  varta
                 </span>
                 <span className="text-[9px] italic font-medium tracking-wide text-[#767676] leading-3">
                   powered by @eka.care

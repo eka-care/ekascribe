@@ -44,7 +44,7 @@ const WelcomeScreen = () => {
         <div className="border border-border rounded-lg overflow-hidden h-[260px] md:h-[326px] 2xl:h-[400px] w-full bg-secondary relative">
           <img
             src="https://cdn.eka.care/vagus/cmp0ta75g00060tf0ftzk4li5.png"
-            alt="Doctor consulting a patient"
+            alt="Person recording a session"
             className="absolute inset-0 w-full h-full object-cover"
           />
           <video
@@ -64,7 +64,7 @@ const WelcomeScreen = () => {
             More time with patients.
           </h1>
           <p className="text-sm leading-5 text-[#767676] max-w-[347px]">
-            EkaScribe listens to your consultations and writes structured notes for you –
+            Varta listens to your sessions and writes structured notes for you –
             automatically.
           </p>
         </div>

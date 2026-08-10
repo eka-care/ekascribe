@@ -427,7 +427,7 @@ const DesktopWidgetSettings = ({
         <PreferenceCard
           CardIcon={<MessageSquare className="w-4 h-4" />}
           title="WhatsApp Auto Send"
-          description="Configure sending prescriptions and patient documents through WhatsApp after consultation completion."
+          description="Configure sending documents through WhatsApp after a session completes."
         >
           {whatsAppStatus !== 'connected' && (
             <div className="rounded-lg bg-[#ecfdf4] border border-[#008055]/30 px-4 py-3 mb-4 flex items-center justify-between gap-3">
@@ -454,7 +454,7 @@ const DesktopWidgetSettings = ({
           <div className="flex items-center justify-between py-3.5 border-b border-muted">
             <div className="pr-4">
               <Label className="text-sm font-medium leading-5">Send via WhatsApp</Label>
-              <p className="text-xs text-muted-foreground mt-0.5">Enable Send via WhatsApp on EkaScribe Desktop App</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Enable Send via WhatsApp on the desktop app</p>
               <p className="text-xs text-muted-foreground">(Enabled by default)</p>
             </div>
             <Switch
@@ -517,7 +517,7 @@ const DesktopWidgetSettings = ({
                   <p className="font-semibold text-sm leading-5">Quick access shortcut</p>
                 </div>
                 <div className="text-xs text-muted-foreground leading-4">
-                  Trigger the EkaScribe widget from anywhere on your desktop
+                  Trigger the Varta widget from anywhere on your desktop
                 </div>
               </div>
               <Switch

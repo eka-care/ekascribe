@@ -93,8 +93,6 @@ const SessionHeader = ({
       .join(', ');
   }, [sessionConfig, templateNameById]);
 
-  const modelTypeText = sessionConfig?.model_type || '';
-
   const handleAnotherSessionActiveClick = () => {
     useVoice2RxStore.getState().setWarningInfo({
       screen: 'recording',
@@ -120,8 +118,8 @@ const SessionHeader = ({
   const isProcessing = phase === SESSION_PHASE.PROCESSING;
 
   const settingsItems = useMemo(
-    () => [inputLanguagesText, outputFormatText, modelTypeText].filter(Boolean),
-    [inputLanguagesText, outputFormatText, modelTypeText]
+    () => [inputLanguagesText, outputFormatText].filter(Boolean),
+    [inputLanguagesText, outputFormatText]
   );
 
   const recordedAtText = useMemo(() => formatRecordedAt(createdAt), [createdAt]);

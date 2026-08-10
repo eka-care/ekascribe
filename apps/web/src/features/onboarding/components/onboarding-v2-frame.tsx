@@ -223,7 +223,7 @@ const FrameInner = ({ children }: { children: ReactNode }) => {
         <header className="flex items-center justify-between gap-4 shrink-0">
           <Image
             src="/assets/eka-logo-desktop.svg"
-            alt="eka.scribe"
+            alt="varta"
             width={192}
             height={32}
             priority

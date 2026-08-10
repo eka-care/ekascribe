@@ -83,7 +83,7 @@ const SetupCheckScreen = () => {
         (t) => (
           <MicPermissionToast
             title="Some checks didn't pass!"
-            description="You can still continue — EkaScribe will work, but some features may be limited."
+            description="You can still continue — Varta will work, but some features may be limited."
             onAction={() => retryFailedChecks()}
             onDismiss={() => toast.dismiss(t)}
           />
@@ -103,7 +103,7 @@ const SetupCheckScreen = () => {
       (t) => (
         <MicPermissionToast
           title="Mic access blocked"
-          description="EkaScribe can't record without microphone access."
+          description="Varta can't record without microphone access."
           onAction={micStatus !== 'denied' ? () => requestPermission() : undefined}
           onDismiss={() => toast.dismiss(t)}
         />
@@ -237,7 +237,7 @@ const SetupCheckScreen = () => {
         <NumberedSection number={showMicSection ? 2 : 1}>
           <SectionHeading
             title="Running background checks"
-            description="Running a few quick checks to make sure EkaScribe works smoothly on your device."
+            description="Running a few quick checks to make sure Varta works smoothly on your device."
           />
           <div className="flex flex-col gap-2 w-full max-w-[360px]">
             {checks.map((check) => (

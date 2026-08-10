@@ -29,3 +29,13 @@ logs/
 deploy/k8s/*secret*.yaml
 deploy/k8s/*regcred*.yaml
 >>>>>>> f9239af (added config)
+apps/web/.next-desktop/
+apps/desktop/node_modules/
+apps/desktop/.vite/
+apps/desktop/out/
+apps/desktop/dist/
+apps/desktop/runtime/
+apps/desktop/mac/build/
+apps/desktop/certs/
+apps/desktop/*.log
+apps/desktop/electron.env

@@ -11,14 +11,14 @@ export type Testimonial = {
 export const TESTIMONIALS: Testimonial[] = [
   {
     quote:
-      '“EkaScribe has been a game-changer for our practice. It captures complete consultations accurately, even across English and regional languages.”',
+      '“Varta has been a game-changer for our practice. It captures complete consultations accurately, even across English and regional languages.”',
     name: 'Dr. Nemichandra S.C.',
     title: 'Neurologist · Mysore',
     photo: 'https://cdn.eka.care/vagus/cmp0szlw600000thy61g1cmtu.png',
   },
   {
     quote:
-      '“I love how quick and effortless EkaScribe makes prescription writing. No more typing... It honestly feels like I’ve got a smart assistant sitting beside me.”',
+      '“I love how quick and effortless Varta makes prescription writing. No more typing... It honestly feels like I’ve got a smart assistant sitting beside me.”',
     name: 'Dr. Kiran K.K.',
     title: 'Nephrologist · Mysore',
     photo: 'https://cdn.eka.care/vagus/cmp0sxiak00010tf06g4n34z8.png',

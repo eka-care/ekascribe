@@ -56,7 +56,7 @@ export function buildCaption({
 
   lines.push(`Hi${patientName ? ` *${patientName}*` : ''},`);
   lines.push('');
-  lines.push('Your *Prescription* is ready. Please find it attached and save it for your records.');
+  lines.push('Your *Document* is ready. Please find it attached and save it for your records.');
 
   if (sessionCreatedAt) {
     lines.push('');
@@ -117,7 +117,7 @@ const WhatsAppSendDialog = ({
 
       if (result.success) {
         setSent(true);
-        toast.success('Prescription sent via WhatsApp');
+        toast.success('Document sent via WhatsApp');
         setTimeout(() => {
           setSent(false);
           onOpenChange(false);
@@ -127,7 +127,7 @@ const WhatsAppSendDialog = ({
       }
     } catch (error) {
       console.error('WhatsApp send failed:', error);
-      toast.error('Failed to generate and send prescription');
+      toast.error('Failed to generate and send document');
     } finally {
       setSending(false);
     }
@@ -192,7 +192,7 @@ const WhatsAppSendDialog = ({
               Hi{patientName ? <> <strong className="capitalize">{patientName}</strong></> : ''},
             </p>
             <p className="text-foreground">
-              Your <strong>Prescription</strong> is ready. Please find it attached and save it for your records.
+              Your <strong>Document</strong> is ready. Please find it attached and save it for your records.
             </p>
             <div className="mt-2 space-y-0.5 text-muted-foreground">
               {sessionCreatedAt && (

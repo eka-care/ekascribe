@@ -63,7 +63,7 @@ const CompleteScreen = () => {
         <div className="border border-border rounded-lg overflow-hidden h-[260px] md:h-[326px] 2xl:h-[400px] w-full bg-secondary relative">
           <img
             src={illustrationSrc}
-            alt="Doctor giving a thumbs up"
+            alt="Person giving a thumbs up"
             className="absolute inset-0 w-full h-full object-cover"
           />
         </div>
@@ -74,7 +74,7 @@ const CompleteScreen = () => {
             You&rsquo;re all set to go!
           </h1>
           <p className="text-sm leading-5 text-[#767676] max-w-[420px]">
-            Your setup is complete. Start using EkaScribe to record consultations and generate
+            Your setup is complete. Start using Varta to record sessions and generate
             clinical notes with ease.
           </p>
         </div>
@@ -86,11 +86,11 @@ const CompleteScreen = () => {
             takes approx 5 minutes
           </span>
           <p className="text-lg leading-none font-medium text-foreground">
-            Get more out of EkaScribe
+            Get more out of Varta
           </p>
           <p className="text-xs leading-4 text-[#767676]">
             No rush – you can complete these whenever you wish to. Each step unlocks a feature or
-            improves your notes on EkaScribe.
+            improves your notes on Varta.
           </p>
         </div>
         <ol className="flex flex-col gap-2 w-full">

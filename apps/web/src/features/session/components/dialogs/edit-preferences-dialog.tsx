@@ -21,9 +21,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { TPreferenceItem, TUserSelectedPreferences } from '@/constants/types';
 import { MODEL_TYPE, MIXPANEL_EVENT_NAME, MIXPANEL_EVENT_TYPE } from '@/constants/enums';
 import { tracker } from '@/analytics';
-import { SUPPORTED_MODELS } from '@/constants/settings';
 import MultiSelectInput from '@/shared-components/input/multi-select-input';
-import SingleSelectInput from '@/shared-components/input/single-select-input';
 import SearchableCombobox from '@/shared-components/input/searchable-combobox';
 import { with401Retry } from '@/fetch-client/api-with-retry';
 import * as sdkService from '../../services/sdk-service';
@@ -80,7 +78,6 @@ export function EditPreferencesDialog({
       ...userPrefs,
       input_languages: sessionConfig.input_languages,
       output_format_template: sessionConfig.output_format_template,
-      model_type: (sessionConfig.model_type as MODEL_TYPE) ?? userPrefs.model_type,
       auto_detect_language: sessionConfig.input_languages.some((l) => l.id === 'auto_detect'),
     });
   }, [open, sessionID]);
@@ -94,7 +91,7 @@ export function EditPreferencesDialog({
         input_languages: localPreferences.input_languages,
         output_format_template: localPreferences.output_format_template,
         consultation_mode: 'dictation',
-        model_type: localPreferences.model_type,
+        model_type: MODEL_TYPE.PRO,
       },
     });
 
@@ -112,7 +109,7 @@ export function EditPreferencesDialog({
     const patchPayload = {
       templates: outputTemplates,
       language_hint: inputLanguage,
-      model: localPreferences.model_type,
+      model: MODEL_TYPE.PRO,
       session_mode: 'dictation',
     };
 
@@ -188,7 +185,7 @@ export function EditPreferencesDialog({
               auto_download: localPreferences.auto_download,
               input_languages: localPreferences.input_languages,
               consultation_mode: 'dictation',
-              model_type: localPreferences.model_type,
+              model_type: MODEL_TYPE.PRO,
               output_format_template: localPreferences.output_format_template,
               auto_detect_language: localPreferences.auto_detect_language,
               scribe_enabled: localPreferences.model_training_consent.value,
@@ -249,19 +246,6 @@ export function EditPreferencesDialog({
               placeholder="Select output format"
               searchPlaceholder="Search templates..."
               emptyMessage="No options available."
-            />
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="model">Model</Label>
-            <SingleSelectInput
-              name="model"
-              value={localPreferences.model_type}
-              options={SUPPORTED_MODELS}
-              onSelectionChange={(selected) =>
-                setLocalPreferences((prev) => ({ ...prev, model_type: selected as MODEL_TYPE }))
-              }
-              placeholder="Select model"
             />
           </div>
 

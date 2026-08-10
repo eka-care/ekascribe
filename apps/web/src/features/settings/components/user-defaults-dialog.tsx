@@ -33,8 +33,6 @@ import DownloadDesktopApp from '@/features/settings/components/download-desktop-
 import { MODEL_TYPE } from '@/constants/enums';
 import { TUserSelectedPreferences } from '@/constants/types';
 import { Sparkles, List, Cpu, MonitorCog } from 'lucide-react';
-import SingleSelectInput from '@/shared-components/input/single-select-input';
-import { SUPPORTED_MODELS } from '@/constants/settings';
 import MultiSelectInput from '@/shared-components/input/multi-select-input';
 import React from 'react';
 import { with401Retry } from '@/fetch-client/api-with-retry';
@@ -222,27 +220,6 @@ const UserDefaultsDialog = ({ open, onOpenChange }: UserDefaultsDialogProps) => 
 
             {settingsPage === 'user-defaults' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 content-start overflow-y-auto h-full py-1">
-                <PreferenceCard
-                  CardIcon={<Sparkles className="w-4 h-4" />}
-                  title="AI Model Preferences"
-                  description="Choose your default AI model for note generation. You can still override this per session."
-                >
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium leading-5">Default AI Model</Label>
-                    <SingleSelectInput
-                      name="model"
-                      value={localPreferences.model_type}
-                      options={SUPPORTED_MODELS}
-                      onSelectionChange={(selected) => {
-                        setLocalPreferences((prev) => ({
-                          ...prev,
-                          model_type: selected as MODEL_TYPE,
-                        }));
-                      }}
-                    />
-                  </div>
-                </PreferenceCard>
-
                 <PreferenceCard
                   CardIcon={<Sparkles className="w-4 h-4" />}
                   title="Speech Recognition"

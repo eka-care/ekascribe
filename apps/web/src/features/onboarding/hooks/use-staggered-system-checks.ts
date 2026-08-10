@@ -54,7 +54,7 @@ const INITIAL_CHECKS: ReadonlyArray<Omit<SystemCheckItem, 'status'>> = [
       pending: 'Memory and CPU check',
       running: 'Checking available memory and processing…',
       passed: 'Sufficient memory and CPU available',
-      failed: 'Low memory – EkaScribe may not work as expected',
+      failed: 'Low memory – Varta may not work as expected',
     },
   },
   {
@@ -63,9 +63,9 @@ const INITIAL_CHECKS: ReadonlyArray<Omit<SystemCheckItem, 'status'>> = [
     title: 'Network access',
     descriptions: {
       pending: 'Server connectivity check',
-      running: 'Checking connection to EkaScribe servers…',
+      running: 'Checking connection to Varta servers…',
       passed: 'All servers reachable',
-      failed: 'Could not reach EkaScribe servers',
+      failed: 'Could not reach Varta servers',
     },
   },
 ];

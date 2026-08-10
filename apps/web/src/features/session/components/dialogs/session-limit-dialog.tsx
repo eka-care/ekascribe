@@ -14,7 +14,7 @@ const BULLET_ITEMS = [
   },
   {
     title: 'Priority support',
-    description: 'Direct access to our clinical team',
+    description: 'Direct access to our support team',
   },
 ];
 

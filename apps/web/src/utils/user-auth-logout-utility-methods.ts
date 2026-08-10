@@ -1,14 +1,14 @@
 import { resetTracking } from '@/analytics';
 import { LOGOUT_DEV_URL, LOGOUT_PROD_URL } from '@/constants/constant';
-import { with401Retry } from '@/fetch-client/api-with-retry';
 import { postV1AuthAccountLogout } from '@/fetch-client/post-v1-auth-account-logout';
 import { getStorage, getHost, getAuthTokens } from '@/platform';
 import useVoice2RxStore from '@/store/store';
 
 const handleUserLogout = async () => {
   try {
-    // Best-effort server-side logout. Even if this fails, user is already logged out locally.
-    await with401Retry(() => postV1AuthAccountLogout(), 'user logout');
+    // Best-effort server-side logout, called DIRECTLY (no with401Retry): that helper
+    // calls handleUserLogout on 401, which would recurse right back here forever.
+    await postV1AuthAccountLogout();
   } catch (error) {
     console.error('Logout error:', error);
   } finally {
