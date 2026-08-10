@@ -10,6 +10,8 @@ const nextConfig: NextConfig = {
     typedRoutes: true,
   },
   output: 'standalone',
+  // Desktop dev runs its own Next instance — NEXT_DIST_DIR isolates it from `next dev`.
+  distDir: process.env.NEXT_DIST_DIR || '.next',
   transpilePackages: ['@eka-care/medical-records-ui'],
   // StrictMode's dev double-mount fires the AG-UI run POST twice, creating ghost documents
   reactStrictMode: false,

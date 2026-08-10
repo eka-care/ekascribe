@@ -227,6 +227,12 @@ async function startStaticServer(staticRoot: string): Promise<void> {
 async function startNextServer(repoPath: string): Promise<void> {
   injectElectronEnv();
 
+  // Keep the desktop's dev compile output separate from a concurrently
+  // running `next dev` on the same checkout.
+  if (!app.isPackaged) {
+    process.env.NEXT_DIST_DIR = process.env.NEXT_DIST_DIR || '.next-desktop';
+  }
+
   const requireFromEkascribe = createRequire(path.join(repoPath, 'package.json'));
   const nextModule = requireFromEkascribe('next') as (opts: {
     dev: boolean;
