@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
-import Image from 'next/image';
 import { SidebarProvider, SidebarTrigger } from '@ui/src';
 import StickyBanner from './sticky-banner';
 import UIHydrationComponent from '@/shared-components/ui-hydration-component';
@@ -70,7 +69,7 @@ const ScreenContainer = ({ children }: { children: React.ReactNode }) => {
       <header className="fixed top-0 left-0 right-0 z-50 h-14 flex items-center space-x-1 px-2 bg-background border-b border-border md:hidden">
         <SidebarTrigger className="cursor-pointer" />
         <div className="flex items-center gap-2 pl-1">
-          <Image src="/assets/eka-logo-collapsible.svg" alt="varta" width={32} height={32} />
+          <img src="/favicon.ico" alt="varta" width={32} height={32} />
           <div className="flex flex-col justify-center">
             <span className="text-lg font-bold tracking-tight text-[#1A1A1A] leading-5">varta</span>
             <span className="text-[9px] italic font-medium tracking-wide text-[#767676] leading-3">
