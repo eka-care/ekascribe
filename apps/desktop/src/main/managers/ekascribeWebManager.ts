@@ -231,6 +231,10 @@ async function startNextServer(repoPath: string): Promise<void> {
   // running `next dev` on the same checkout.
   if (!app.isPackaged) {
     process.env.NEXT_DIST_DIR = process.env.NEXT_DIST_DIR || '.next-desktop';
+    // Tailwind v4's source scanner resolves from process.cwd(); run the dev
+    // compile from the web app dir exactly like `next dev` does, or responsive
+    // variants are silently dropped from the generated CSS.
+    process.chdir(repoPath);
   }
 
   const requireFromEkascribe = createRequire(path.join(repoPath, 'package.json'));

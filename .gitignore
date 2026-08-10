@@ -29,3 +29,4 @@ apps/desktop/mac/build/
 apps/desktop/certs/
 apps/desktop/*.log
 apps/desktop/electron.env
+apps/web/.next-desktop/
