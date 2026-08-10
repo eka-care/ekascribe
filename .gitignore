@@ -18,3 +18,16 @@ logs/
 !apps/api/src/logs/**
 *.egg-info/
 .next/
+
+# desktop app (apps/desktop lives on its feature branch; ignore its artifacts everywhere)
+apps/desktop/node_modules/
+apps/desktop/.vite/
+apps/desktop/out/
+apps/desktop/dist/
+apps/desktop/runtime/
+apps/desktop/mac/build/
+apps/desktop/certs/
+apps/desktop/electron.env
+apps/desktop/*.log
+apps/desktop/.DS_Store
+apps/desktop/**/*.csproj.user
