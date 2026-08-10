@@ -46,12 +46,12 @@ import {
   stopEkascribeWeb,
 } from './managers/ekascribeWebManager';
 import { registerNetworkIpcHandlers } from './managers/networkManager';
-import { registerWhatsappIpcHandlers, initWhatsAppAutoConnect } from './managers/whatsappManager';
+// import { registerWhatsappIpcHandlers, initWhatsAppAutoConnect } from './managers/whatsappManager';
 import { registerPdfIpcHandlers } from './managers/pdfManager';
 import { registerNotificationIpcHandlers, showNotification, showPermissionPromptIfNeeded } from './managers/notificationManager';
-import { initPushManager, disposePushManager } from './managers/pushManager';
 import { registerProxyProtocolHandler, unregisterProxyProtocolHandler } from './managers/proxyManager';
 import { registerStorageIpcHandlers } from './managers/storageManager';
+import { isOidcConfigured } from './managers/authManager';
 import { initMainSentry, captureLog, captureError, addBreadcrumb, setSessionId, clearSessionId } from './managers/sentryManager';
 import { ChildProcess, spawnSync } from 'node:child_process';
 import { NativeBridge } from './nativeCommunication/NativeBridge';
@@ -89,7 +89,7 @@ const scribeCommandRetryCount = new Map<string, number>();
 const SCRIBE_COMMAND_ACK_TIMEOUT_MS = 1200;
 const SCRIBE_COMMAND_MAX_RETRIES = 2;
 
-const DEEP_LINK_PROTOCOL = 'ekadoc';
+const DEEP_LINK_PROTOCOL = 'scribe';
 const MAIN_WINDOW_MIN_WIDTH = 1024;
 const MAIN_WINDOW_MIN_HEIGHT = 660;
 const DOTNET_REQUIRED_MAJOR_VERSION = 10;
@@ -695,7 +695,8 @@ const createWindow = async () => {
 
   const authToken = getAuthToken();
   const refreshToken = getRefreshToken();
-  const isAuthenticated = !!authToken && !!refreshToken;
+  // No OIDC configured → the web app owns auth; skip the desktop login screen.
+  const isAuthenticated = (!!authToken && !!refreshToken) || !isOidcConfigured();
   const loadTarget = isAuthenticated ? 'ekascribe-web' : 'renderer';
   const windowLoadStartMs = Date.now();
 
@@ -1223,15 +1224,11 @@ app.on('ready', async () => {
   registerRecordingIpcHandlers();
   registerEkascribeWebIpcHandlers();
   registerNetworkIpcHandlers();
-  registerWhatsappIpcHandlers();
+  // registerWhatsappIpcHandlers();
   registerPdfIpcHandlers();
   registerStorageIpcHandlers();
-  initWhatsAppAutoConnect();
+  // initWhatsAppAutoConnect();
   registerNotificationIpcHandlers();
-  initPushManager().catch((err) => {
-    captureError(err, { domain: 'infra', component: 'push', extra: { action: 'init' } });
-    console.error('[main] pushManager init error:', err);
-  });
   ipcMain.on('app:getVersionSync', (event) => {
     event.returnValue = app.getVersion();
   });
@@ -1730,7 +1727,6 @@ app.on('will-quit', () => {
     clearScribeCommandAckTimer(channel);
   }
   scribeCommandRetryCount.clear();
-  disposePushManager();
   nativeBridge?.dispose();
   nativeBridge = null;
   globalShortcut.unregister(currentScribeAccelerator);

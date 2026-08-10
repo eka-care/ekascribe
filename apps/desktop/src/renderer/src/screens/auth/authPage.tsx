@@ -170,7 +170,7 @@ export function AuthPage() {
         >
           {/* Logo */}
           <div style={{ paddingTop: 48, height: 32, width: 192, marginBottom: 48 }}>
-            <img src={ekaLogo} alt="eka.scribe" style={{ width: '100%', height: '100%', objectFit: 'contain', objectPosition: 'left' }} />
+            <img src={ekaLogo} alt="scribe" style={{ width: '100%', height: '100%', objectFit: 'contain', objectPosition: 'left' }} />
           </div>
 
           {/* Left column: video + text */}

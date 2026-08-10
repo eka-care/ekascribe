@@ -240,6 +240,8 @@ type OverlayShortcutPreferences = {
 
 // --- WhatsApp integration ---
 
+// Kept for the commented WhatsApp bridge below.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const whatsappQrSubscribers = new Set<(qr: string) => void>();
 const whatsappStatusSubscribers = new Set<(status: string) => void>();
 let latestWhatsappQr: string | null = null;
@@ -262,23 +264,24 @@ ipcRenderer.on('whatsapp:status-change', (_event: IpcRendererEvent, status: stri
   }
 });
 
-contextBridge.exposeInMainWorld('whatsappApi', {
-  connect: () => ipcRenderer.invoke('whatsapp:connect'),
-  disconnect: () => ipcRenderer.invoke('whatsapp:disconnect'),
-  getStatus: () => ipcRenderer.invoke('whatsapp:status'),
-  sendDocument: (payload: { phoneNumber: string; pdfBuffer: ArrayBuffer; fileName: string; caption?: string }) =>
-    ipcRenderer.invoke('whatsapp:send-document', payload),
-  onQrCode: (callback: (qr: string) => void) => {
-    whatsappQrSubscribers.add(callback);
-    if (latestWhatsappQr) callback(latestWhatsappQr);
-    return () => { whatsappQrSubscribers.delete(callback); };
-  },
-  onStatusChange: (callback: (status: string) => void) => {
-    whatsappStatusSubscribers.add(callback);
-    if (latestWhatsappStatus) callback(latestWhatsappStatus);
-    return () => { whatsappStatusSubscribers.delete(callback); };
-  },
-});
+// WhatsApp linked-device bridge — disabled for the open-source build.
+// contextBridge.exposeInMainWorld('whatsappApi', {
+//   connect: () => ipcRenderer.invoke('whatsapp:connect'),
+//   disconnect: () => ipcRenderer.invoke('whatsapp:disconnect'),
+//   getStatus: () => ipcRenderer.invoke('whatsapp:status'),
+//   sendDocument: (payload: { phoneNumber: string; pdfBuffer: ArrayBuffer; fileName: string; caption?: string }) =>
+//     ipcRenderer.invoke('whatsapp:send-document', payload),
+//   onQrCode: (callback: (qr: string) => void) => {
+//     whatsappQrSubscribers.add(callback);
+//     if (latestWhatsappQr) callback(latestWhatsappQr);
+//     return () => { whatsappQrSubscribers.delete(callback); };
+//   },
+//   onStatusChange: (callback: (status: string) => void) => {
+//     whatsappStatusSubscribers.add(callback);
+//     if (latestWhatsappStatus) callback(latestWhatsappStatus);
+//     return () => { whatsappStatusSubscribers.delete(callback); };
+//   },
+// });
 
 contextBridge.exposeInMainWorld('notificationApi', {
   show: (opts: { title: string; body: string; silent?: boolean }) =>

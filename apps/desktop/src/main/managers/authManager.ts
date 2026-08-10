@@ -21,7 +21,12 @@ const store = new ElectronStore();
 const UNENCRYPTED_PREFIX = 'plain:';
 // TODO: enable safeStorage on macOS too — tokens are currently stored as plaintext in electron-store on macOS
 const USE_SAFE_STORAGE = process.platform !== 'darwin';
-const OIDC_BASE_URL = 'https://aortago.eka.care';
+// OIDC provider for desktop login. Unset → login screen is skipped and the
+// embedded web app handles auth itself (on-prem / dev-token mode).
+const OIDC_BASE_URL = process.env.OIDC_BASE_URL || '';
+export function isOidcConfigured(): boolean {
+  return !!OIDC_BASE_URL;
+}
 const OIDC_SCOPE = 'openid profile email offline_access';
 const OIDC_CALLBACK_PORT = 50515;
 const OIDC_REDIRECT_URI = `http://localhost:${OIDC_CALLBACK_PORT}/auth-success`;

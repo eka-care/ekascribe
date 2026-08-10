@@ -1,12 +1,12 @@
 {
-  "name": "ekascribe",
-  "productName": "EkaScribe",
+  "name": "scribe-desktop",
+  "productName": "Scribe",
   "version": "0.9.5",
-  "description": "My Electron application description",
+  "description": "AI note taker \u2014 desktop app",
   "main": ".vite/build/main.js",
   "private": true,
   "build": {
-    "appId": "care.eka.ekascribe",
+    "appId": "com.scribe.desktop",
     "compression": "maximum",
     "electronLanguages": [
       "en"
@@ -21,9 +21,9 @@
       "!**/node_modules/@opentelemetry{,/**}"
     ],
     "protocols": {
-      "name": "EkaDoc Deep Link",
+      "name": "Scribe Deep Link",
       "schemes": [
-        "ekadoc"
+        "scribe"
       ]
     },
     "publish": [
@@ -33,7 +33,7 @@
       }
     ],
     "mac": {
-      "artifactName": "EkaScribe.${ext}",
+      "artifactName": "Scribe.${ext}",
       "icon": "build/icons/icon.icns",
       "hardenedRuntime": true,
       "notarize": true,
@@ -68,7 +68,7 @@
           ]
         }
       ],
-      "artifactName": "EkaScribe Setup.${ext}",
+      "artifactName": "Scribe Setup.${ext}",
       "target": [
         {
           "target": "nsis",
@@ -94,7 +94,7 @@
       "allowElevation": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "EkaScribe",
+      "shortcutName": "Scribe",
       "installerIcon": "build/icons/icon.ico",
       "uninstallerIcon": "build/icons/icon.ico",
       "include": "scripts/windows/nsis-uninstall-helper.nsh"
@@ -131,8 +131,8 @@
   },
   "keywords": [],
   "author": {
-    "name": "Eka Care",
-    "email": "support@eka.care"
+    "name": "scribe",
+    "email": "support@example.com"
   },
   "license": "MIT",
   "devDependencies": {
@@ -166,7 +166,6 @@
     "vite": "^5.4.21"
   },
   "dependencies": {
-    "@eneris/push-receiver": "^4.3.1",
     "@sentry/electron": "^7.10.0",
     "@whiskeysockets/baileys": "^7.0.0-rc10",
     "electron-squirrel-startup": "^1.0.1",
