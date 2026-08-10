@@ -1,6 +1,18 @@
 import type { NextConfig } from 'next';
 import path from 'path';
+import fs from 'fs';
 import webpack from 'webpack';
+
+// Read NEXT_PUBLIC_* from the root .env (lowest precedence, secrets never imported).
+const rootEnvPath = path.join(__dirname, '../../.env');
+if (fs.existsSync(rootEnvPath)) {
+  for (const line of fs.readFileSync(rootEnvPath, 'utf8').split('\n')) {
+    const m = line.match(/^\s*(NEXT_PUBLIC_[A-Z0-9_]+)\s*=\s*(.*?)\s*$/);
+    if (m && process.env[m[1]] === undefined) {
+      process.env[m[1]] = m[2].replace(/^(['"])(.*)\1$/, '$2');
+    }
+  }
+}
 
 const nextConfig: NextConfig = {
   // Pin the workspace root so Next ignores stray lockfiles in parent dirs
@@ -41,7 +53,7 @@ const nextConfig: NextConfig = {
     const platformFamily =
       (process.env.NEXT_PUBLIC_APP_SOURCE ?? 'web') === 'web' ? 'web' : 'electron';
 
-    console.log('[next.config] NEXT_PUBLIC_APP_SOURCE:', process.env.NEXT_PUBLIC_APP_SOURCE, '| platformFamily:', platformFamily);
+    console.log('[next.config] NEXT_PUBLIC_APP_SOURCE:', process.env.NEXT_PUBLIC_APP_SOURCE, '| platformFamily:', platformFamily, '| NEXT_PUBLIC_API_HOST:', process.env.NEXT_PUBLIC_API_HOST);
 
     config.resolve.alias = {
       ...config.resolve.alias,
