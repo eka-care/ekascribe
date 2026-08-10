@@ -1,0 +1,40 @@
+# ############################################################################
+# Image pull credential for the PRIVATE Docker Hub repo ekacare/ekascribe.
+# Without it every pod fails with:
+#   ImagePullBackOff -- pull access denied, repository does not exist
+#
+# TEMPLATE -- PLACEHOLDERS ONLY. DO NOT COMMIT REAL VALUES.
+#
+# The .example extension is deliberate: `kubectl apply -f deploy/k8s/` only
+# reads .yaml/.yml/.json, so this file is skipped and cannot overwrite a real
+# pull secret with the REPLACE_ME values below.
+#
+# Preferred: create it straight against the cluster, using a Docker Hub
+# ACCESS TOKEN (hub.docker.com -> Account Settings -> Personal access tokens),
+# never an account password:
+#
+#   kubectl create secret docker-registry ekascribe-regcred -n eka-care \
+#     --docker-server=https://index.docker.io/v1/ \
+#     --docker-username=YOUR_USER \
+#     --docker-password=YOUR_ACCESS_TOKEN
+#
+# Secrets are namespaced -- this must exist in eka-care specifically. A
+# regcred sitting in `default` will not be found.
+#
+# If you fill in a copy instead, `auth` is base64("username:token"):
+#   printf 'YOUR_USER:YOUR_ACCESS_TOKEN' | base64 -w0
+# then apply that copy explicitly and leave it untracked:
+#   cp 03-regcred.yaml.example 03-regcred.yaml && $EDITOR 03-regcred.yaml
+#   kubectl apply -f deploy/k8s/03-regcred.yaml
+# ############################################################################
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ekascribe-regcred
+  namespace: eka-care
+  labels:
+    app.kubernetes.io/part-of: ekascribe
+type: kubernetes.io/dockerconfigjson
+stringData:
+  .dockerconfigjson: |
+    {"auths":{"https://index.docker.io/v1/":{"username":"REPLACE_ME","password":"REPLACE_ME_ACCESS_TOKEN","auth":"REPLACE_ME_BASE64_OF_USER_COLON_TOKEN"}}}
