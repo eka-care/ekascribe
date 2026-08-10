@@ -20,7 +20,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 from scribe.core.custom_logger import get_logger
-from scribe.core.exceptions import ResourceNotFoundException
+from scribe.core.exceptions import BadRequestException, ResourceNotFoundException
 from scribe.services.session_utils import SESSION_DURATION_SECONDS, compute_session_expires_at, compute_upload_url
 from scribe.core.choices import (
     InputLanguage,
@@ -150,7 +150,12 @@ class SessionAdaptor:
                     )
 
         if not input_languages:
-            input_languages = [InputLanguage.EN_IN.value]
+            raise BadRequestException(
+                "language_hint is required on session create; supported "
+                "languages: en, hi, en-hi",
+                txn_id=session_id,
+                b_id=b_id,
+            )
 
         output_language = None
         if session_request.transcript_language:
@@ -160,7 +165,7 @@ class SessionAdaptor:
                 ]
             output_language = (
                 resolve_input_language(session_request.transcript_language[0])
-                or InputLanguage.EN_IN.value
+                or InputLanguage.EN.value
             )
         
         additional_data = session_request.additional_data or {}

@@ -16,8 +16,12 @@ from scribe.pipeline import pipeline as bp
 
 
 @queue_app.task(name="transcribe_chunk", queue="scribe", retry=3)
-def transcribe_chunk(txn_id: str, b_id: str, s3_url: str, filename: str) -> None:
-    bp.transcribe_chunk(txn_id=txn_id, b_id=b_id, s3_url=s3_url, filename=filename)
+def transcribe_chunk(
+    txn_id: str, b_id: str, s3_url: str, filename: str, language: str = None
+) -> None:
+    bp.transcribe_chunk(
+        txn_id=txn_id, b_id=b_id, s3_url=s3_url, filename=filename, language=language
+    )
 
 
 @queue_app.task(name="vad_session", queue="scribe", retry=3)

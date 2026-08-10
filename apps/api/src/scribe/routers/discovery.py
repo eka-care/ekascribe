@@ -111,7 +111,7 @@ async def get_discovery_document():
                 ModelConfig(
                     id="lite",
                     display_name="Lite",
-                    languages=["en", "hi"],
+                    languages=SUPPORTED_LANGUAGE_CODES,
                     max_session_duration_seconds=600,
                     response_speed="fast",
                     features=ModelFeatures(
@@ -136,7 +136,7 @@ async def get_discovery_document():
             
             languages=LanguageConfig(
                 supported=SUPPORTED_LANGUAGE_CODES,
-                auto_detection=True,
+                auto_detection=False,  # STT endpoint requires an explicit language
             ),
         )
         

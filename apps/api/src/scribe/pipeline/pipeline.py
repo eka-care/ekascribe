@@ -122,8 +122,34 @@ def _transcribe_chunk_sync(bucket: str, chunk_key: str, language: Optional[str])
     return result
 
 
+def _session_language(message: Dict[str, Any]) -> Optional[str]:
+    """Resolve the session's STT language: explicit message value first, then
+    the transaction's input_language. Returns None if neither is set (callers
+    then fall back to the env defaults in _transcribe_bytes)."""
+    lang = message.get("lang") or message.get("language")
+    if lang:
+        return str(lang)
+    txn_id = message.get("txn_id")
+    if not txn_id:
+        return None
+    try:
+        from scribe.repositories.transaction_orm import TransactionORM
+
+        txn = TransactionORM().get_transaction(txn_id, message.get("b_id", "")) or {}
+        langs = txn.get("input_language")
+        if isinstance(langs, str):
+            return langs or None
+        if isinstance(langs, (list, tuple)) and langs:
+            return str(langs[0]) or None
+    except Exception as e:  # noqa: BLE001 — language is best-effort
+        logger.warning("could not resolve session language", txn_id=txn_id, error=str(e))
+    return None
+
+
 # --- pipeline jobs (queue-agnostic) ------------------------------------------
-def transcribe_chunk(txn_id: str, b_id: str, s3_url: str, filename: str) -> None:
+def transcribe_chunk(
+    txn_id: str, b_id: str, s3_url: str, filename: str, language: Optional[str] = None
+) -> None:
     """STT for one uploaded chunk. Claims the chunk in Postgres first so
     concurrent workers never transcribe the same chunk twice; the blob-level
     transcript artifact keeps the work idempotent on top."""
@@ -133,8 +159,11 @@ def transcribe_chunk(txn_id: str, b_id: str, s3_url: str, filename: str) -> None
     if not chunk_state.claim_chunk(txn_id, filename):
         logger.info("chunk skipped (done or claimed elsewhere)", txn_id=txn_id, chunk=filename)
         return
+    # language arrives with the dispatch (set at session create); the txn
+    # lookup only covers payloads enqueued before this field existed.
+    language = language or _session_language({"txn_id": txn_id, "b_id": b_id})
     try:
-        _transcribe_chunk_sync(bucket, chunk_key, language=None)
+        _transcribe_chunk_sync(bucket, chunk_key, language=language)
     except Exception as e:  # noqa: BLE001 — record, then let retry policy run
         chunk_state.mark_failed(txn_id, filename, str(e))
         raise
@@ -168,13 +197,20 @@ def vad_session(message: Dict[str, Any]) -> None:
         )
 
     # fan out per-chunk STT now instead of leaving it all to commit time
+    language = _session_language(message)  # once per session, not per chunk
     s_bucket, s_prefix = parse_blob_url(s3_url)
     for _, chunk_key in _chunk_files(s_bucket, s_prefix):
         filename = chunk_key.split("/")[-1]
         chunk_state.register_chunk(txn_id, filename, b_id, chunk_key)
         dispatch(
             "transcribe_chunk",
-            {"txn_id": txn_id, "b_id": b_id, "s3_url": s3_url, "filename": filename},
+            {
+                "txn_id": txn_id,
+                "b_id": b_id,
+                "s3_url": s3_url,
+                "filename": filename,
+                "language": language,
+            },
         )
     logger.info("vad_session complete", txn_id=txn_id, files=len(audio_files))
 
@@ -185,7 +221,7 @@ def process_session(message: Dict[str, Any]) -> None:
     txn_id = message["txn_id"]
     b_id = message.get("b_id", "")
     s3_url = message.get("s3_url", "")
-    language = message.get("lang") or message.get("language")
+    language = _session_language(message)
     bucket, prefix = parse_blob_url(s3_url)
 
     chunks = _chunk_files(bucket, prefix)
@@ -204,7 +240,13 @@ def process_session(message: Dict[str, Any]) -> None:
         for filename in remaining:
             dispatch(
                 "transcribe_chunk",
-                {"txn_id": txn_id, "b_id": b_id, "s3_url": s3_url, "filename": filename},
+                {
+                    "txn_id": txn_id,
+                    "b_id": b_id,
+                    "s3_url": s3_url,
+                    "filename": filename,
+                    "language": language,
+                },
             )
         follow_up = dict(message)
         follow_up["attempt"] = attempt + 1
@@ -240,14 +282,19 @@ def process_session(message: Dict[str, Any]) -> None:
 
     parts: List[str] = []
     detected_lang: Optional[str] = None
-    for _, chunk_key in chunks:
-        # idempotent: fast-path reads the existing transcript artifact; any
-        # straggler chunk (attempts exhausted) is transcribed inline here.
-        result = _transcribe_chunk_sync(bucket, chunk_key, language)
-        chunk_state.mark_done(txn_id, chunk_key.split("/")[-1], _transcript_key_for_chunk(chunk_key))
-        if result.get("text"):
-            parts.append(result["text"].strip())
-        detected_lang = detected_lang or result.get("language_detected")
+    try:
+        for _, chunk_key in chunks:
+            # idempotent: fast-path reads the existing transcript artifact; any
+            # straggler chunk (attempts exhausted) is transcribed inline here.
+            result = _transcribe_chunk_sync(bucket, chunk_key, language)
+            chunk_state.mark_done(txn_id, chunk_key.split("/")[-1], _transcript_key_for_chunk(chunk_key))
+            if result.get("text"):
+                parts.append(result["text"].strip())
+            detected_lang = detected_lang or result.get("language_detected")
+    except Exception as e:  # noqa: BLE001 — release the stitch claim so the
+        # retry does not wait out the 300s stale-claim TTL
+        chunk_state.mark_failed(txn_id, chunk_state.STITCH_SENTINEL, str(e))
+        raise
 
     transcript_text = "\n".join(p for p in parts if p)
     lang = language or detected_lang or ""

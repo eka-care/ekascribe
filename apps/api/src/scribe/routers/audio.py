@@ -169,7 +169,7 @@ async def upload_audio(
             # Pipeline: transcribe each chunk as it lands.
             try:
                 from scribe.pipeline.dispatch import dispatch
-
+                input_langs = session_data.get("input_language") or []
                 dispatch(
                     "transcribe_chunk",
                     {
@@ -177,6 +177,9 @@ async def upload_audio(
                         "b_id": b_id,
                         "s3_url": session_data.get("s3_url", ""),
                         "filename": result["filename"],
+                        "language": input_langs[0]
+                        if isinstance(input_langs, list) and input_langs
+                        else (input_langs or None),
                     },
                 )
             except Exception as qe:
