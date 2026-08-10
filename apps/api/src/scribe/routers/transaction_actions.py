@@ -1,6 +1,7 @@
 """
 Transaction actions router.
 
+- GET /history: latest sessions for the authenticated user (session list).
 - GET /{txn_id}: transaction details.
 - PATCH /{txn_id}: processing-status callback from the pipeline. When the
   raw transcript is done (transcript_status=success) the transcript
@@ -10,8 +11,10 @@ Transaction actions router.
 """
 
 from datetime import datetime, timezone
+from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, Request
+from fastapi import APIRouter, BackgroundTasks, Query, Request
+from fastapi.responses import JSONResponse
 
 from scribe.core.http import (
     RequestHandler,
@@ -31,6 +34,52 @@ logger = get_logger(__name__)
 # Initialize services
 transaction_service = TransactionService()
 document_service = DocumentService()
+
+
+# NOTE: registered before /{txn_id} so the literal path wins route matching.
+@transaction_actions_router.get(
+    "/history", summary="List sessions for the authenticated user, newest first"
+)
+def list_transactions(
+    request: Request,
+    count: Optional[int] = Query(
+        None, description="Number of latest sessions to fetch.", ge=1
+    ),
+    oid: Optional[str] = Query(None, description="patient oid"),
+):
+    try:
+        token_data = RequestHandler.extract_token_data_from_request(request)
+        b_id = token_data.get("b-id", None)
+        uuid = token_data.get("uuid", None)
+        if not uuid:
+            return JSONResponse(
+                {"status": "failed", "error": "UUID is required"},
+                status_code=400,
+            )
+
+        if oid and b_id:
+            transactions = transaction_service.get_patient_sessions(
+                b_id=b_id, oid=oid, uuid=uuid, limit=count
+            )
+        else:
+            transactions = transaction_service.get_transactions(uuid, limit=count)
+
+        if not transactions:
+            return JSONResponse(
+                {"status": "failed", "error": "No transactions found"},
+                status_code=404,
+            )
+
+        response_data = {
+            "status": "success",
+            "data": transactions,
+            "retrieved_count": len(transactions),
+        }
+
+        return ResponseFormatter.json_response(response_data, status_code=200)
+
+    except Exception as e:
+        return ResponseFormatter.from_exception(e)
 
 
 @transaction_actions_router.get("/{txn_id}")
