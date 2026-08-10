@@ -93,9 +93,16 @@ data:
   FEATURE_DRUG_SEARCH: "true"
 
   # --- Formulary (drug catalog search) ------------------------------------
-  # echo's PostgresClient reads these; point them at the same DB as
-  # DATABASE_URL in 02-secret.yaml. Password is in the Secret.
-  ECHO_PG_HOST: "REPLACE_ME_DB_HOST"
+  # echo's PostgresClient (asyncpg) reads these as discrete fields rather than
+  # a DSN, so they duplicate what DATABASE_URL in 02-secret.yaml already says.
+  # Both point at the StatefulSet in 05-postgres-statefulset.yaml -- one
+  # database serves the app tables, the queue and the formulary catalog.
+  # ECHO_PG_PASSWORD is in the Secret.
+  #
+  # Note the code-level fallbacks differ (port 5433, db/user `matrix`, in
+  # apps/api/scripts/setup_medication_db.py). If these keys ever go missing the
+  # client does not fail loudly -- it tries somewhere else entirely.
+  ECHO_PG_HOST: "ekascribe-postgres.eka-care.svc.cluster.local"
   ECHO_PG_PORT: "5432"
   ECHO_PG_DATABASE: "scribe"
   ECHO_PG_USER: "scribe"

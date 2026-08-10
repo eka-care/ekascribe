@@ -20,6 +20,17 @@ spec:
     spec:
       imagePullSecrets:
         - name: ekascribe-regcred
+      # Same reasoning as the api: spread the two replicas across nodes when
+      # possible, but do not block scheduling to do it.
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: ekascribe-web
       containers:
         # Container name is `web` -- deploy/push.sh prints
         # `kubectl set image deploy/ekascribe-web web=...` to pin a tag.
@@ -52,10 +63,15 @@ spec:
             initialDelaySeconds: 20
             periodSeconds: 20
             failureThreshold: 3
+          # PER POD. The web tier's budget is 1 vCPU / 3Gi in total, and
+          # replicas is 2 above, so each pod gets half. Change both together --
+          # bumping replicas without cutting these raises the total spend.
+          #
+          # requests == limits for Guaranteed QoS, same as the api.
           resources:
             requests:
-              cpu: 100m
-              memory: 256Mi
+              cpu: 500m
+              memory: 1536Mi
             limits:
               cpu: 500m
-              memory: 512Mi
+              memory: 1536Mi
