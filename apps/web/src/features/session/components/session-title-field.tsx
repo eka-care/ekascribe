@@ -31,21 +31,17 @@ const SessionTitleField = ({ sessionId, disabled, onDisabledClick }: SessionTitl
 
   return (
     <div
-      className={`group flex items-center gap-2 flex-1 sm:flex-none sm:w-72 min-w-0 py-1.5 px-3 rounded-lg border transition-colors ${
+      className={`group flex items-center gap-2 flex-1 sm:flex-none sm:w-72 min-w-0 py-1.5 rounded-lg border transition-colors ${
         disabled
-          ? 'opacity-60 cursor-not-allowed border-transparent'
+          ? 'opacity-60 cursor-not-allowed border-transparent px-3'
           : isEditing
-          ? 'bg-white border-[#215FFF]'
+          ? 'bg-white border-[#215FFF] px-3'
           : hasTitle
-          ? 'border-transparent hover:bg-[#F5F8FF]'
-          : 'bg-white border-[#D1D1D1]'
+          ? 'border-transparent hover:bg-[#F5F8FF] px-2'
+          : 'bg-white border-[#D1D1D1] px-3'
       }`}
     >
-      <SquarePen
-        className={`w-4 h-4 shrink-0 text-[#767676] transition-opacity ${
-          hasTitle ? 'opacity-0 group-hover:opacity-100' : ''
-        }`}
-      />
+      <SquarePen className="w-4 h-4 shrink-0 text-[#767676]" />
       <input
         ref={inputRef}
         type="text"
