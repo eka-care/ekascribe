@@ -1,4 +1,4 @@
-.PHONY: install setup dev api worker web test lint up down start
+.PHONY: install setup dev api worker web test lint up down start start-prod
 
 install:
 	uv sync --all-packages
@@ -42,3 +42,16 @@ start: ## one command: build image (API + web UI) + init DB + start postgres/api
 	$(COMPOSE) up -d api
 	@echo ">> ekascribe running — app + api: http://localhost:8000"
 	@echo ">>   (in-process mode; no worker. logs: $(COMPOSE) logs -f api)"
+
+COMPOSE_PROD = docker compose -f deploy/docker-compose-prod.yml
+
+start-prod: ## prod VM: build image (API + web UI) + init DB + start stack. Needs .env with keys, ENV=prod, SELF_URL=https://<your-domain>
+	@[ -f .env ] || { cp .env.example .env; echo ">> created .env from .env.example — set API keys, ENV=prod and SELF_URL=https://<your-domain>, then re-run"; exit 1; }
+	@grep -q "^ENV=prod" .env || echo ">> WARNING: ENV is not 'prod' in .env"
+	@grep -q "^SELF_URL=https://" .env || echo ">> WARNING: SELF_URL in .env is not an https:// URL — browser-facing upload/session URLs derive from it"
+	$(COMPOSE_PROD) up -d --build postgres
+	$(COMPOSE_PROD) build api
+	$(COMPOSE_PROD) run --rm api uv run python scripts/setup.py --non-interactive --no-env --skip-model-check --no-serve-check
+	$(COMPOSE_PROD) up -d api
+	@echo ">> ekascribe (prod) running — app + api on container port 8000"
+	@echo ">>   front it with your HTTPS proxy (mic needs a secure context). logs: $(COMPOSE_PROD) logs -f api"
