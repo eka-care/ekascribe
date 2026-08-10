@@ -1,7 +1,7 @@
 # Scribe — LOCAL stack (locked to the working local setup).
-#   postgres + api + web; worker via --profile worker. No Redis, no AWS.
-#   Web is built against http://localhost:8000 / :3000 unless SELF_URL/WEB_URL
-#   are set in the shell or .env.
+#   postgres + api (which also serves the web UI at :8000); worker via
+#   --profile worker. No Redis, no AWS. The web bundle is a static export with
+#   relative URLs — no host baked in, no separate web container.
 #   Usage: docker compose -f deploy/docker-compose-local.yml up -d --build
 services:
   postgres:
@@ -14,8 +14,10 @@ services:
     # loopback-only so the DB is never exposed off-box; native `make api/setup`
     # connect via 127.0.0.1 (use 127.0.0.1 in DATABASE_URL — on macOS
     # "localhost" resolves to ::1 first, which this binding does not serve).
+    # Host port 5433 to coexist with a natively installed Postgres on 5432;
+    # containers still reach it as postgres:5432 on the compose network.
     ports:
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -33,6 +35,7 @@ services:
     environment:
       DATABASE_URL: postgresql://scribe:scribe@postgres:5432/scribe
       ECHO_PG_HOST: postgres
+      ECHO_PG_PORT: 5432
       # override .env's relative ./storage so api + worker share the mounted volume
       STORAGE_ROOT: /data/storage
     volumes:
@@ -64,6 +67,7 @@ services:
     environment:
       DATABASE_URL: postgresql://scribe:scribe@postgres:5432/scribe
       ECHO_PG_HOST: postgres
+      ECHO_PG_PORT: 5432
       STORAGE_ROOT: /data/storage
       # PATCH callbacks go to the api service, not the worker's own localhost
       SELF_URL: http://api:8000
@@ -72,23 +76,6 @@ services:
       - logs:/data/logs
     depends_on:
       postgres:
-        condition: service_healthy
-
-  web:
-    build:
-      context: ..
-      dockerfile: deploy/Dockerfile.web
-      args:
-        # NEXT_PUBLIC_* are inlined at BUILD time — rebuild web when these change.
-        NEXT_PUBLIC_API_HOST: ${SELF_URL:-http://localhost:8000}
-        NEXT_PUBLIC_WEB_HOST: ${WEB_URL:-http://localhost:3000}
-    restart: unless-stopped
-    environment:
-      NEXT_PUBLIC_API_HOST: ${SELF_URL:-http://localhost:8000}
-    ports:
-      - "3000:3000"   # fronted by infra SSL on the VM (https://bharat-net.dev.eka.care)
-    depends_on:
-      api:
         condition: service_healthy
 
 volumes:

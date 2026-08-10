@@ -1,12 +1,12 @@
-import SessionScreen from '@/features/session/screens/session-screen';
+import SessionClientPage from './session-client-page';
 
-interface PageProps {
-  params: Promise<{ id: string }>;
+// Static export: session ids are runtime UUIDs, so we export one placeholder
+// shell. The API serves it for every /session/* path (web_static.py rewrite);
+// the client router matches /session/[id] and reads the real id from the URL.
+export function generateStaticParams() {
+  return [{ id: '_' }];
 }
 
-const SessionPage = async ({ params }: PageProps) => {
-  const { id } = await params;
-  return <SessionScreen key={id} sessionId={id} />;
-};
+const SessionPage = () => <SessionClientPage />;
 
 export default SessionPage;

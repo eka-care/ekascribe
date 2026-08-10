@@ -122,6 +122,13 @@ def create_app() -> FastAPI:
     def healthz():
         return {"status": "ok", "env": s.env}
 
+    # --- Web UI (static Next.js export) — must be registered LAST so the
+    # catch-all never shadows API routes.
+    if s.web_dist_dir:
+        from scribe.web_static import mount_web_static
+
+        mount_web_static(app, s.web_dist_dir)
+
     logger.info(
         "api configured",
         env=s.env,

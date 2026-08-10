@@ -34,12 +34,11 @@ down:
 
 COMPOSE = docker compose -f deploy/docker-compose-local.yml
 
-start: ## one command: build images (install deps) + init DB + start postgres/api/web (in-process default)
+start: ## one command: build image (API + web UI) + init DB + start postgres/api (in-process default)
 	@[ -f .env ] || { cp .env.example .env; echo ">> created .env from .env.example — add SARVAM_API_KEY + your LLM key before real use"; }
 	$(COMPOSE) up -d --build postgres
 	$(COMPOSE) build api
 	$(COMPOSE) run --rm api uv run python scripts/setup.py --non-interactive --no-env --skip-model-check --no-serve-check
 	$(COMPOSE) up -d api
-	-$(COMPOSE) up -d --build web
-	@echo ">> ekascribe running — api: http://localhost:8000   web: http://localhost:3000"
+	@echo ">> ekascribe running — app + api: http://localhost:8000"
 	@echo ">>   (in-process mode; no worker. logs: $(COMPOSE) logs -f api)"

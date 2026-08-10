@@ -23,7 +23,9 @@ class Settings(BaseSettings):
     # --- Deployment ---------------------------------------------------------
     env: Literal["local", "dev", "prod"] = "local"
     self_url: str = "http://localhost:8000"  # public base URL of the API (discovery doc, upload URLs)
-    web_url: str = "http://localhost:3000"
+    # Exported web bundle (apps/web out/) served by the api at /. None = API only
+    # (native dev runs `next dev` instead); the Docker image sets /app/web-static.
+    web_dist_dir: str | None = None
 
     # --- Pluggable backends --------------------------------------------------
     storage_backend: Literal["local", "s3"] = "local"

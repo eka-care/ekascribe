@@ -28,11 +28,10 @@ data:
   # Correct as-is for `kubectl port-forward svc/ekascribe-api 8000:8000`;
   # change to https://api.<your-domain>/voice once an ingress exists.
   API_BASE_URL: "http://varta.bharatai.gov.in/api/voice"
-  WEB_URL: "http://varta.bharatai.gov.in"
-  NEXT_PUBLIC_API_HOST: "http://varta.bharatai.gov.in/api"
-  NEXT_PUBLIC_WEB_HOST: "http://varta.bharatai.gov.in"
-  NEXT_PUBLIC_EKA_HOST: "http://varta.bharatai.gov.in/api"
-
+  # The api image ships the static web UI at /app/web-static and serves it at /
+  # (scribe/web_static.py). The bundle uses relative URLs, so no WEB_URL or
+  # NEXT_PUBLIC_* host vars exist anymore. Unset this to run the pod API-only.
+  WEB_DIST_DIR: "/app/web-static"
 
   # --- Pluggable backends -------------------------------------------------
   STORAGE_BACKEND: "local"
