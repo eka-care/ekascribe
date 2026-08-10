@@ -38,7 +38,7 @@ kubectl get ns eka-care
 If it is missing, someone with cluster-scoped rights has to create it before
 anything below will apply.
 
-Push images next (see `deploy/push.sh`).
+Push images next — `./deploy/push.sh <tag>` builds and pushes both api and web.
 
 Create the two credentials directly against the cluster so nothing real lands
 in the repo. Use a Docker Hub **access token**, not your password:

@@ -8,7 +8,7 @@ metadata:
     app.kubernetes.io/part-of: ekascribe
 spec:
   # Stateless -- unlike the api, this scales freely.
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app.kubernetes.io/name: ekascribe-web
@@ -18,6 +18,13 @@ spec:
         app.kubernetes.io/name: ekascribe-web
         app.kubernetes.io/part-of: ekascribe
     spec:
+      hostAliases:
+        - ip: "10.185.27.69"
+          hostnames:
+            - "varta-model.bharatai.gov.in"    
+        # - ip: "100.78.69.4"
+        #   hostnames:
+        #     - "varta.bharatai.gov.in"              
       imagePullSecrets:
         - name: ekascribe-regcred
       # Same reasoning as the api: spread the two replicas across nodes when
@@ -48,6 +55,11 @@ spec:
           env:
             - name: NODE_ENV
               value: production
+          envFrom:
+            - configMapRef:
+                name: ekascribe-config    
+            - secretRef:
+                name: ekascribe-secrets                          
           # Next.js standalone has no health route, so probe the app root.
           readinessProbe:
             httpGet:

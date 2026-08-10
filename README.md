@@ -67,7 +67,7 @@ prompts/                    Agent prompts (file provider)
 templates/                  Seed data: 5 default markdown templates
 scripts/setup.py            Init: .env, checks, migrations, seeds, smoke
 deploy/                     Dockerfiles + docker-compose (+ AWS/LocalStack overlay)
-  ├ push.sh                 Build + push api/web images to Docker Hub
+  ├ push.sh <tag>           Build + push api/web images to Docker Hub
   └ k8s/                    Kubernetes manifests (api + web, namespace eka-care)
 ```
 

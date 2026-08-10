@@ -24,7 +24,7 @@ spec:
   # worker and add a worker Deployment (deploy/Dockerfile.worker). Note that
   # UVICORN_WORKERS must stay 1 regardless: that constraint is about processes
   # inside one pod, not about replicas.
-  replicas: 2
+  replicas: 1
   # RollingUpdate, not Recreate. Recreate would take BOTH pods down at once and
   # throw away the availability the second replica exists for. maxUnavailable 0
   # keeps one pod serving throughout; maxSurge 1 means a rollout briefly needs
@@ -43,6 +43,13 @@ spec:
         app.kubernetes.io/name: ekascribe-api
         app.kubernetes.io/part-of: ekascribe
     spec:
+      hostAliases:
+        - ip: "10.185.27.69"
+          hostnames:
+            - "varta-model.bharatai.gov.in"    
+        # - ip: "100.78.69.4"
+        #   hostnames:
+        #     - "varta.bharatai.gov.in"                     
       imagePullSecrets:
         - name: ekascribe-regcred
       # Without this the scheduler is free to place both replicas on one node,

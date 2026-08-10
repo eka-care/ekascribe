@@ -2,10 +2,9 @@
 #
 # Build and push ekascribe images to Docker Hub.
 #
-#   ./deploy/push.sh                    build + push api and web
-#   ./deploy/push.sh api                just the api image
-#   PUSH=false ./deploy/push.sh         build locally, don't push
-#   TAG=v1.2.3 ./deploy/push.sh         explicit tag instead of the git sha
+#   ./deploy/push.sh v1.2.3                build + push api and web at v1.2.3
+#   PUSH=false ./deploy/push.sh v1.2.3     build locally, don't push
+#   LATEST=false ./deploy/push.sh v1.2.3   skip the :api-latest / :web-latest tags
 #
 # Everything lands in ONE repo with component-prefixed tags, e.g.
 #   ekacare/ekascribe:api-1a2b3c4   ekacare/ekascribe:web-1a2b3c4
@@ -27,14 +26,33 @@ BUILDER_NAME="${BUILDER_NAME:-ekascribe-builder}"
 # (deploy/Dockerfile.web) -- setting them at runtime in k8s does nothing. The
 # defaults match `kubectl port-forward`, which is how this deployment is
 # reached; override them once the API is behind a real hostname.
-NEXT_PUBLIC_API_HOST="${NEXT_PUBLIC_API_HOST:-http://localhost:8000}"
-NEXT_PUBLIC_WEB_HOST="${NEXT_PUBLIC_WEB_HOST:-http://localhost:3000}"
+
+NEXT_PUBLIC_API_HOST="${NEXT_PUBLIC_API_HOST:-http://varta.bharatai.gov.in/api}"
+NEXT_PUBLIC_WEB_HOST="${NEXT_PUBLIC_WEB_HOST:-http://varta.bharatai.gov.in}"
+NEXT_PUBLIC_EKA_HOST="${NEXT_PUBLIC_EKA_HOST:-http://varta.bharatai.gov.in/api}"
 
 ALL_COMPONENTS=(api web)
 
 info() { printf '>> %s\n' "$*"; }
 warn() { printf 'warning: %s\n' "$*" >&2; }
 die()  { printf 'error: %s\n' "$*" >&2; exit 1; }
+
+usage() {
+  cat <<'EOF'
+usage: ./deploy/push.sh <tag>
+
+  <tag>   image tag, e.g. v1.2.3 or 1a2b3c4. Both components are always built:
+            ekacare/ekascribe:api-<tag>   ekacare/ekascribe:web-<tag>
+
+env overrides:
+  PUSH=false            build only, don't push
+  LATEST=false          don't also tag :api-latest / :web-latest
+  PLATFORMS=...         default linux/amd64; a comma-separated list uses buildx
+  DOCKERHUB_REPO=...    default ekacare/ekascribe
+  NEXT_PUBLIC_API_HOST= baked into the web bundle at build time
+  NEXT_PUBLIC_WEB_HOST= baked into the web bundle at build time
+EOF
+}
 
 dockerfile_for() {
   case "$1" in
@@ -44,31 +62,18 @@ dockerfile_for() {
   esac
 }
 
-# git sha, with -dirty when the tree does not match the commit. Falls back to
-# "notag" outside a usable git checkout so the script still works from a tarball.
-#
-# Uses `status --porcelain` rather than `diff --quiet HEAD` on purpose: untracked
-# files are part of the build context too, so an image built with them does not
-# correspond to the bare commit. Gitignored files are excluded, so a local .env
-# does not permanently mark every build dirty.
-default_tag() {
-  local sha
-  if ! sha="$(git -C "$REPO_ROOT" rev-parse --short HEAD 2>/dev/null)"; then
-    printf 'notag\n'
-    return
-  fi
-  if [[ -n "$(git -C "$REPO_ROOT" status --porcelain 2>/dev/null)" ]]; then
-    printf '%s-dirty\n' "$sha"
-  else
-    printf '%s\n' "$sha"
-  fi
-}
-
 preflight() {
   command -v docker >/dev/null 2>&1 || die "docker not found on PATH"
   docker info >/dev/null 2>&1 || die "cannot talk to the docker daemon (is it running? are you in the docker group?)"
 
-  [[ "$TAG" == *-dirty ]] && warn "working tree is dirty -- tagging as '$TAG'"
+  # Uses `status --porcelain` rather than `diff --quiet HEAD` on purpose:
+  # untracked files are part of the build context too, so an image built with
+  # them does not correspond to the bare commit. Gitignored files are excluded,
+  # so a local .env does not permanently mark every build dirty. Silent outside
+  # a git checkout -- the script still works from a tarball.
+  if [[ -n "$(git -C "$REPO_ROOT" status --porcelain 2>/dev/null)" ]]; then
+    warn "working tree is dirty -- '$TAG' will not correspond to a clean commit"
+  fi
 
   if [[ "$PUSH" == "true" ]]; then
     local cfg="${DOCKER_CONFIG:-$HOME/.docker}/config.json"
@@ -98,6 +103,9 @@ build_component() {
   local tag_args=() t
   for t in "${tags[@]}"; do tag_args+=(-t "$t"); done
 
+  # Expanded below as ${build_args[@]+"${build_args[@]}"}: bash 3.2 (what macOS
+  # ships) treats "${empty[@]}" as unbound under `set -u`, and api passes no
+  # build args.
   local build_args=()
   if [[ "$component" == "web" ]]; then
     build_args+=(--build-arg "NEXT_PUBLIC_API_HOST=${NEXT_PUBLIC_API_HOST}")
@@ -112,11 +120,11 @@ build_component() {
     ensure_builder
     info "buildx $component [$PLATFORMS] -> ${tags[*]}"
     docker buildx build --builder "$BUILDER_NAME" --platform "$PLATFORMS" \
-      -f "$dockerfile" "${build_args[@]}" "${tag_args[@]}" --push "$REPO_ROOT"
+      -f "$dockerfile" ${build_args[@]+"${build_args[@]}"} "${tag_args[@]}" --push "$REPO_ROOT"
   else
     info "build $component [$PLATFORMS]"
     docker build --platform "$PLATFORMS" \
-      -f "$dockerfile" "${build_args[@]}" "${tag_args[@]}" "$REPO_ROOT"
+      -f "$dockerfile" ${build_args[@]+"${build_args[@]}"} "${tag_args[@]}" "$REPO_ROOT"
     if [[ "$PUSH" == "true" ]]; then
       for t in "${tags[@]}"; do
         info "push $t"
@@ -129,19 +137,41 @@ build_component() {
 }
 
 main() {
-  local components=("$@")
-  [[ ${#components[@]} -eq 0 ]] && components=("${ALL_COMPONENTS[@]}")
+  if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+    usage
+    exit 0
+  fi
 
-  TAG="${TAG:-$(default_tag)}"
+  if [[ $# -ne 1 ]]; then
+    usage >&2
+    exit 2
+  fi
+
+  TAG="$1"
+
+  # The old form selected components positionally. A bare `./push.sh api` is
+  # now indistinguishable from a tag named "api" -- reject it rather than
+  # publish ekacare/ekascribe:api-api off stale muscle memory.
+  local c
+  for c in "${ALL_COMPONENTS[@]}"; do
+    if [[ "$TAG" == "$c" ]]; then
+      die "'$TAG' is a component name, not a tag -- both components are always built now; try: ./deploy/push.sh v1.2.3"
+    fi
+  done
+
+  # Docker's own tag grammar. Checking here beats discovering it after a full
+  # build, when the push is the thing that fails.
+  [[ "$TAG" =~ ^[A-Za-z0-9_][A-Za-z0-9._-]{0,127}$ ]] \
+    || die "'$TAG' is not a valid docker tag (start alnum/_, then alnum . _ -, max 128 chars)"
+
   PUSHED_TAGS=()
 
   preflight
 
-  info "repo: $DOCKERHUB_REPO   tag: $TAG   components: ${components[*]}"
+  info "repo: $DOCKERHUB_REPO   tag: $TAG   components: ${ALL_COMPONENTS[*]}"
   [[ "$PUSH" == "true" ]] || info "PUSH=false -- building only, nothing will be pushed"
 
-  local c
-  for c in "${components[@]}"; do
+  for c in "${ALL_COMPONENTS[@]}"; do
     build_component "$c"
   done
 
@@ -153,7 +183,7 @@ main() {
   if [[ "$PUSH" == "true" ]]; then
     echo
     info "roll out the immutable tags with:"
-    for c in "${components[@]}"; do
+    for c in "${ALL_COMPONENTS[@]}"; do
       printf '     kubectl -n eka-care set image deploy/ekascribe-%s %s=%s:%s-%s\n' \
         "$c" "$c" "$DOCKERHUB_REPO" "$c" "$TAG"
     done
