@@ -6,9 +6,7 @@ from fastapi import HTTPException
 import uuid
 from pydantic import BaseModel, Field
 import asyncio
-from scribe.repositories.dynamo_helper import get_dynamo_client
-from scribe.repositories.dynamo_helper import DynamoHelper
-from  scribe.core.constants import DYNAMO_TEMPLATE_SECTION_WID_ID_INDEX, DYNAMO_TEMPLATE_WID_ID_INDEX
+from scribe.repositories.doc_store import DocStore, get_async_store
 
 from scribe.schemas.template_schema import (
     SectionCreate, SectionUpdate, SectionResponse, SectionsListResponse,
@@ -20,7 +18,7 @@ from scribe.schemas.template_schema import (
 from scribe.core.custom_logger import get_logger
 logger = get_logger(__name__)
 
-# Pydantic Models for DynamoDB items
+# Pydantic models for stored items
 class TemplateModel(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     wid: str = "DEFAULT"  # DEFAULT -> available to all businesses
@@ -57,7 +55,7 @@ class TemplateService:
     
     @staticmethod
     def section_to_response(section_data: Dict[str, Any]) -> SectionResponse:
-        """Convert DynamoDB section item to SectionResponse schema"""
+        """Convert a stored section item to SectionResponse schema."""
         return SectionResponse(
             id=section_data.get("id", ""),
             title=section_data.get("title", ""),
@@ -95,15 +93,13 @@ class TemplateService:
     
     @staticmethod
     async def get_sections_by_business(wid: str) -> List[Dict[str, Any]]:
-        """Get sections for a specific business using GSI"""
-        dynamo = get_dynamo_client()
+        """Get sections for a specific business"""
+        store = get_async_store()
         try:
-            return await dynamo.query_items(
-                table_name="ekascribe_template_section",
-                key_condition_expression="wid = :wid", 
-                expression_attribute_values={":wid": wid, ":archived": True},
-                filter_expression="attribute_not_exists(archived) OR archived <> :archived",
-                index_name=DYNAMO_TEMPLATE_SECTION_WID_ID_INDEX            )
+            return await store.find(
+                "ekascribe_template_section",
+                [("wid", "eq", wid), ("or", [("archived", "not_exists", None), ("archived", "ne", True)])],
+            )
         except Exception as e:
             raise HTTPException(
                 status_code=500,
@@ -112,15 +108,12 @@ class TemplateService:
     
     @staticmethod
     async def get_default_sections() -> List[Dict[str, Any]]:
-        """Get default sections using async DynamoDB"""
-        dynamo = get_dynamo_client()
+        """Get default sections."""
+        store = get_async_store()
         try:
-            return await dynamo.query_items(
-                table_name="ekascribe_template_section",
-                key_condition_expression="wid = :wid",
-                expression_attribute_values={":wid": "DEFAULT", ":archived": True},
-                filter_expression="attribute_not_exists(archived) OR archived <> :archived",
-                index_name=DYNAMO_TEMPLATE_SECTION_WID_ID_INDEX
+            return await store.find(
+                "ekascribe_template_section",
+                [("wid", "eq", "DEFAULT"), ("or", [("archived", "not_exists", None), ("archived", "ne", True)])],
             )
         except Exception as e:
             raise HTTPException(
@@ -130,22 +123,12 @@ class TemplateService:
     
     @staticmethod
     async def get_templates_by_business(wid: str) -> List[Dict[str, Any]]:
-        """Get templates for specific business using async DynamoDB"""
-        dynamo = get_dynamo_client()
+        """Get templates for a specific business."""
+        store = get_async_store()
         try:
-            return await dynamo.query_items(
-                table_name="ekascribe_template",
-                key_condition_expression="wid = :wid",
-                expression_attribute_values={
-                    ":wid": wid,
-                    ":archived": True,
-                    ":integration": "integration"
-                },
-                filter_expression="attribute_not_exists(archived) OR archived <> :archived AND (attribute_not_exists(#type) OR #type <> :integration)",
-                expression_attribute_names={
-                    "#type": "type"  
-                },
-                index_name=DYNAMO_TEMPLATE_WID_ID_INDEX
+            return await store.find(
+                "ekascribe_template",
+                [("wid", "eq", wid), ("or", [("archived", "not_exists", None), ("archived", "ne", True)]), ("or", [("type", "not_exists", None), ("type", "ne", "integration")])],
             )
         except Exception as e:
             raise HTTPException(
@@ -153,22 +136,15 @@ class TemplateService:
                 detail=f"Failed to fetch templates for business {wid}: {str(e)}"
             )
     
-    # TODO create GSI (wid + type) to optimize this query
+    # TODO add index (wid + type) to optimize this query
     @staticmethod
     async def get_template_by_bid_and_type(wid: str, template_type: str) -> Optional[Dict[str, Any]]:
-        """Get template for specific business and type using async DynamoDB"""
-        dynamo = get_dynamo_client()
+        """Get template for a specific business and type."""
+        store = get_async_store()
         try:
-            templates = await dynamo.query_items(
-                table_name="ekascribe_template",
-                key_condition_expression="wid = :wid",
-                expression_attribute_values={
-                    ":wid": wid,
-                    ":type": template_type,
-                    ":archived": True
-                },
-                filter_expression="(attribute_not_exists(archived) OR archived <> :archived) AND #type = :type",
-                index_name=DYNAMO_TEMPLATE_WID_ID_INDEX
+            templates = await store.find(
+                "ekascribe_template",
+                [("wid", "eq", wid), ("or", [("archived", "not_exists", None), ("archived", "ne", True)]), ("type", "eq", template_type)],
             )
             # one doamin(wid) can have only one template of a type
             if templates:
@@ -189,7 +165,7 @@ class TemplateService:
         exclude_archived: bool = True
     ) -> Optional[Dict[str, Any]]:
         """
-        Get template for specific business with flexible filters using async DynamoDB
+        Get template for a specific business with flexible filters
         Args:
             wid: Workspace/Business ID
             filters: Dictionary of field-value pairs to filter on
@@ -199,47 +175,19 @@ class TemplateService:
         Returns:
             First matching template or None
         """
-        dynamo = get_dynamo_client()
-        
+        store = get_async_store()
+
         try:
-            expression_values = {":wid": wid}
-    
-            filter_parts = []
-            expression_names = {}
-            
+            where = [("wid", "eq", wid)]
             if exclude_archived:
-                expression_values[":archived"] = True
-                filter_parts.append("(attribute_not_exists(archived) OR archived <> :archived)")
-            
-            if filters:
-                for idx, (field, value) in enumerate(filters.items()):
-                    param_name = f":filter_{idx}"
-                    attr_name = f"#field_{idx}"
-                    
-                    expression_values[param_name] = value
-                    expression_names[attr_name] = field
-                    
-                    if value is None:
-                        filter_parts.append(f"attribute_not_exists({attr_name})")
-                    else:
-                        filter_parts.append(f"{attr_name} = {param_name}")
-            
-            filter_expression = " AND ".join(filter_parts) if filter_parts else None
-            
-            query_params = {
-                "table_name": "ekascribe_template",
-                "key_condition_expression": "wid = :wid",
-                "expression_attribute_values": expression_values,
-                "index_name": DYNAMO_TEMPLATE_WID_ID_INDEX
-            }
-            
-            if filter_expression:
-                query_params["filter_expression"] = filter_expression
-            
-            if expression_names:
-                query_params["expression_attribute_names"] = expression_names
-            
-            templates = await dynamo.query_items(**query_params)
+                where.append(("or", [("archived", "not_exists", None), ("archived", "ne", True)]))
+            for field, value in (filters or {}).items():
+                if value is None:
+                    where.append((field, "not_exists", None))
+                else:
+                    where.append((field, "eq", value))
+
+            templates = await store.find("ekascribe_template", where)
             
             if filters:
                 filter_desc = ", ".join([f"{k}={v}" for k, v in filters.items()])
@@ -258,22 +206,12 @@ class TemplateService:
     
     @staticmethod
     async def get_default_templates() -> List[Dict[str, Any]]:
-        """Get default templates using async DynamoDB"""
-        dynamo = get_dynamo_client()
+        """Get default templates."""
+        store = get_async_store()
         try:
-            return await dynamo.query_items(
-                table_name="ekascribe_template",
-                key_condition_expression="wid = :wid",
-                expression_attribute_values={
-                    ":wid": "DEFAULT", 
-                    ":archived": True,
-                    ":integration": "integration"
-                },
-                filter_expression="(attribute_not_exists(archived) OR archived <> :archived) AND (attribute_not_exists(#type) OR #type <> :integration)",
-                expression_attribute_names={
-                    "#type": "type"  
-                },
-                index_name=DYNAMO_TEMPLATE_WID_ID_INDEX
+            return await store.find(
+                "ekascribe_template",
+                [("wid", "eq", "DEFAULT"), ("or", [("archived", "not_exists", None), ("archived", "ne", True)]), ("or", [("type", "not_exists", None), ("type", "ne", "integration")])],
             )
         except Exception as e:
             raise HTTPException(
@@ -283,12 +221,12 @@ class TemplateService:
     
     @staticmethod
     async def get_my_templates(wid : str, user_uuid : str) -> List[Dict[str, Any]] :
-        dynamo = get_dynamo_client()
+        store = get_async_store()
         template_ids = []
-        if workspace_config := await dynamo.get_item("ekascribe_config",{"b_id": wid,"user_uuid": "_"}):
+        if workspace_config := await store.get_item("ekascribe_config",{"b_id": wid,"user_uuid": "_"}):
             template_ids.extend(workspace_config.get("my_templates", []))
 
-        if user_config := await dynamo.get_item("ekascribe_config",{"b_id": wid, "user_uuid": user_uuid}):
+        if user_config := await store.get_item("ekascribe_config",{"b_id": wid, "user_uuid": user_uuid}):
             template_ids.extend(user_config.get("my_templates", []))
 
         templates = TemplateService.get_templates_by_ids(list(set(template_ids)))
@@ -311,9 +249,9 @@ class TemplateService:
         )
         
         section_dict = section.model_dump(exclude_none=True)
-        dynamo = get_dynamo_client()
-        
-        success = await dynamo.create_item("ekascribe_template_section", section_dict)
+        store = get_async_store()
+
+        success = await store.create_item("ekascribe_template_section", section_dict)
         if not success:
             raise HTTPException(status_code=500, detail="Failed to create section")
         
@@ -324,7 +262,7 @@ class TemplateService:
     
     @staticmethod
     async def get_sections(wid: str) -> SectionsListResponse:
-        """Get all sections accessible to business using GSI queries"""
+        """Get all sections accessible to business"""
         try:
             # Run both queries concurrently
 
@@ -362,10 +300,10 @@ class TemplateService:
         if wid == "7176288959780124":
             wid = "DEFAULT"
 
-        dynamo = get_dynamo_client()
-        
+        store = get_async_store()
+
         # Get the section
-        section = await dynamo.get_item("ekascribe_template_section", {"id": section_id})
+        section = await store.get_item("ekascribe_template_section", {"id": section_id})
         if not section or section.get("archived") is True:
             raise HTTPException(status_code=404, detail="Section not found")
         
@@ -382,18 +320,9 @@ class TemplateService:
             
             # Get only non-None values
             update_data = update_model.model_dump(exclude_none=True)
-            
-            # Build update expression
-            update_expression = "SET " + ", ".join([f"#{k} = :{k}" for k in update_data.keys()])
-            expression_attribute_names = {f"#{k}": k for k in update_data.keys()}
-            expression_attribute_values = {f":{k}": v for k, v in update_data.items()}
-            
-            success = await dynamo.update_item(
-                "ekascribe_template_section",
-                {"id": section_id},
-                update_expression,
-                expression_attribute_values,
-                expression_attribute_names
+
+            success = await store.update_item(
+                "ekascribe_template_section", {"id": section_id}, update_data
             )
             
             if not success:
@@ -415,9 +344,9 @@ class TemplateService:
     @staticmethod
     async def delete_section(section_id: str, wid: str) -> MessageResponse:
         """Archive (soft delete) a section"""
-        dynamo = get_dynamo_client()
+        store = get_async_store()
         # Get the section
-        section = await dynamo.get_item("ekascribe_template_section", {"id": section_id})
+        section = await store.get_item("ekascribe_template_section", {"id": section_id})
         if not section or section.get("archived") is True:
             raise HTTPException(status_code=404, detail="Section not found or already archived")
         
@@ -426,17 +355,10 @@ class TemplateService:
             raise HTTPException(status_code=403, detail="Cannot delete section - not owned by your workspace")
         
         # Soft delete
-        update_expression = "SET archived = :archived, archived_at = :archived_at"
-        expression_attribute_values = {
-            ":archived": True,
-            ":archived_at": datetime.utcnow().isoformat()
-        }
-        
-        success = await dynamo.update_item(
+        success = await store.update_item(
             "ekascribe_template_section",
             {"id": section_id},
-            update_expression,
-            expression_attribute_values
+            {"archived": True, "archived_at": datetime.utcnow().isoformat()},
         )
         
         if not success:
@@ -465,9 +387,9 @@ class TemplateService:
         )
 
         template_dict = template.model_dump(exclude_none=True)
-        dynamo = get_dynamo_client()
+        store = get_async_store()
 
-        success = await dynamo.create_item("ekascribe_template", template_dict)
+        success = await store.create_item("ekascribe_template", template_dict)
         if not success:
             raise HTTPException(status_code=500, detail="Failed to create template")
 
@@ -478,7 +400,7 @@ class TemplateService:
     
     @staticmethod
     async def get_templates(wid: str, user_uuid: str) -> TemplatesListResponse:
-        """Get all templates accessible to business using GSI queries"""
+        """Get all templates accessible to business"""
         try:
             default_task = asyncio.create_task(TemplateService.get_default_templates())
             workspace_task = asyncio.create_task(TemplateService.get_templates_by_business(wid))
@@ -543,9 +465,9 @@ class TemplateService:
             wid = "DEFAULT"
 
         """Update an existing template"""
-        dynamo = get_dynamo_client()
+        store = get_async_store()
 
-        template = await dynamo.get_item("ekascribe_template", {"id": template_id})
+        template = await store.get_item("ekascribe_template", {"id": template_id})
         if not template or template.get("archived") is True:
             raise HTTPException(status_code=404, detail="Template not found")
 
@@ -564,16 +486,8 @@ class TemplateService:
 
         update_data = update_model.model_dump(exclude_none=True)
 
-        update_expression = "SET " + ", ".join([f"#{k} = :{k}" for k in update_data.keys()])
-        expression_attribute_names = {f"#{k}": k for k in update_data.keys()}
-        expression_attribute_values = {f":{k}": v for k, v in update_data.items()}
-
-        success = await dynamo.update_item(
-            "ekascribe_template",
-            {"id": template_id},
-            update_expression,
-            expression_attribute_values,
-            expression_attribute_names
+        success = await store.update_item(
+            "ekascribe_template", {"id": template_id}, update_data
         )
 
         if not success:
@@ -584,9 +498,9 @@ class TemplateService:
     @staticmethod
     async def delete_template(template_id: str, wid: str, user_uuid: str) -> MessageResponse:
         """Archive (soft delete) a template and remove its id from any configs' my_templates list."""
-        dynamo = get_dynamo_client()
-        
-        template = await dynamo.get_item("ekascribe_template", {"id": template_id})
+        store = get_async_store()
+
+        template = await store.get_item("ekascribe_template", {"id": template_id})
         if not template or template.get("archived") is True:
             raise HTTPException(status_code=404, detail="Template not found or already archived")
         
@@ -594,8 +508,8 @@ class TemplateService:
             raise HTTPException(status_code=403, detail="Template not editable")
 
         # Workspace config (wid, user_uuid="-"/"_", allow legacy and current)
-        workspace_config = await dynamo.get_item("ekascribe_config", {"b_id": wid, "user_uuid": "_"})
-        user_config = await dynamo.get_item("ekascribe_config", {"b_id": wid, "user_uuid": user_uuid})
+        workspace_config = await store.get_item("ekascribe_config", {"b_id": wid, "user_uuid": "_"})
+        user_config = await store.get_item("ekascribe_config", {"b_id": wid, "user_uuid": user_uuid})
 
         # Remove this template_id from my_templates list of both configs if present
         tasks = []
@@ -607,29 +521,18 @@ class TemplateService:
                 my_templates = config.get("my_templates", [])
                 if template_id in my_templates:
                     new_templates = [tid for tid in my_templates if tid != template_id]
-                    update_expr = "SET my_templates = :my_templates"
-                    expr_attr_values = {":my_templates": new_templates}
                     tasks.append(
-                        dynamo.update_item(
-                            "ekascribe_config",
-                            key,
-                            update_expr,
-                            expr_attr_values
+                        store.update_item(
+                            "ekascribe_config", key, {"my_templates": new_templates}
                         )
                     )
         if tasks:
             await asyncio.gather(*tasks)
 
-        update_expression = "SET archived = :archived, archived_at = :archived_at"
-        expression_attribute_values = {
-            ":archived": True,
-            ":archived_at": datetime.utcnow().isoformat()
-        }
-        success = await dynamo.update_item(
+        success = await store.update_item(
             "ekascribe_template",
             {"id": template_id},
-            update_expression,
-            expression_attribute_values
+            {"archived": True, "archived_at": datetime.utcnow().isoformat()},
         )
         
         if not success:
@@ -639,12 +542,11 @@ class TemplateService:
 
     @staticmethod
     async def get_template_by_id(template_id: str) -> Optional[Dict[str, Any]]:
-        """Get template by ID using synchronous DynamoDB client"""
-        dynamo = get_dynamo_client()
+        """Get template by ID."""
+        store = get_async_store()
         try:
-            template = await dynamo.get_item(
-                table_name="ekascribe_template",
-                key={"id": template_id}
+            template = await store.get_item(
+                "ekascribe_template", {"id": template_id}
             )
             return template
         except Exception as e:
@@ -653,7 +555,7 @@ class TemplateService:
     
     @staticmethod
     def get_templates_by_ids(template_ids: List[str]) -> List[Dict[str, Any]]:
-        dynamo = DynamoHelper('ekascribe_template')
+        store = DocStore('ekascribe_template')
         if not template_ids:
             return []
         
@@ -662,8 +564,8 @@ class TemplateService:
             all_templates = []
             for i in range(0, len(template_ids), batch_size):
                 batch_ids = template_ids[i:i + batch_size]
-                response =  dynamo.query_multiple_items_batch(
-                   ids=batch_ids, key_name="id"
+                response = store.query_multiple_items_batch(
+                    ids=batch_ids, key_name="id"
                 )
                 if response:
                     all_templates.extend(response)
@@ -676,8 +578,8 @@ class TemplateService:
 
     @staticmethod
     def get_template(template_id: str) -> Optional[Dict[str, Any]]:
-        dynamo = DynamoHelper('ekascribe_template')
-        template = dynamo.get_item({"id": template_id})
+        store = DocStore('ekascribe_template')
+        template = store.get_item({"id": template_id})
         # The database is the source of truth for template content (desc).
         return template
 

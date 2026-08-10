@@ -165,22 +165,22 @@ def step_seed() -> bool:
         import yaml
 
         from scribe_core.settings import get_settings
-        from scribe.repositories.dynamo_helper import DynamoHelper
+        from scribe.repositories.doc_store import DocStore
 
         s = get_settings()
         data = yaml.safe_load((ROOT / "templates" / "seed_data.yaml").read_text())
 
-        section_db = DynamoHelper("ekascribe_template_section")
+        section_db = DocStore("ekascribe_template_section")
         for sec in data.get("sections", []):
             sec.setdefault("wid", "DEFAULT")
-            section_db.update_item(key_dict={"id": sec["id"]}, update_dict=sec)
-        template_db = DynamoHelper("ekascribe_template")
+            section_db.upsert_item(key_dict={"id": sec["id"]}, update_dict=sec)
+        template_db = DocStore("ekascribe_template")
         for tpl in data.get("templates", []):
             tpl.setdefault("wid", "DEFAULT")
-            template_db.update_item(key_dict={"id": tpl["id"]}, update_dict=tpl)
+            template_db.upsert_item(key_dict={"id": tpl["id"]}, update_dict=tpl)
 
-        config_db = DynamoHelper("ekascribe_config")
-        config_db.update_item(
+        config_db = DocStore("ekascribe_config")
+        config_db.upsert_item(
             key_dict={"b_id": s.dev_b_id, "user_uuid": "_"},
             update_dict={
                 "my_templates": [t["id"] for t in data.get("templates", [])],

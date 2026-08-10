@@ -1,12 +1,9 @@
-"""
-Transaction ORM for DynamoDB operations.
-"""
+"""Transaction repository."""
 
 import os
 from typing import Dict, List, Optional, Any
 from datetime import datetime, timezone, time, timedelta
 from decimal import Decimal
-from botocore.exceptions import ClientError
 from scribe.core.custom_logger import get_logger
 from scribe.schemas.transaction import TransactionUpdateData
 from scribe.core.choices import VOICE2RX_PROCESSING_STATUS
@@ -185,52 +182,15 @@ class TransactionORM(BaseORM):
             List of transactions
         """
         try:
-            query_params = {
-                "IndexName": self.index_name,
-                "KeyConditionExpression": "b_id = :bid_val",
-                "ExpressionAttributeValues": {":bid_val": {"S": b_id}},
-                "ScanIndexForward": False,  # Descending order
-                "ProjectionExpression": (
-                    "txn_id, created_at, b_id, arc, #mode, client, "
-                    "processing_status, #uuid, oid, user_status, "
-                    "patient_details, flavour, version"
-                ),
-                "ExpressionAttributeNames": {"#mode": "mode", "#uuid": "uuid"},
-            }
-
+            where = [
+                ("b_id", "eq", b_id),
+                ("or", [("arc", "not_exists", None), ("arc", "eq", False)]),
+            ]
             if uuid:
-                query_params["FilterExpression"] = (
-                    "#uuid = :uuid_val AND "
-                    f"{self._non_archived_filter_expression()}"
-                )
-                query_params["ExpressionAttributeValues"][":uuid_val"] = {"S": uuid}
-            else:
-                query_params["FilterExpression"] = self._non_archived_filter_expression()
-
-            query_params["ExpressionAttributeValues"][":arc_false"] = {"BOOL": False}
-
-            if limit:
-                query_params["Limit"] = limit
-
-            all_items = []
-            last_evaluated_key = None
-
-            while True:
-                if last_evaluated_key:
-                    query_params["ExclusiveStartKey"] = last_evaluated_key
-
-                response = self.dynamodb_client.query(
-                    TableName=self.table_name, **query_params
-                )
-                all_items.extend(response.get("Items", []))
-                last_evaluated_key = response.get("LastEvaluatedKey")
-
-                if not last_evaluated_key or limit:
-                    break
-
-            # Deserialize items
-            deserialized_items = [self._deserialize_item(item) for item in all_items]
-            return deserialized_items
+                where.append(("uuid", "eq", uuid))
+            return self.table.find(
+                where, order_by="created_at", desc=True, limit=limit
+            )
 
         except Exception as e:
             logger.error(
@@ -265,41 +225,22 @@ class TransactionORM(BaseORM):
                 today + timedelta(days=1), time.min
             ).replace(tzinfo=now_local.tzinfo)
 
-            # Convert to UTC for DynamoDB query
+            # Convert to UTC for the range query
             start_of_day_utc = start_of_day_local.astimezone(timezone.utc)
             end_of_day_utc = end_of_day_local.astimezone(timezone.utc)
 
-            # Format timestamps for DynamoDB
+            # Format timestamps
             start_timestamp = start_of_day_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
             end_timestamp = end_of_day_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
 
-            response = self.dynamodb_client.query(
-                TableName=self.table_name,
-                IndexName=self.index_name,
-                KeyConditionExpression="b_id = :bid AND created_at BETWEEN :start AND :end",
-                FilterExpression="processing_status = :processing_status",
-                ExpressionAttributeValues={
-                    ":bid": {"S": b_id},
-                    ":start": {"S": start_timestamp},
-                    ":end": {"S": end_timestamp},
-                    ":processing_status": {
-                        "S": VOICE2RX_PROCESSING_STATUS.SUCCESS.value
-                    },
-                },
-                Select="COUNT",
+            return self.table.count(
+                [
+                    ("b_id", "eq", b_id),
+                    ("created_at", "between", (start_timestamp, end_timestamp)),
+                    ("processing_status", "eq", VOICE2RX_PROCESSING_STATUS.SUCCESS.value),
+                ]
             )
 
-            return response.get("Count", 0)
-
-        except ClientError as e:
-            logger.error(
-                "Failed to count today's transactions",
-                b_id=b_id,
-                error=str(e),
-                exc_info=True,
-                severity="medium",
-            )
-            return 0
         except Exception as e:
             logger.error(
                 "Unexpected error counting today's transactions",
@@ -314,33 +255,21 @@ class TransactionORM(BaseORM):
         self, uuid: str, limit: Optional[int] = None
     ) -> List[Dict[str, Any]]:
         try:
-            projection = (
-                "arc, #mode, b_id, processing_status, flavour, oid, model_type, "
-                "user_status, patient_details, txn_id, created_at"
+            # all transactions except cancelled and archived ones, newest first
+            items = self.table.find(
+                [
+                    ("uuid", "eq", uuid),
+                    ("or", [("arc", "not_exists", None), ("arc", "eq", False)]),
+                    ("or", [
+                        ("processing_status", "not_exists", None),
+                        ("processing_status", "ne", VOICE2RX_PROCESSING_STATUS.CANCELLED.value),
+                    ]),
+                ],
+                order_by="created_at",
+                desc=True,
+                limit=limit,
             )
-            expression_attr_names = {"#mode": "mode", "#uuid": "uuid"}
-
-            # fetch all transactions except cancelled and archived ones.
-            items = self._paginate_query(
-                key_condition="#uuid = :uuid",
-                filter_expression=(
-                    f"{self._non_archived_filter_expression()} AND "
-                    "(attribute_not_exists(processing_status) OR processing_status <> :cancelled_status)"
-                ),
-                expression_values={
-                    ":uuid": {"S": uuid},
-                    ":arc_false": {"BOOL": False},
-                    ":cancelled_status": {
-                        "S": VOICE2RX_PROCESSING_STATUS.CANCELLED.value
-                    },
-                },
-                expression_attr_names=expression_attr_names,
-                projection=projection,
-                scan_forward=False,  # newest first
-                max_items=limit,
-            )
-
-            return [self._deserialize_item(item) for item in items]
+            return items
 
         except Exception as e:
             logger.error(
@@ -352,64 +281,12 @@ class TransactionORM(BaseORM):
             )
             raise
 
-    def _paginate_query(
-        self,
-        key_condition: str,
-        expression_values: Dict,
-        expression_attr_names: Dict,
-        projection: str,
-        scan_forward: bool = False,
-        filter_expression: Optional[str] = None,
-        max_items: Optional[int] = None,
-        index_name: Optional[str] = None,
-    ) -> List[Dict]:
-        """
-        Paginates a DynamoDB query, stopping early once max_items are collected.
-        Note: max_items applies to items *after* FilterExpression is applied.
-        """
-        query_params = {
-            "IndexName": index_name or self.uuid_index_name,
-            "KeyConditionExpression": key_condition,
-            "ExpressionAttributeValues": expression_values,
-            "ExpressionAttributeNames": expression_attr_names,
-            "ProjectionExpression": projection,
-            "ScanIndexForward": scan_forward,
-        }
-
-        if filter_expression:
-            query_params["FilterExpression"] = filter_expression
-
-        collected = []
-        last_evaluated_key = None
-
-        while True:
-            if last_evaluated_key:
-                query_params["ExclusiveStartKey"] = last_evaluated_key
-
-            if max_items is not None:
-                remaining = max_items - len(collected)
-                query_params["Limit"] = remaining * 3  # buffer for filtered-out rows
-
-            response = self.dynamodb_client.query(
-                TableName=self.table_name, **query_params
-            )
-
-            collected.extend(response.get("Items", []))
-            last_evaluated_key = response.get("LastEvaluatedKey")
-
-            if not last_evaluated_key:
-                break
-
-            if max_items is not None and len(collected) >= max_items:
-                break
-
-        return collected[:max_items] if max_items is not None else collected
 
     def get_patient_sessions(
         self, b_id: str, oid: str, uuid: Optional[str] = None, limit: int = 10
     ) -> List[Dict[str, Any]]:
         """
-        Get recent sessions for a patient using oid-created_at-index GSI.
+        Get recent sessions for a patient (indexed on oid + created_at).
 
         Args:
             b_id: Business ID (from JWT)
@@ -421,38 +298,13 @@ class TransactionORM(BaseORM):
             List of full transaction dicts sorted by created_at descending
         """
         try:
-            # query patient_oid GSI for table keys, then fetch full items
-            query_params = {
-                "IndexName": self.patient_oid_index_name,
-                "KeyConditionExpression": "patient_oid = :oid_val",
-                "ExpressionAttributeValues": {":oid_val": {"S": oid}},
-                "ProjectionExpression": "txn_id, b_id",
-                "ScanIndexForward": False,
-            }
-
-            all_keys = []
-            last_evaluated_key = None
-            while True:
-                if last_evaluated_key:
-                    query_params["ExclusiveStartKey"] = last_evaluated_key
-                response = self.dynamodb_client.query(
-                    TableName=self.table_name, **query_params
-                )
-                all_keys.extend(response.get("Items", []))
-                last_evaluated_key = response.get("LastEvaluatedKey")
-                if not last_evaluated_key:
-                    break
-
-            #FIXME: in-memory filtring is not good idea fix this later,
-            # fetch full items from main table and filter
+            items = self.table.find(
+                [("patient_oid", "eq", oid), ("b_id", "eq", b_id)],
+                order_by="created_at",
+                desc=True,
+            )
             results = []
-            for key_item in all_keys:
-                deserialized = self._deserialize_item(key_item)
-                if deserialized.get("b_id") != b_id:
-                    continue
-                full_item = self.get(key={"txn_id": deserialized["txn_id"], "b_id": b_id})
-                if not full_item:
-                    continue
+            for full_item in items:
                 if self._is_archived(full_item):
                     continue
                 if uuid and full_item.get("uuid") != uuid:
@@ -460,7 +312,6 @@ class TransactionORM(BaseORM):
                 results.append(convert_decimals(full_item))
                 if len(results) >= limit:
                     break
-
             return results
 
         except Exception as e:

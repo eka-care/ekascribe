@@ -240,13 +240,7 @@ class TxnTemplateResultsORM(BaseORM):
             List of template result dicts
         """
         try:
-            response = self.table.query(
-                KeyConditionExpression="txn_id = :txn_id",
-                ExpressionAttributeValues={":txn_id": txn_id},
-            )
-
-            items = response.get("Items", [])
-            return items
+            return self.table.find([("txn_id", "eq", txn_id)])
 
         except Exception as e:
             logger.error(

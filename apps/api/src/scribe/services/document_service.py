@@ -62,7 +62,7 @@ class DocumentService:
         Create a new document entry in ekascribe_document table.
 
         Validates input via CreateDocumentRequest pydantic model before
-        writing to DynamoDB.
+        writing to the database.
 
         Args:
             session_id: Transaction/Session ID.
@@ -255,7 +255,7 @@ class DocumentService:
     ) -> Optional[str]:
         """Get document_id for a given session_id and template_id.
 
-        Uses the session_id-template_id-index GSI for an efficient direct query.
+        Uses the session_id + template_id index for an efficient direct query.
         Returns the document_id of the first matching non-archived document.
         """
         documents = self.document_repo.get_documents_by_session_and_template(

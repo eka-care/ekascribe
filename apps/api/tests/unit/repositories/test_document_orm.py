@@ -1,11 +1,9 @@
 """
 Unit tests for EkascribeDocumentORM
-(voice2rx/model_orms/document_orm.py).
+(scribe/repositories/document_orm.py).
 
-The DynamoDB resource is already mocked globally in tests/conftest.py
-(`mock_aws_globally`), so the ORM can be instantiated normally. Each test
-replaces `orm.table` and/or the inherited BaseORM methods with MagicMocks
-to assert interactions without hitting DynamoDB.
+Each test replaces `orm.table` and/or the inherited BaseORM methods with
+MagicMocks to assert interactions without hitting the database.
 """
 
 from unittest.mock import MagicMock, patch
@@ -13,10 +11,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from scribe.core.exceptions import DuplicateEntryException
-from scribe.repositories.document_orm import (
-    EkascribeDocumentORM,
-    GSI_SESSION_TEMPLATE_INDEX,
-)
+from scribe.repositories.document_orm import EkascribeDocumentORM
+
+NOT_ARCHIVED = ("or", [("archived", "not_exists", None), ("archived", "eq", False)])
 
 
 @pytest.fixture
@@ -104,45 +101,80 @@ class TestGetDocument:
 
 
 class TestGetDocumentsBySession:
-    def test_queries_gsi_with_session_id(self, orm):
-        orm.table.query.return_value = {"Items": [{"document_id": "d1"}]}
+    def test_finds_by_session_id_excluding_archived(self, orm):
+        orm.table.find.return_value = [{"document_id": "d1"}]
 
         items = orm.get_documents_by_session("sess-1")
 
         assert items == [{"document_id": "d1"}]
-        orm.table.query.assert_called_once()
-        kwargs = orm.table.query.call_args.kwargs
-        assert kwargs["IndexName"] == GSI_SESSION_TEMPLATE_INDEX
-        assert "session_id = :sid" in kwargs["KeyConditionExpression"]
-        assert kwargs["ExpressionAttributeValues"][":sid"] == "sess-1"
+        orm.table.find.assert_called_once()
+        where = orm.table.find.call_args.args[0]
+        assert ("session_id", "eq", "sess-1") in where
+        assert NOT_ARCHIVED in where
+
+    def test_sorts_most_recent_first(self, orm):
+        orm.table.find.return_value = [
+            {"document_id": "old", "created_at": 100},
+            {"document_id": "new", "created_at": 200},
+        ]
+
+        items = orm.get_documents_by_session("sess-1")
+
+        assert [d["document_id"] for d in items] == ["new", "old"]
 
     def test_returns_empty_on_error(self, orm):
-        orm.table.query.side_effect = RuntimeError("boom")
+        orm.table.find.side_effect = RuntimeError("boom")
         assert orm.get_documents_by_session("sess-1") == []
 
     def test_returns_empty_when_no_items(self, orm):
-        orm.table.query.return_value = {}
+        orm.table.find.return_value = []
         assert orm.get_documents_by_session("sess-1") == []
 
 
 class TestGetDocumentsBySessionAndTemplate:
-    def test_queries_with_both_keys(self, orm):
-        orm.table.query.return_value = {
-            "Items": [{"document_id": "d1", "template_id": "t1"}]
-        }
+    def test_finds_with_both_keys(self, orm):
+        orm.table.find.return_value = [
+            {"document_id": "d1", "template_id": "t1"}
+        ]
 
         items = orm.get_documents_by_session_and_template("sess-1", "t1")
 
         assert items == [{"document_id": "d1", "template_id": "t1"}]
-        kwargs = orm.table.query.call_args.kwargs
-        assert kwargs["IndexName"] == GSI_SESSION_TEMPLATE_INDEX
-        assert "template_id = :tid" in kwargs["KeyConditionExpression"]
-        assert kwargs["ExpressionAttributeValues"][":sid"] == "sess-1"
-        assert kwargs["ExpressionAttributeValues"][":tid"] == "t1"
+        orm.table.find.assert_called_once()
+        where = orm.table.find.call_args.args[0]
+        assert ("session_id", "eq", "sess-1") in where
+        assert ("template_id", "eq", "t1") in where
+        assert NOT_ARCHIVED in where
 
     def test_returns_empty_on_error(self, orm):
-        orm.table.query.side_effect = RuntimeError("boom")
+        orm.table.find.side_effect = RuntimeError("boom")
         assert orm.get_documents_by_session_and_template("sess-1", "t1") == []
+
+
+# ---------------------------------------------------------------------------
+# get_documents_by_ids
+# ---------------------------------------------------------------------------
+
+
+class TestGetDocumentsByIds:
+    def test_batch_gets_by_keys(self, orm):
+        orm.table.batch_get.return_value = [{"document_id": "d1"}]
+
+        items = orm.get_documents_by_ids(["d1", "d2"])
+
+        assert items == [{"document_id": "d1"}]
+        orm.table.batch_get.assert_called_once_with(
+            [{"document_id": "d1"}, {"document_id": "d2"}]
+        )
+
+    def test_returns_empty_for_no_ids(self, orm):
+        assert orm.get_documents_by_ids([]) == []
+        orm.table.batch_get.assert_not_called()
+
+    def test_reraises_on_error(self, orm):
+        orm.table.batch_get.side_effect = RuntimeError("boom")
+        with pytest.raises(RuntimeError):
+            orm.get_documents_by_ids(["d1"])
 
 
 # ---------------------------------------------------------------------------

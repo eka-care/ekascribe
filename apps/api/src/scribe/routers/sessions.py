@@ -14,7 +14,7 @@ import os
 import re
 from urllib.parse import urlparse
 
-from fastapi import APIRouter, Request, BackgroundTasks, Path, Body, Query, status
+from fastapi import APIRouter, HTTPException, Request, BackgroundTasks, Path, Body, Query, status
 from fastapi.responses import JSONResponse
 from typing import Dict, Optional
 

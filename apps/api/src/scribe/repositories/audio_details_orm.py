@@ -1,9 +1,6 @@
-"""
-Audio ORM for DynamoDB operations.
-"""
+"""Audio-chunk repository."""
 import os
 from typing import Dict, List, Optional, Any
-from boto3.dynamodb.conditions import Key
 from scribe.core.custom_logger import get_logger
 from scribe.repositories.base_orm import BaseORM
 logger = get_logger(__name__)
@@ -141,15 +138,13 @@ class AudioDetailsORM(BaseORM):
             composite_key = f"{b_id}#{txn_id}"
             prefix = f"{chunk_name}."
 
-            response = self.table.query(
-                KeyConditionExpression=Key("composite_key").eq(composite_key)
-                & Key("record_type").begins_with(prefix),
-                ProjectionExpression="record_type, audio_length, quality",
-                Select="SPECIFIC_ATTRIBUTES",
-                Limit=1,
+            items = self.table.find(
+                [
+                    ("composite_key", "eq", composite_key),
+                    ("record_type", "begins_with", prefix),
+                ],
+                limit=1,
             )
-
-            items = response.get("Items", [])
             if not items:
                 logger.warning(
                     "No audio quality found for chunk",
@@ -194,15 +189,13 @@ class AudioDetailsORM(BaseORM):
         try:
             composite_key = f"{b_id}#{txn_id}"
 
-            # Query for records with sort key starting with "chunk"
-            response = self.table.query(
-                KeyConditionExpression=Key("composite_key").eq(composite_key)
-                & Key("record_type").begins_with("chunk"),
-                ProjectionExpression="composite_key, record_type, quality",
-                Select="SPECIFIC_ATTRIBUTES",
+            # Records with sort key starting with "chunk"
+            items = self.table.find(
+                [
+                    ("composite_key", "eq", composite_key),
+                    ("record_type", "begins_with", "chunk"),
+                ]
             )
-
-            items = response.get("Items", [])
 
             if not items:
                 logger.warning(

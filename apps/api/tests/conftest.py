@@ -24,21 +24,11 @@ def mock_aws_globally():
     """Mock AWS services globally for all tests."""
     # Mock logging config to prevent file handler issues
     with patch('logging.config.dictConfig') as mock_logging, \
-         patch('boto3.resource') as mock_resource, \
          patch('boto3.client') as mock_client:
-        
+
         # Configure logging mock
         mock_logging.return_value = None
-        
-        # Configure DynamoDB mocks
-        mock_table = MagicMock()
-        mock_resource.return_value.Table.return_value = mock_table
-        
-        # Configure successful DynamoDB responses
-        mock_table.put_item.return_value = {'ResponseMetadata': {'HTTPStatusCode': 200}}
-        mock_table.query.return_value = {'Items': []}
-        mock_table.update_item.return_value = {'ResponseMetadata': {'HTTPStatusCode': 200}}
-        
+
         # Configure S3 client mock
         mock_s3_client = MagicMock()
         mock_client.return_value = mock_s3_client
@@ -138,19 +128,6 @@ def sample_s3_file_data():
             }
         }
     }
-
-
-@pytest.fixture
-def mock_dynamo_helper():
-    """Mock DynamoHelper class."""
-    with patch('scribe.repositories.dynamo_helper.DynamoHelper') as mock:
-        # Setup default return values for common operations
-        mock_instance = MagicMock()
-        mock.return_value = mock_instance
-        mock_instance.query_items.return_value = []
-        mock_instance.put_item.return_value = {"status": "success"}
-        mock_instance.update_item.return_value = {"status": "success"}
-        yield mock
 
 
 @pytest.fixture

@@ -46,7 +46,7 @@ def test_update_validates_and_none_means_unchanged():
 
 def test_update_model_keeps_empty_string_but_drops_none():
     """'' (narrative only) must survive the exclude_none dump used to build
-    the Dynamo SET expression, while None means 'do not touch'."""
+    the update payload, while None means 'do not touch'."""
     dumped = TemplateUpdateModel(available_tools="").model_dump(exclude_none=True)
     assert dumped["available_tools"] == ""
 

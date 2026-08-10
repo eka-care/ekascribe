@@ -8,9 +8,8 @@ This service handles all configuration-related operations including:
 """
 import os
 from typing import Dict, Any, Optional
-from botocore.exceptions import ClientError
 from scribe.core.custom_logger import get_logger
-from scribe.repositories.dynamo_helper import DynamoHelper
+from scribe.repositories.doc_store import ConditionalCheckFailed, DocStore
 
 logger = get_logger(__name__)
 
@@ -20,11 +19,11 @@ TEMPLATE_TABLE_NAME = "ekascribe_template"
 class ConfigService:
     def __init__(self):
         try:
-            self.db_helper = DynamoHelper(TABLE_NAME)
+            self.db_helper = DocStore(TABLE_NAME)
             logger.info(f"ConfigService initialized with table: {TABLE_NAME}")
         except Exception as e:
             logger.error(
-                f"Failed to initialize DynamoHelper for table {TABLE_NAME}",
+                f"Failed to initialize store for table {TABLE_NAME}",
                 error=str(e),
                 severity="critical",
             )
@@ -41,14 +40,6 @@ class ConfigService:
                 logger.info("No workspace config found", b_id=b_id)
 
             return config
-        except ClientError as e:
-            logger.error(
-                "Error fetching workspace config",
-                b_id=b_id,
-                error=e.response["Error"]["Message"],
-                severity="critical",
-            )
-            raise
         except Exception as e:
             logger.error(
                 "Unexpected error fetching workspace config", b_id=b_id, error=str(e),
@@ -71,15 +62,6 @@ class ConfigService:
                 logger.info("No user config found", b_id=b_id, user_uuid=user_uuid)
 
             return config
-        except ClientError as e:
-            logger.error(
-                "Error fetching user config",
-                b_id=b_id,
-                user_uuid=user_uuid,
-                error=e.response["Error"]["Message"],
-                severity="critical",
-            )
-            raise
         except Exception as e:
             logger.error(
                 "Unexpected error fetching user config",
@@ -128,32 +110,22 @@ class ConfigService:
         if "user_uuid" not in config_data:
             raise ValueError("user_uuid is required")
 
-        try:
-            response = self.db_helper._table_instance.put_item(
-                Item=config_data,
-                ConditionExpression="attribute_not_exists(b_id) AND attribute_not_exists(user_uuid)",
-            )
-            logger.info(
-                "Config created successfully",
+        response = self.db_helper.insert_if_not_exists(config_data)
+        if not response.get("success"):
+            logger.error(
+                "Config already exists",
                 b_id=config_data.get("b_id"),
                 user_uuid=config_data.get("user_uuid"),
                 severity="medium",
             )
-            return response
-        except ClientError as e:
-            if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
-                logger.error(
-                    "Config already exists",
-                    b_id=config_data.get("b_id"),
-                    user_uuid=config_data.get("user_uuid"),
-                    severity="medium",
-                )
-            else:
-                logger.error(
-                    "Error creating config", error=e.response["Error"]["Message"],
-                    severity="critical",
-                )
-            raise
+            raise ConditionalCheckFailed()
+        logger.info(
+            "Config created successfully",
+            b_id=config_data.get("b_id"),
+            user_uuid=config_data.get("user_uuid"),
+            severity="medium",
+        )
+        return response
 
     def update_config(
         self, b_id: str, updates: Dict[str, Any], user_uuid: str = "_"
@@ -168,30 +140,25 @@ class ConfigService:
             self.db_helper.update_item(key_dict=key, update_dict=updates)
             logger.info("Config updated successfully", b_id=b_id, user_uuid=user_uuid, severity="medium")
             return updates
-        except Exception:
-            # Try creating if update fails (item doesn't exist)
-            try:
-                put_dict = key | updates
-                self.db_helper._table_instance.put_item(
-                    Item=put_dict,
-                    ConditionExpression="attribute_not_exists(b_id) AND attribute_not_exists(user_uuid)",
-                )
-                logger.info(
-                    "Config created (update fallback)",
-                    b_id=b_id,
-                    user_uuid=user_uuid,
-                    severity="medium",
-                )
-                return put_dict
-            except ClientError as ce:
+        except ConditionalCheckFailed:
+            # Item doesn't exist yet — create it
+            put_dict = key | updates
+            result = self.db_helper.insert_if_not_exists(put_dict)
+            if not result.get("success"):
                 logger.error(
                     "Error updating/creating config",
                     b_id=b_id,
                     user_uuid=user_uuid,
-                    error=ce.response["Error"]["Message"],
                     severity="critical",
                 )
                 raise
+            logger.info(
+                "Config created (update fallback)",
+                b_id=b_id,
+                user_uuid=user_uuid,
+                severity="medium",
+            )
+            return put_dict
 
     def upsert_config(
         self, config_data: Dict[str, Any], b_id: str, user_uuid: str = "_"
@@ -231,15 +198,15 @@ class ConfigService:
                     b_id=b_id,
                     user_uuid=user_uuid,
                 )
-                self.db_helper._table_instance.put_item(Item=config_data)
+                self.db_helper.put(config_data)
                 return {"action": "created", "b_id": b_id, "user_uuid": user_uuid}
 
-        except ClientError as e:
+        except Exception as e:
             logger.error(
-                "DynamoDB error during upsert",
+                "Store error during upsert",
                 b_id=b_id,
                 user_uuid=user_uuid,
-                error=e.response["Error"]["Message"],
+                error=str(e),
                 severity="critical",
             )
             raise
@@ -250,14 +217,8 @@ class ConfigService:
         if not attributes:
             return
         key = {"b_id": b_id, "user_uuid": user_uuid}
-        remove_expr = "REMOVE " + ", ".join(f"#{a}" for a in attributes)
-        attr_names = {f"#{a}": a for a in attributes}
         try:
-            self.db_helper._table_instance.update_item(
-                Key=key,
-                UpdateExpression=remove_expr,
-                ExpressionAttributeNames=attr_names,
-            )
+            self.db_helper.remove_fields(key, list(attributes))
             logger.info(
                 "Config attributes removed",
                 b_id=b_id,
@@ -280,15 +241,15 @@ class ConfigService:
         key = {"b_id": b_id, "user_uuid": user_uuid}
 
         try:
-            response = self.db_helper._table_instance.delete_item(Key=key)
+            deleted = self.db_helper.delete_item(key)
             logger.info("Config deleted successfully", b_id=b_id, user_uuid=user_uuid, severity="medium")
-            return response
-        except ClientError as e:
+            return {"deleted": deleted}
+        except Exception as e:
             logger.error(
                 "Error deleting config",
                 b_id=b_id,
                 user_uuid=user_uuid,
-                error=e.response["Error"]["Message"],
+                error=str(e),
                 severity="critical",
             )
             raise
@@ -393,7 +354,7 @@ class ConfigService:
             return []
 
         try:
-            template_db = DynamoHelper(TEMPLATE_TABLE_NAME)
+            template_db = DocStore(TEMPLATE_TABLE_NAME)
             archived_ids = set()
             batch_size = 100
             for i in range(0, len(template_ids), batch_size):

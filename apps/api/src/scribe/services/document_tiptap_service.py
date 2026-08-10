@@ -17,16 +17,16 @@ def _encode_json(value: Any) -> str:
 def _decode_json(value: Any) -> Any:
     if isinstance(value, str):
         return json.loads(value)
-    return _from_dynamo(value) 
+    return _normalize_decimals(value) 
 
 
-def _from_dynamo(value: Any) -> Any:
+def _normalize_decimals(value: Any) -> Any:
     if isinstance(value, Decimal):
         return int(value) if value % 1 == 0 else float(value)
     if isinstance(value, list):
-        return [_from_dynamo(v) for v in value]
+        return [_normalize_decimals(v) for v in value]
     if isinstance(value, dict):
-        return {k: _from_dynamo(v) for k, v in value.items()}
+        return {k: _normalize_decimals(v) for k, v in value.items()}
     return value
 
 def save_tiptap_json(
@@ -82,7 +82,7 @@ def get_document_record(
     item = _orm.get_record(document_id=document_id)
     if item is None:
         return None
-    record = _from_dynamo(item)
+    record = _normalize_decimals(item)
     for field in _JSON_STRING_FIELDS:
         if field in item:
             record[field] = _decode_json(item[field])

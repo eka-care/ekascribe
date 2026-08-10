@@ -2,7 +2,7 @@
 Unit tests for compute_audio_matrix
 (voice2rx/services/sessions/audio_matrix.py).
 
-AudioDetailsORM is fully mocked; tests run without DynamoDB access.
+AudioDetailsORM is fully mocked; tests run without database access.
 """
 
 from decimal import Decimal

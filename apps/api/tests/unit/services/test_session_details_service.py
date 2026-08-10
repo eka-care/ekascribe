@@ -3,7 +3,7 @@ Unit tests for SessionDetailsService
 (voice2rx/services/sessions/session_details_service.py).
 
 All collaborators (TransactionORM, EkascribeDocumentORM, StorageClient,
-compute_audio_matrix) are mocked. No DynamoDB or S3 access.
+compute_audio_matrix) are mocked. No database or S3 access.
 """
 
 from http import HTTPStatus

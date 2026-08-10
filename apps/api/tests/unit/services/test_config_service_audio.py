@@ -29,7 +29,7 @@ class TestCheckAudioApiEnabled:
             assert service.check_audio_api_enabled(B_ID) is False
 
     def test_error_defaults_to_false(self, service):
-        with patch.object(service, "get_config", side_effect=Exception("dynamo down")):
+        with patch.object(service, "get_config", side_effect=Exception("db down")):
             assert service.check_audio_api_enabled(B_ID) is False
 
 
@@ -51,5 +51,5 @@ class TestGetAudioUrlExpiryHours:
             assert service.get_audio_url_expiry_hours(B_ID) == 1
 
     def test_error_defaults_to_24(self, service):
-        with patch.object(service, "get_config", side_effect=Exception("dynamo down")):
+        with patch.object(service, "get_config", side_effect=Exception("db down")):
             assert service.get_audio_url_expiry_hours(B_ID) == 24

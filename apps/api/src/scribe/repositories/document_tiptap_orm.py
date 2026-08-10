@@ -3,7 +3,6 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
-from botocore.exceptions import ClientError
 
 from scribe.core.custom_logger import get_logger
 from scribe.repositories.base_orm import BaseORM
@@ -60,7 +59,7 @@ class DocumentTiptapORM(BaseORM):
                     item=item
                 )
 
-        except ClientError as ce:
+        except Exception as ce:  # noqa: BLE001
             logger.exception(
                 "upsert_tiptap_json failed for document_id=%s",
                 document_id,
@@ -87,7 +86,7 @@ class DocumentTiptapORM(BaseORM):
                 {"document_id": document_id}
             )
 
-        except ClientError:
+        except Exception:  # noqa: BLE001
             logger.exception(
                 "get_tiptap_json failed for document_id=%s",
                 document_id,
@@ -124,7 +123,7 @@ class DocumentTiptapORM(BaseORM):
                 item=item,
             )
 
-        except ClientError:
+        except Exception:  # noqa: BLE001
             logger.exception(
                 "upsert_agui_state failed for document_id=%s",
                 document_id,
@@ -146,7 +145,7 @@ class DocumentTiptapORM(BaseORM):
         try:
             return self.get({"document_id": document_id})
 
-        except ClientError:
+        except Exception:  # noqa: BLE001
             logger.exception(
                 "get_record failed for document_id=%s",
                 document_id,

@@ -1,14 +1,12 @@
-"""Postgres document-table engine with a boto3-DynamoDB-compatible surface.
+"""Postgres document engine.
 
-PgResource / PgTable / PgClient mimic the (small) subset of the boto3 resource,
-Table, and client APIs the forked code uses, executing against the relational
-tables defined in spec.py. This lets all four legacy Dynamo access paths
-(BaseORM, DynamoHelper, DynamoDBOperations, raw resource) run unchanged on
-Postgres by swapping only their client construction (see factory.py).
+Each logical table (scribe_core.db.spec) maps to a Postgres table with typed
+key/indexed columns plus a ``data JSONB`` column holding the full item. Reads
+reconstruct the item from ``data``; writes mirror the spec'd columns, so
+deployments get real SQL over the same documents:
 
-Semantics preserved: ConditionalCheckFailedException on conditional put,
-wire-format (``{"S": ...}``) items on the client API, LastEvaluatedKey
-pagination, ScanIndexForward ordering, ProjectionExpression.
+    SELECT txn_id, processing_status FROM voice2rx_transactions
+    WHERE b_id = '...' AND created_at > '2026-07-01' ORDER BY created_at DESC;
 """
 
 from __future__ import annotations
@@ -18,7 +16,6 @@ import threading
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
-from scribe_core.db.conditions import expression_to_sql
 from scribe_core.db.spec import TableSpec, get_spec
 from scribe_core.settings import get_settings
 
@@ -71,13 +68,7 @@ def _jsonable(value: Any) -> Any:
 
 
 class ConditionalCheckFailed(Exception):
-    """Raised internally; converted to botocore ClientError at the shim edge."""
-
-
-def _client_error(code: str, op: str):
-    from botocore.exceptions import ClientError
-
-    return ClientError({"Error": {"Code": code, "Message": code}}, op)
+    """Raised when a conditional write (if-not-exists / require-exists / expect) fails."""
 
 
 # --- connection pool ----------------------------------------------------------
@@ -188,8 +179,18 @@ class _Engine:
                 raise ConditionalCheckFailed()
             conn.commit()
 
-    def update_item(self, key: Dict[str, Any], updates: Dict[str, Any]) -> Dict[str, Any]:
-        """Dynamo update semantics: creates the item if absent (upsert), merges fields."""
+    def update_item(
+        self,
+        key: Dict[str, Any],
+        updates: Dict[str, Any],
+        *,
+        require_exists: bool = False,
+        expect: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Merge ``updates`` into the item. Default semantics upsert (create if
+        absent); ``require_exists=True`` raises ConditionalCheckFailed when the
+        row is missing, and ``expect`` enforces field equality (e.g. ownership)
+        before writing."""
         updates = _jsonable(updates)
         where = " AND ".join(f'"{k}" = %s' for k in key)
         with get_pool().connection() as conn:
@@ -197,6 +198,13 @@ class _Engine:
                 f'SELECT data FROM "{self.spec.pg_name}" WHERE {where} FOR UPDATE',
                 [str(v) for v in key.values()],
             ).fetchone()
+            if row is None and require_exists:
+                raise ConditionalCheckFailed()
+            if row is not None and expect:
+                current = row[0]
+                for f_, v_ in expect.items():
+                    if current.get(f_) != v_:
+                        raise ConditionalCheckFailed()
             item = dict(row[0]) if row else {k: str(v) for k, v in key.items()}
             item.update(updates)
             cols = _mirror_columns(self.spec, item)
@@ -217,6 +225,29 @@ class _Engine:
             conn.commit()
         return item
 
+    def remove_fields(self, key: Dict[str, Any], fields: List[str]) -> None:
+        """Remove top-level fields from the item's document (and NULL any
+        mirrored non-key columns)."""
+        if not fields:
+            return
+        where = " AND ".join(f'"{k}" = %s' for k in key)
+        data_sql = "data"
+        params: List[Any] = []
+        for f_ in fields:
+            data_sql += " - %s"
+            params.append(f_)
+        col_sets = "".join(
+            f', "{c}" = NULL' for c in fields
+            if c in (self.spec.columns or ()) and c not in self.spec.pk
+        )
+        sql = (
+            f'UPDATE "{self.spec.pg_name}" SET data = {data_sql}{col_sets}, '
+            f"db_updated_at = now() WHERE {where}"
+        )
+        with get_pool().connection() as conn:
+            conn.execute(sql, params + [str(v) for v in key.values()])
+            conn.commit()
+
     def delete_item(self, key: Dict[str, Any]) -> bool:
         where = " AND ".join(f'"{k}" = %s' for k in key)
         with get_pool().connection() as conn:
@@ -229,82 +260,127 @@ class _Engine:
 
     # -- query/scan --
 
-    def query(
+    # -- native querying ----------------------------------------------------
+    #
+    # `where` is a list of conditions, AND-ed together:
+    #     ("field", "eq"|"ne"|"lt"|"lte"|"gt"|"gte"|"between"|"begins_with"|
+    #      "contains"|"exists"|"not_exists", value)
+    # One level of OR is supported: ("or", [triple, triple, ...]).
+    #
+    # Spec columns compare against real columns; everything else against the
+    # JSONB ``data`` document. Data equality is type-faithful via @>. Data
+    # ``ne`` uses NOT(data @> ...), which also matches rows where the field
+    # is absent — the common "archived <> true" pattern needs exactly that.
+
+    _OPS = {"eq": "=", "ne": "<>", "lt": "<", "lte": "<=", "gt": ">", "gte": ">="}
+
+    def _is_column(self, field: str) -> bool:
+        return field in (self.spec.columns or ()) or field in self.spec.pk or field == self.spec.sort_key
+
+    @staticmethod
+    def _like_escape(v: str) -> str:
+        return v.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+    def _cond_sql(self, cond) -> "tuple[str, list]":
+        if cond[0] == "or":
+            parts, params = [], []
+            for sub in cond[1]:
+                sql, p = self._cond_sql(sub)
+                parts.append(sql); params.extend(p)
+            return "(" + " OR ".join(parts) + ")", params
+        field, op, value = cond
+        col = self._is_column(field)
+        ident = f'"{field}"' if col else None
+        if op in ("eq", "ne", "lt", "lte", "gt", "gte"):
+            sym = self._OPS[op]
+            if col:
+                return f"{ident} {sym} %s", [value]
+            if op == "eq":
+                return "data @> %s::jsonb", [json.dumps({field: _jsonable(value)})]
+            if op == "ne":
+                return "NOT (data @> %s::jsonb)", [json.dumps({field: _jsonable(value)})]
+            if isinstance(value, (int, float, Decimal)) and not isinstance(value, bool):
+                return f"((data->>%s)::numeric) {sym} %s", [field, value]
+            return f"(data->>%s) {sym} %s", [field, str(value)]
+        if op == "between":
+            lo, hi = value
+            if col:
+                return f"{ident} BETWEEN %s AND %s", [lo, hi]
+            if isinstance(lo, (int, float, Decimal)) and not isinstance(lo, bool):
+                return "((data->>%s)::numeric) BETWEEN %s AND %s", [field, lo, hi]
+            return "(data->>%s) BETWEEN %s AND %s", [field, str(lo), str(hi)]
+        if op == "begins_with":
+            expr = ident if col else "(data->>%s)"
+            params = [] if col else [field]
+            return f"{expr} LIKE %s", params + [self._like_escape(str(value)) + "%"]
+        if op == "contains":
+            expr = ident if col else "(data->>%s)"
+            params = [] if col else [field]
+            return f"{expr} LIKE %s", params + ["%" + self._like_escape(str(value)) + "%"]
+        if op == "exists":
+            if col:
+                return f"{ident} IS NOT NULL", []
+            return "data ? %s", [field]
+        if op == "not_exists":
+            if col:
+                return f"{ident} IS NULL", []
+            return "NOT (data ? %s)", [field]
+        raise ValueError(f"unknown where op: {op!r}")
+
+    def _where_sql(self, where) -> "tuple[str, list]":
+        if not where:
+            return "TRUE", []
+        parts, params = [], []
+        for cond in where:
+            sql, p = self._cond_sql(cond)
+            parts.append(sql); params.extend(p)
+        return " AND ".join(parts), params
+
+    def find(
         self,
-        key_condition: str,
-        values: Dict[str, Any],
-        names: Optional[Dict[str, str]] = None,
-        filter_expression: Optional[str] = None,
+        where=None,
+        *,
+        order_by: Optional[str] = None,
+        desc: bool = False,
         limit: Optional[int] = None,
-        scan_forward: bool = True,
-        exclusive_start: Optional[Dict[str, Any]] = None,
-        index_name: Optional[str] = None,
-    ) -> Dict[str, Any]:
-        where_sql, params = expression_to_sql(key_condition, self.spec, values, names)
-        if filter_expression:
-            f_sql, f_params = expression_to_sql(filter_expression, self.spec, values, names)
-            where_sql = f"({where_sql}) AND ({f_sql})"
-            params = params + f_params
-
-        order_col = self._order_column(key_condition, index_name)
-        direction = "ASC" if scan_forward else "DESC"
-        order_sql = f'ORDER BY "{order_col}" {direction}, {self._pk_order(direction)}'
-
-        offset = int((exclusive_start or {}).get("__offset", 0))
-        sql = f'SELECT data FROM "{self.spec.pg_name}" WHERE {where_sql} {order_sql}'
-        sql += " OFFSET %s"
-        params.append(offset)
-        fetch_limit = None
-        if limit:
-            sql += " LIMIT %s"
-            params.append(limit + 1)  # +1 to detect more pages
-            fetch_limit = limit
-
-        with get_pool().connection() as conn:
-            rows = conn.execute(sql, params).fetchall()
-
-        items = [r[0] for r in rows]
-        result: Dict[str, Any] = {}
-        if fetch_limit is not None and len(items) > fetch_limit:
-            items = items[:fetch_limit]
-            result["LastEvaluatedKey"] = {"__offset": offset + fetch_limit}
-        result["Items"] = items
-        result["Count"] = len(items)
-        return result
-
-    def scan(
-        self,
-        filter_expression: Optional[str] = None,
-        values: Optional[Dict[str, Any]] = None,
-        names: Optional[Dict[str, str]] = None,
+        offset: int = 0,
     ) -> List[Dict[str, Any]]:
-        sql = f'SELECT data FROM "{self.spec.pg_name}"'
-        params: List[Any] = []
-        if filter_expression:
-            f_sql, params = expression_to_sql(filter_expression, self.spec, values or {}, names)
-            sql += f" WHERE {f_sql}"
+        where_sql, params = self._where_sql(where or [])
+        order_col = order_by or self.spec.sort_key or (
+            "created_at" if "created_at" in (self.spec.columns or ()) else self.spec.pk[0]
+        )
+        direction = "DESC" if desc else "ASC"
+        pk_order = ", ".join(f'"{c}" {direction}' for c in self.spec.pk)
+        sql = (
+            f'SELECT data FROM "{self.spec.pg_name}" WHERE {where_sql} '
+            f'ORDER BY "{order_col}" {direction}, {pk_order}'
+        )
+        if offset:
+            sql += " OFFSET %s"; params.append(int(offset))
+        if limit:
+            sql += " LIMIT %s"; params.append(int(limit))
         with get_pool().connection() as conn:
             rows = conn.execute(sql, params).fetchall()
         return [r[0] for r in rows]
 
+    def count(self, where=None) -> int:
+        where_sql, params = self._where_sql(where or [])
+        with get_pool().connection() as conn:
+            row = conn.execute(
+                f'SELECT count(*) FROM "{self.spec.pg_name}" WHERE {where_sql}', params
+            ).fetchone()
+        return int(row[0])
+
     def batch_get(self, keys: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         return [item for k in keys if (item := self.get_item(k)) is not None]
 
-    def _order_column(self, key_condition: str, index_name: Optional[str] = None) -> str:
-        # Dynamo orders results by the queried index's sort key. GSI names follow
-        # the "<partition>-<sort>-index" convention, so parse the sort key out.
-        if index_name and index_name.endswith("-index"):
-            parts = index_name[: -len("-index")].split("-")
-            if len(parts) >= 2:
-                candidate = parts[-1]
-                if candidate in self.spec.columns or candidate in self.spec.pk:
-                    return candidate
-        # Main-table query: order by the table sort key when present.
-        if self.spec.sort_key:
-            return self.spec.sort_key
-        if "created_at" in (self.spec.columns or ()):
-            return "created_at"
-        return self.spec.pk[0]
 
-    def _pk_order(self, direction: str) -> str:
-        return ", ".join(f'"{c}" {direction}' for c in self.spec.pk)
+_tables: Dict[str, "_Engine"] = {}
+
+
+def get_table(name: str) -> "_Engine":
+    """Process-wide engine per table (logical or physical name)."""
+    eng = _tables.get(name)
+    if eng is None:
+        eng = _tables[name] = _Engine(get_spec(name))
+    return eng
