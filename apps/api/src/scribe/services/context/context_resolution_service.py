@@ -1,30 +1,24 @@
 """
 Context Resolution Service
 
-Resolves context references (past sessions, documents, attachments) into
-a structured `ResolvedContext` DTO consumed by the agent layer.
+Resolves context references (past sessions, documents) into a structured
+`ResolvedContext` DTO consumed by the agent layer.
 
 - Past sessions -> text transcripts (one per session, with session date)
-- Documents     -> text content, or base64 PDF if the underlying file is a PDF
-- Attachments   -> text / image (base64) / pdf (base64) based on type detection
+- Documents     -> text content
 
 Best-effort: individual failures are logged into `warnings` and skipped.
 Never raises; callers treat an empty DTO as "no context".
 """
 
 import base64
-import json
 import os
-from typing import Any, Dict, Optional
-from urllib.parse import urlparse
-
-import httpx
+from typing import Optional
 
 from scribe.core.custom_logger import get_logger
 from scribe.repositories.document_orm import EkascribeDocumentORM
 from scribe.repositories.transaction_orm import TransactionORM
 from scribe.services.context.models import (
-    ContextAttachmentItem,
     ContextDocumentItem,
     ContextItemKind,
     PastSessionItem,
@@ -35,17 +29,6 @@ from scribe.services.transcript_file_service import TranscriptFileService
 logger = get_logger(__name__)
 
 
-IMAGE_MEDIA_TYPES = {
-    ".jpg": "image/jpeg",
-    ".jpeg": "image/jpeg",
-    ".png": "image/png",
-    ".gif": "image/gif",
-    ".webp": "image/webp",
-}
-
-IMAGE_CONTENT_TYPES = set(IMAGE_MEDIA_TYPES.values())
-VAULT_BASE_URL = os.getenv("VAULT_BASE_URL", "http://vault.orbi.orbi")
-
 class ContextResolutionService:
     def __init__(self):
         self.transcript_file_service = TranscriptFileService()
@@ -53,7 +36,7 @@ class ContextResolutionService:
         self.transaction_orm = TransactionORM()
         self.bucket_name = os.getenv("S3_VADED_BUCKET_NAME", "voice-records")
 
-    async def resolve(self, context: dict, b_id: str, transaction_data:dict) -> ResolvedContext:
+    async def resolve(self, context: dict, b_id: str) -> ResolvedContext:
         try:
             result = ResolvedContext()
             if not context:
@@ -75,10 +58,6 @@ class ContextResolutionService:
             documents = context.get("documents") or []
             for document_id in documents:
                 self._resolve_document(document_id, result)
-
-            attachments = context.get("attachments") or []
-            for attachment in attachments:
-                self._resolve_attachment(attachment, result, transaction_data)
 
             return result
         except Exception as _:
@@ -166,157 +145,6 @@ class ContextResolutionService:
                 f"Failed to resolve document {document_id}: {str(e)}"
             )
 
-    def _fetch_vault_document(
-        self, attachment_id: str, patient_id: str, b_id: str, uuid_val: str,
-    ) -> Optional[Dict[str, Any]]:
-        """Call the vault internal API to get document metadata including asset URLs."""
-        try:
-            url = f"{VAULT_BASE_URL}/internal/api/v1/docs/{attachment_id}"
-            params = {"oid": patient_id} if patient_id else {}
-            from scribe_core.settings import get_settings
-
-            jwt_payload = json.dumps(
-                {"b-id": b_id, "uuid": uuid_val, "w-id": b_id, "iss": get_settings().auth_issuer}
-            )
-            headers = {
-                "jwt-payload": jwt_payload,
-                "service-id": "docon",
-            }
-            query_string = f"?oid={patient_id}" if patient_id else ""
-            curl_cmd = (
-                f"curl --location '{url}{query_string}' "
-                f"--header 'jwt-payload: {jwt_payload}' "
-                f"--header 'service-id: docon'"
-            )
-            logger.info("Vault API curl", curl=curl_cmd)
-
-            response = httpx.get(url, params=params, headers=headers, timeout=3)
-            response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            logger.warning(
-                "Vault API call failed",
-                attachment_id=attachment_id,
-                error=str(e),
-                severity="medium",
-            )
-            return None
-
-    def _download_from_url(self, asset_url: str) -> Optional[bytes]:
-        """Download file bytes from a presigned URL."""
-        try:
-            response = httpx.get(asset_url, timeout=30)
-            response.raise_for_status()
-            return response.content
-        except Exception as e:
-            logger.warning(
-                "Failed to download from asset URL",
-                asset_url=asset_url,
-                error=str(e),
-                severity="medium",
-            )
-            return None
-
-    def _resolve_attachment(
-        self, attachment: dict, result: ResolvedContext, transaction_data: Dict[str, Any]       
-    ) -> None:
-        b_id = transaction_data.get("b_id", "")
-        uuid_val = transaction_data.get("uuid", "")
-
-        attachment_id = attachment.get("id") if isinstance(attachment, dict) else attachment
-        patient_id = attachment.get("patient_id", "") if isinstance(attachment, dict) else ""
-        if not patient_id:
-            return 
-
-        # if patient is edited in the session, skip the documents of of the older patient to avoid any data leak,
-        #  log a warning about the skipped attachment
-        if patient_id not in [transaction_data.get("patient_id", ""), transaction_data.get("oid")]:
-            logger.critical(
-                "Attachment patient ID mismatch; skipping attachment",
-                attachment_id=attachment_id,
-                expected_patient_id=transaction_data.get("patient_id", ""),
-                expected_oid=transaction_data.get("oid", ""),
-                actual_patient_id=patient_id,
-                severity="critical",
-            )
-            
-            result.warnings.append(
-                f"Attachment {attachment_id} skipped due to patient ID mismatch"
-            )
-            return
-        
-        try:
-            vault_doc = self._fetch_vault_document(attachment_id, patient_id, b_id, uuid_val)
-            if not vault_doc:
-                result.warnings.append(f"Vault returned no data for attachment: {attachment_id}")
-                return
-
-            files = vault_doc.get("files") or []
-            if not files:
-                result.warnings.append(f"No files in vault response for attachment: {attachment_id}")
-                return
-
-            for file_entry in files:
-                asset_url = file_entry.get("asset_url")
-                file_type = (file_entry.get("file_type") or "").upper()
-                if not asset_url:
-                    continue
-
-                parsed = urlparse(asset_url)
-                filename = parsed.path.rsplit("/", 1)[-1].split("?")[0]
-                display_name = self._strip_uuid_prefix(filename)
-                lower_filename = filename.lower()
-
-                if file_type == "PDF" or self._is_pdf(lower_filename, ""):
-                    result.attachments.append(
-                        ContextAttachmentItem(
-                            kind=ContextItemKind.PDF,
-                            filename=display_name,
-                            media_type="application/pdf",
-                            url=asset_url,
-                        )
-                    )
-                    continue
-
-                image_media_type = self._detect_image_media_type(lower_filename, "")
-                if file_type == "IMG" or image_media_type:
-                    result.attachments.append(
-                        ContextAttachmentItem(
-                            kind=ContextItemKind.IMAGE,
-                            filename=display_name,
-                            media_type=image_media_type or "image/jpeg",
-                            url=asset_url,
-                        )
-                    )
-                    continue
-
-                body_bytes = self._download_from_url(asset_url)
-                if body_bytes is None:
-                    result.warnings.append(f"Failed to download attachment file: {attachment_id}")
-                    continue
-                try:
-                    text = body_bytes.decode("utf-8")
-                except UnicodeDecodeError:
-                    result.warnings.append(
-                        f"Unsupported binary attachment type; skipping: {display_name}"
-                    )
-                    continue
-                result.attachments.append(
-                    ContextAttachmentItem(
-                        kind=ContextItemKind.TEXT,
-                        filename=display_name,
-                        text=text,
-                    )
-                )
-        except Exception as e:
-            logger.warning(
-                "Failed to resolve attachment",
-                attachment_id=attachment_id,
-                error=str(e),
-                severity="medium",
-            )
-            result.warnings.append(f"Failed to resolve attachment {attachment_id}: {str(e)}")
-
     def _download_s3_bytes(self, bucket: str, key: str):
         try:
             from scribe_core.storage import get_blob_store
@@ -335,40 +163,3 @@ class ContextResolutionService:
             )
             return None, ""
 
-    def _download_s3_text(self, bucket: str, key: str) -> Optional[str]:
-        body, _ = self._download_s3_bytes(bucket, key)
-        if body is None:
-            return None
-        try:
-            return body.decode("utf-8")
-        except UnicodeDecodeError:
-            return None
-
-    @staticmethod
-    def _is_pdf(key_or_path: str, content_type: str) -> bool:
-        return (
-            key_or_path.lower().endswith(".pdf")
-            or (content_type or "").lower() == "application/pdf"
-        )
-
-    @staticmethod
-    def _detect_image_media_type(
-        lower_key: str, content_type: str
-    ) -> Optional[str]:
-        ct = (content_type or "").lower()
-        if ct in IMAGE_CONTENT_TYPES:
-            return ct
-        for ext, mt in IMAGE_MEDIA_TYPES.items():
-            if lower_key.endswith(ext):
-                return mt
-        return None
-
-    @staticmethod
-    def _strip_uuid_prefix(filename: str) -> str:
-        # Attachments uploaded via our API are prefixed with "{uuid4}_".
-        # UUID4 string form is 36 chars; strip only when that pattern matches.
-        if "_" in filename:
-            prefix, rest = filename.split("_", 1)
-            if len(prefix) == 36 and prefix.count("-") == 4:
-                return rest
-        return filename

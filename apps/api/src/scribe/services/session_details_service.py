@@ -165,7 +165,6 @@ class SessionDetailsService:
             "created_at": int(doc.get("created_at")),
             "presigned_url": None,
             "presigned_url_expires_at": None,
-            "vault_doc_id": doc.get("vault_doc_id"),
         }
         if doc.get("type") == DocumentType.TRANSCRIPT.value:
             lang = template_id.replace("transcript_", "") if template_id.startswith("transcript_") else "raw"

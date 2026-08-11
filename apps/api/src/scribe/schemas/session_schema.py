@@ -36,7 +36,6 @@ class SessionDocument(BaseModel):
     )
     download_url: Optional[str] = None
     download_url_expires_at: Optional[int] = None
-    vault_doc_id: Optional[str] = None
     lang: Optional[str] = None
 
 

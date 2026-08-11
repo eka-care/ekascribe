@@ -177,7 +177,6 @@ async def run_input_resolver(
     resolved_context = await _context_service.resolve(
         context=transaction.get("context"),
         b_id=b_id,
-        transaction_data=transaction,
     )
     if resolved_context and resolved_context.warnings:
         logger.warning(

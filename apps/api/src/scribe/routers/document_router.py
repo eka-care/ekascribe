@@ -228,9 +228,6 @@ async def get_document(document_id: str, request: Request):
             "updated_at": doc.get("updated_at", ""),
         }
         
-        if doc.get("vault_doc_id"):
-            response_data["vault_doc_id"] = doc.get("vault_doc_id")
-
         tiptap_record = {}
         try:
             tiptap_record = get_document_record(document_id) or {}
