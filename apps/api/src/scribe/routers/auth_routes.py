@@ -229,6 +229,18 @@ def logout(body: Optional[RefreshRequest] = None, request: Request = None):
     )
     revoke_refresh_token(raw)
     response = ResponseFormatter.json_response({"status": "success"}, 200)
+    # expire with the SAME attributes the cookies were set with — browsers only
+    # remove a cookie when name+domain+path (and secure context) all match
     for name in (s.auth_cookie_name, s.auth_refresh_cookie_name):
-        response.delete_cookie(key=name, domain=cookie_domain(), path="/")
+        response.set_cookie(
+            key=name,
+            value="",
+            max_age=0,
+            expires=0,
+            httponly=True,
+            secure=s.auth_cookie_secure,
+            samesite="lax",
+            domain=cookie_domain(),
+            path="/",
+        )
     return response

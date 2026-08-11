@@ -25,12 +25,7 @@ async def whoami(principal: Principal = Depends(get_principal)):
     }
 
 
-@account_router.post("/connect-auth/v1/account/refresh-token")
-async def refresh_token(principal: Principal = Depends(get_principal)):
-    # Dev mode: nothing to refresh; report a long-lived session.
-    return {"status": "ok", "expires_in": 86400}
-
-
-@account_router.post("/connect-auth/v1/account/logout")
-async def logout():
-    return {"status": "ok"}
+# NOTE: /account/logout and /account/refresh-token are handled by
+# scribe.routers.auth_routes (real session auth: cookie clearing + refresh
+# rotation/revocation). The dev-mode stubs that used to live here shadowed
+# those handlers — logout returned 200 without clearing anything.
