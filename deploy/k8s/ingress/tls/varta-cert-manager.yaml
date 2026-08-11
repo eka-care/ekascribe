@@ -1,0 +1,45 @@
+# cert-manager alternative to gen-varta-tls.sh — produces the SAME secret
+# (varta-tls) the gateway references, but the key is generated in-cluster and
+# renewal is automatic. Try this first; if the Certificate never goes Ready
+# (TCL webhook denial, or their cert-manager doesn't watch tenant namespaces),
+# fall back to the openssl script. Do not run both — they fight over the secret.
+#
+#   kubectl --context openweb apply -f varta-cert-manager.yaml
+#   kubectl --context openweb -n eka-care get certificate varta-tls -w   # wait for READY=True
+#
+# Evidence either way is one command:
+#   kubectl --context openweb -n eka-care describe certificate varta-tls
+---
+# SelfSigned issuer: signs the cert with its own key. Namespaced Issuer, not
+# ClusterIssuer — clusterissuers are 403 for the `customer` user.
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: varta-selfsigned
+  namespace: eka-care
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: varta-tls
+  namespace: eka-care
+spec:
+  # cert-manager writes/renews the kubernetes.io/tls secret the gateway's
+  # credentialName points at. Envoy picks up rotations live via SDS — no
+  # restart, no gateway change.
+  secretName: varta-tls
+  issuerRef:
+    name: varta-selfsigned
+    kind: Issuer
+  # Both spellings, same as the openssl cnf, so the rename can finish later.
+  dnsNames:
+    - vaarta.bharatai.gov.in
+  duration: 2160h    # 90d
+  renewBefore: 360h  # renew 15d before expiry
+  privateKey:
+    algorithm: RSA
+    size: 2048
+# When the trusted eMudhra cert arrives: delete Certificate + Issuer, then load
+# the real cert into the same secret name — the gateway never changes.

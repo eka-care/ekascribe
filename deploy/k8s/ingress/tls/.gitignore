@@ -1,0 +1,4 @@
+# Never commit the private key (ISO 27001 / DPDP). The .crt is public and
+# harmless, but there is no reason to track either — regenerate from the cnf.
+*.key
+*.crt

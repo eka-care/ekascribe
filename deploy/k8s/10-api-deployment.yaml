@@ -7,33 +7,14 @@ metadata:
     app.kubernetes.io/name: ekascribe-api
     app.kubernetes.io/part-of: ekascribe
 spec:
-  # 2 for serving availability. Be precise about what this does and does not
-  # buy, because EXECUTION_MODE=inprocess is still in play:
-  #
-  #   IT DOES: keep the HTTP API up when one pod dies. Uploads and job-status
-  #   reads go through Postgres, so either pod answers them correctly.
-  #
-  #   IT DOES NOT: make the scribe pipeline durable or distributed. Each pod
-  #   runs its OWN independent BackgroundJobRunner -- an in-process thread pool
-  #   (background/runner.py) holding jobs in memory, fire-and-forget. A job
-  #   scheduled on pod A is invisible to pod B, and losing pod A drops whatever
-  #   it had in flight. That was equally true at 1 replica, so this is strictly
-  #   better for availability, not worse -- but it is not pipeline HA.
-  #
-  # For durable at-least-once retries across restarts, switch EXECUTION_MODE to
-  # worker and add a worker Deployment (deploy/Dockerfile.worker). Note that
-  # UVICORN_WORKERS must stay 1 regardless: that constraint is about processes
-  # inside one pod, not about replicas.
-  replicas: 1
-  # RollingUpdate, not Recreate. Recreate would take BOTH pods down at once and
-  # throw away the availability the second replica exists for. maxUnavailable 0
-  # keeps one pod serving throughout; maxSurge 1 means a rollout briefly needs
-  # room for a third pod (3 x 3.5 = 10.5 vCPU).
+
+  replicas: 2
+
   strategy:
     type: RollingUpdate
     rollingUpdate:
-      maxUnavailable: 0
-      maxSurge: 1
+      maxSurge: 0
+      maxUnavailable: 1
   selector:
     matchLabels:
       app.kubernetes.io/name: ekascribe-api
@@ -55,19 +36,24 @@ spec:
         #     - "vaarta.bharatai.gov.in"                     
       imagePullSecrets:
         - name: ekascribe-regcred
-      # Without this the scheduler is free to place both replicas on one node,
-      # which makes the second one useless for node failure -- the exact thing
-      # it exists for. `preferred`, not `required`: spread them when possible,
-      # but never leave a pod Pending because nothing else has room.
+      # Pod AFFINITY to itself -- the deliberate inverse of the usual spread.
+      # The storage volume is single-node attach (Cinder without multiattach;
+      # Nova refuses the second node -- seen live 2026-08-11), so every api pod
+      # MUST land on the node that holds the attachment. `required`: a pod that
+      # cannot co-locate should stay Pending rather than schedule somewhere it
+      # can never mount the volume. The first pod (no peers anywhere) is the
+      # scheduler's documented self-affinity special case and places freely.
+      #
+      # The trade: no node-failure protection. That node takes both replicas
+      # and the volume down with it. Node HA needs RWX storage or
+      # STORAGE_BACKEND=s3, not scheduling changes.
       affinity:
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 100
-              podAffinityTerm:
-                topologyKey: kubernetes.io/hostname
-                labelSelector:
-                  matchLabels:
-                    app.kubernetes.io/name: ekascribe-api
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - topologyKey: kubernetes.io/hostname
+              labelSelector:
+                matchLabels:
+                  app.kubernetes.io/name: ekascribe-api
       # The api opens its psycopg pool at import time, so a pod that starts
       # before Postgres is accepting connections crashloops instead of
       # retrying. Matters most on a whole-node restart, where `strategy:
@@ -143,6 +129,7 @@ spec:
               memory: 6656Mi
       volumes:
         - name: storage
-          emptyDir: {}
+          persistentVolumeClaim:
+            claimName: ekascribe-api-storage
         - name: logs
           emptyDir: {}
