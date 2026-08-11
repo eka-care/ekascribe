@@ -116,7 +116,4 @@ def build_conversation_context(
     for doc in resolved_context.documents:
         ctx.add_message(item_message("Context document", doc.document_name, doc))
 
-    for att in resolved_context.attachments:
-        ctx.add_message(item_message("Context attachment", att.filename, att))
-
     return ctx

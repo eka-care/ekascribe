@@ -1,134 +1,282 @@
-# Seed data loaded by scripts/setup.py.
-# THREE starter templates for the template directory (wid=DEFAULT). Each
-# template's `desc` is the full structuring prompt — the domain structure and
-# guardrails (medical or otherwise) live HERE, not in the system prompt.
+# Seed data loaded by scripts/setup.py — Vaarta template directory (wid=DEFAULT).
+# Each `desc` is the per-run USER prompt: section skeleton + template-specific
+# guidance only. Shared guardrails (no fabrication, omit empty sections, English
+# output, third person, no repetition, section-kind semantics) live in the
+# SYSTEM prompt — do not duplicate them here.
+# Section notation: Name — kind (list | table | key_value | narrative) — guidance.
 # `section_ids` stays empty (markdown/desc-based templates).
-# Users pick a template from the directory per run; nothing is auto-selected.
+# Order = directory order: formal GoI archetypes first, lightweight last.
+#
+# seed_mode controls what re-running setup does to previously seeded rows:
+#   append  (default) — upsert everything in this file; rows seeded earlier but
+#           no longer listed here are left untouched (still in the directory).
+#   replace — additionally soft-archive any wid=DEFAULT row whose id is absent
+#           from this file. No hard delete: old sessions/documents keep
+#           resolving archived templates; they just disappear from the
+#           directory and from users' saved selections.
+seed_mode: replace
 
 sections: []
 templates:
-- id: 5b8e2a10-4c6d-4f7e-9a3b-1c2d3e4f5a6b
-  title: Meeting Notes
+
+- id: 912c2577-1259-44b0-85ba-0c54de7a7891
+  title: Karyavritt · Official Meeting Minutes
   type: default
   desc: |-
-    Convert the recorded session into structured meeting notes. Return each section with its kind (one of: list, table, key_value, narrative). Include only sections that have supporting data in the transcript.
-    SECTIONS — keep this order:
-    Meeting Details — key_value — Date, Attendees, Purpose/Agenda (only what is stated)
-    Topics Discussed — list — one item per distinct topic, each a one-line summary
-    Key Discussion Points — narrative — the substance of the discussion, grouped by topic; keep it faithful and concise
-    Decisions Made — list — each decision as stated, with who made it if mentioned
-    Action Items — table — columns: Task, Owner, Deadline (fill only cells explicitly stated; leave a cell empty if not mentioned)
-    Risks / Blockers — list — concerns, open risks, or blockers raised
-    Open Questions — list — questions raised but not resolved in the session
-    Next Steps / Follow-ups — list — agreed follow-ups, next meeting plans
-    Notes — narrative — relevant content that fits none of the sections above (always last)
-    RULES
-    Omit any section that has no data. Never emit an empty section, a placeholder, or markers like [?], [unknown], [not specified].
-    Never fabricate or infer. Write only what participants actually said or clearly implied; do not invent owners, deadlines, or decisions.
-    Capture explicit negatives verbatim (e.g. "no objections", "no blockers raised").
-    Translate all content to English if the session is in another language; keep names, product names, and domain terms verbatim.
-    Write in third person; never address participants as "you". Do not repeat the same information across sections.
-    If the session contains no meaningful content, return exactly: No notable content is available in this session.
+    Structure the recording as formal Government of India meeting minutes. Use official register ("The Chair observed…", "It was decided that…"); refer to participants by name and designation.
+    SECTIONS — in order:
+    Meeting Details — key_value — Subject, Date & Time, Venue/Mode, Chaired by
+    Participants — list — name & designation; note absentees/leave if stated
+    Opening Remarks — narrative — remarks of the Chair or convenor
+    Action Taken on Previous Meeting — table — columns: Previous Decision, Status, Remarks
+    Agenda-wise Discussion & Decisions — narrative — one block per agenda item: brief discussion, then the decision as recorded
+    Action Points — table — columns: Action Point, Responsibility, Timeline
+    Announcements — list
+    Date of Next Meeting — key_value
+    The meeting ended with a vote of thanks only if actually stated.
   section_ids: []
-- id: 9d9675c6-b29b-424a-abac-99ddd3b8909c
-  title: Clinical Notes
+
+- id: 4d3005ed-a172-4339-8058-85ebb9e043a1
+  title: Pragati Samiksha · Scheme & Programme Review
   type: default
   desc: |-
-    Convert the doctor–patient consultation into a structured clinical note. Tag each section with its kind (list / table / narrative). Include only sections that have data.
-    1.  Patient Demographics — list
-    - Name, DOB, gender, contact information
-    2.  Visit Information — list
-    - Date/time of encounter, visit type (first visit / follow-up)
-    3.  Chief Complaint — list
-    - Primary reason for visit and duration of symptoms
-    4.  History of Present Illness — list
-    - Chronological narrative: onset, location, duration, characterization, aggravating/alleviating factors, associated symptoms, prior treatments attempted
-    5.  Review of Systems — list
-    - Systematic review by body system, with positives and pertinent negatives
-    6.  Past Medical History — list
-    - Chronic conditions, previous surgeries/procedures, major hospitalizations, significant past illnesses
-    7.  Current Medications / Treatment — table
-    - columns: Medication, Dose, Frequency, Duration
-    - Include current medications/treatments, OTC medications, supplements/herbal remedies. Do not infer generics or indications.
-    8.  Allergies — list
-    - Medication, food, and environmental allergies with the nature of the reaction
-    9.  Social History — list
-    - Occupation / work environment, living situation, tobacco / alcohol / substance use, diet / exercise patterns, relevant social determinants of health
-    10. Family History — list
-    - Hereditary conditions and health status of immediate family members, with relationship
-    11. Lifestyle Habits / History — list
-    - Smoking history (current / ex-smoker, pack-years), alcohol and substance use, dietary habits, physical activity, childhood history, occupational exposures, other long-term lifestyle factors
-    12. Vital Signs — list
-    - Temperature, pulse, respiratory rate, blood pressure, pain score, height, weight, BMI, oxygen saturation
-    13. Physical Examination — list
-    - General appearance and findings by body system, with pertinent positives and negatives
-    14. Laboratory / Diagnostic Results — table
-    - columns: Test, Result, Date
-    - Test results, imaging findings, and previous significant results for comparison
-    15. Assessment — list
-    - Diagnoses, clinical reasoning, differential diagnoses
-    16. Treatment Plan — list
-    - Treatment plan for the diagnosis, medications prescribed, ordered tests / procedures
-    17. Procedures Performed — list
-    - Description of procedures, findings / outcomes, complications (if any)
-    18. Advices — list
-    - Home care instructions, warning signs to watch for, return precautions
-    19. Follow-up Instructions — list
-    - Date / time / duration and instructions for the follow-up appointment
-    20. Referrals — list
-    - Referral to another doctor / speciality / ward, with reason
-    RULES
-    - Include only sections that have data. Omit any section with no data — never write "not mentioned", "not specified", or placeholders like [?], [unknown].
-    - Never fabricate or infer. Write only what is explicitly stated or clearly implied; do not predict drug generics, indications, or interpretations.
-    - Capture pertinent negatives as well as positive findings (e.g. "no fever", "no history of diabetes").
-    - Translate all output to English, whatever the language of consultation.
-    - Write in third person ("the patient", "he", "she"); never address the patient as "you".
-    - Do not repeat the same information across sections.
-    - If there is no medically relevant content whatsoever, return exactly: No medical information is available in this conversation.
+    Structure the recording as minutes of a review meeting on scheme/programme implementation (e.g. flagship schemes, district reviews, VC reviews). Formal register; attribute directions to the reviewing authority.
+    SECTIONS — in order:
+    Meeting Details — key_value — Review of, Date, Venue/Mode, Reviewed by
+    Participants — list — name & designation / district / agency
+    Progress Reported — table — columns: Item/Indicator, Target, Achievement, Remarks
+    Issues & Bottlenecks — list — reported constraints (funds, staff, land, approvals, litigation)
+    Directions Issued — list — each direction as stated, with the authority issuing it
+    Action Points — table — columns: Action, Responsibility, Timeline
+    Matters for Escalation — list — issues to be taken up at a higher level
+    Next Review — key_value — date/periodicity if stated
   section_ids: []
-- id: 2f1c9a44-7e6b-4c21-9b3a-1d2e3f4a5b6c
-  title: Default Prescription
+
+- id: d099bef4-4754-4292-a620-f85fbf5d213a
+  title: Nirmaan Samiksha · Project & Infrastructure Review
   type: default
   desc: |-
-    Convert the transcription into a structured clinical note. Return each section with its kind (one of: list, table, narrative). Include only sections that have data.
-    SECTIONS — keep this order:
-    Patient Demographics — list — Name, DOB, Age, Gender, Contact
-    Visit Information — list — Date/time, visit type (first visit / follow-up)
-    Chief Complaint — list — primary reason + duration
-    History of Present Illness — list — onset, location, duration, character, aggravating/relieving factors, associated symptoms, prior treatment
-    Review of Systems — list — positives + pertinent negatives (e.g. "No chest pain")
-    Past Medical History — list — chronic conditions, surgeries, hospitalizations (+ year if stated)
-    Medication History — table — columns: Medication, Dose, Frequency, Reason (ongoing meds only)
-    Allergies — table — columns: Type, Allergen, Reaction
-    Social History — list — Occupation, Living situation, Tobacco, Alcohol, Substance use, Diet, Exercise
-    Family History — table — columns: Relation, Condition
-    Travel History — list
-    Vaccination History — list
-    Vital Signs — list — Temperature, Pulse, RR, BP, SpO2, Height, Weight, BMI, Pain score
-    Physical Examination — list — each item "system/area: finding" (include pertinent negatives)
-    Laboratory/Diagnostic Results — table — columns: Test, Result, Reference Range
-    Past Investigations — table — columns: Test, Date, Result
-    Assessment — list — diagnoses, differentials, clinical reasoning
-    Prescribed Medications — table — columns: Medication, Dose, Quantity, Route, Frequency, Duration, Instructions (see below)
-    Prescribed Investigations — list — ordered tests (+ urgency if stated)
-    Prescribed Procedures — list — procedure + schedule/details
-    Prescribed Vaccinations — list — vaccine + schedule
-    Procedures Performed — list — procedure, findings/outcome, complications
-    Advice — list — home care, warning signs, return precautions
-    Follow-up — list — timeline + purpose
-    Referral — list — Doctor, Speciality, Reason
-    Notes — narrative — medically relevant info not fitting above (always last)
-    PRESCRIBED MEDICATIONS — one row per drug:
-    Medication column: include the form prefix when spoken (e.g. "Tab. Paracetamol", "Syp. Ambroxol", "Cap. Amoxicillin", "Inj. Diclofenac").
-    Fill only the columns explicitly spoken; leave a cell empty if that detail was not stated. Never guess.
-    Expand frequency abbreviations: OD → once daily, BD → twice daily, TDS → three times daily, QID → four times daily, SOS → as needed, stat → immediately.
-    RULES
-    Do not include section numbering anywhere in the output. Section titles must appear as plain names (e.g. "Chief Complaint", not "3. Chief Complaint").
-    Omit any section that has no data. Never emit an empty section, a placeholder, or markers like [?], [unknown], [not specified].
-    Never fabricate, guess, or infer (do not predict drug generics, indications, or reference ranges). Write only what is stated or clearly implied.
-    Capture explicit negatives (e.g. "No fever", "No history of diabetes").
-    Translate all content to English if the transcription is in another language.
-    Use third person, professional clinical language ("the patient", "he", "she"); never address the patient as "you".
-    Do not repeat the same information across sections.
-    If there is no medically relevant content whatsoever, return exactly: No medical information is available in this conversation.
+    Structure the recording as minutes of a project or infrastructure works review. Formal register.
+    SECTIONS — in order:
+    Meeting Details — key_value — Project(s), Date, Venue/Mode, Chaired by
+    Participants — list — officials, executing agency, contractor representatives
+    Physical Progress — table — columns: Work/Component, Target Date, Progress, Remarks
+    Financial Progress — table — columns: Head, Sanctioned, Released, Utilised
+    Hurdles — list — land acquisition, clearances, utility shifting, court cases, contractor issues
+    Directions Issued — list — with issuing authority
+    Revised Timelines — table — columns: Milestone, Earlier Date, Revised Date, Reason
+    Action Points — table — columns: Action, Responsibility, Timeline
+    Next Review — key_value
+  section_ids: []
+
+- id: d0488b22-d65c-428f-9f83-451ede103d0d
+  title: Samiti Karyavritt · Committee Meeting Minutes
+  type: default
+  desc: |-
+    Structure the recording as minutes of a committee/board meeting where items are formally approved. Formal register; record each resolution in the language decided.
+    SECTIONS — in order:
+    Meeting Details — key_value — Committee, Meeting No. (if stated), Date, Venue, Chaired by
+    Members Present — list — note quorum only if discussed
+    Confirmation of Previous Minutes — narrative
+    Agenda Items — narrative — one block per item: brief background, discussion, and the decision with its status (Approved / Approved with modifications / Deferred / Rejected)
+    Resolutions Passed — list — final text of each resolution
+    Dissent / Observations Recorded — list
+    Action Points — table — columns: Action, Responsibility, Timeline
+    Date of Next Meeting — key_value
+  section_ids: []
+
+- id: 603951db-853d-4ebe-9316-f9994bf792ff
+  title: Jan Sunwai · Public Hearing & Grievance Record
+  type: default
+  desc: |-
+    Structure the recording as the record of a public hearing / jan sunwai / grievance redressal session. Formal register; one row per grievance heard.
+    SECTIONS — in order:
+    Hearing Details — key_value — Occasion, Date, Venue, Presiding Officer
+    Officials Present — list — name & designation/department
+    Grievances Heard — table — columns: Complainant, Grievance, Department Concerned, Decision/Direction, Timeline
+    Resolved on the Spot — list
+    Referred / Forwarded Cases — list — case and the office it was referred to
+    General Directions — list — instructions applying beyond individual cases
+    Follow-up — list
+  section_ids: []
+
+- id: 5edc2ad8-8bf1-490f-a25c-0f458d1671b5
+  title: Nirikshan · Field Inspection Note
+  type: default
+  desc: |-
+    Structure the recording as an inspection note of a field visit (office, site, institution, works). Formal register.
+    SECTIONS — in order:
+    Visit Details — key_value — Place/Site Inspected, Date, Inspecting Officer
+    Officials / Persons Met — list
+    Observations — list — findings area-wise, as observed
+    Deficiencies Noticed — list
+    Instructions Issued on the Spot — list
+    Compliance Required — table — columns: Deficiency/Instruction, Responsible, Deadline
+    Appreciation / Good Practices — list — only if expressly stated
+    Follow-up — list — compliance report requirements, next inspection
+  section_ids: []
+
+- id: ce008bd2-3fcb-412c-b0c9-12271e371a49
+  title: Samanvay Baithak · Inter-Departmental Coordination
+  type: default
+  desc: |-
+    Structure the recording as minutes of a coordination meeting between departments/agencies. Formal register; make each department's position and responsibility explicit.
+    SECTIONS — in order:
+    Meeting Details — key_value — Subject, Date, Venue/Mode, Chaired by
+    Departments / Agencies Represented — list — department and representative
+    Matters Discussed — narrative — one block per matter: positions of the departments concerned, followed by the resolution reached
+    Decisions — list — each decision with the departments bound by it
+    Unresolved / Escalated Matters — list — with the level to which escalated
+    Action Points — table — columns: Action, Department Responsible, Timeline
+    Next Meeting — key_value
+  section_ids: []
+
+- id: a7be6490-98d7-4c87-8c7b-396d73557886
+  title: Vyay Samiksha · Budget & Expenditure Review
+  type: default
+  desc: |-
+    Structure the recording as minutes of a budget/expenditure review meeting. Formal register; reproduce figures exactly as spoken with the unit stated (lakh/crore/%); never compute or convert.
+    SECTIONS — in order:
+    Meeting Details — key_value — Review of, Period, Date, Chaired by
+    Participants — list
+    Budget & Expenditure Position — table — columns: Head/Scheme, Allocation, Expenditure, Utilisation %, Remarks
+    Pending Releases / Utilisation Certificates — list
+    Observations — list — audit points, diversions, slow-moving heads
+    Directions Issued — list — with issuing authority
+    Action Points — table — columns: Action, Responsibility, Timeline
+    Next Review — key_value
+  section_ids: []
+
+- id: 379ab42f-5c03-4067-b1e3-483be6cc1810
+  title: Aapda Samanvay · Emergency Response Coordination
+  type: default
+  desc: |-
+    Structure the recording as the record of an emergency/disaster response coordination meeting. Formal register; keep the sequence of decisions and deployments precise.
+    SECTIONS — in order:
+    Meeting Details — key_value — Incident/Situation, Date & Time, Chaired by
+    Situation Summary — narrative — position as reported at the meeting
+    Agencies Present — list
+    Status Reported by Agencies — list — one item per agency, as reported
+    Resource Requirements — table — columns: Resource, Quantity, Requested By, Status
+    Decisions & Deployments — list — each with the responsible agency
+    Public Communication / Advisories — list
+    Next Situation Review — key_value — date/time
+  section_ids: []
+
+- id: 3a2a1c4c-c42f-48e5-86cc-1c1db881950c
+  title: Jan Samvaad · Stakeholder & Public Consultation
+  type: default
+  desc: |-
+    Structure the recording as the record of a consultation with external stakeholders (public, industry, associations, experts) on a proposal or policy. Formal register; keep views attributed to the group or person that expressed them.
+    SECTIONS — in order:
+    Consultation Details — key_value — Subject/Proposal, Date, Venue/Mode, Chaired by
+    Participants — list — officials and stakeholder groups represented
+    Proposal Presented — narrative — what was placed before the participants
+    Views & Suggestions Received — list — grouped by stakeholder, as expressed
+    Objections / Concerns — list
+    Clarifications & Assurances Given — list — by whom
+    Outcome — narrative — conclusions and how inputs will be taken forward
+    Next Steps — list
+  section_ids: []
+
+- id: 75ddbed8-7c72-4d19-bcad-3219b1dd3284
+  title: Prashikshan Vritt · Training & Workshop Report
+  type: default
+  desc: |-
+    Structure the recording as a report of a training, workshop or capacity-building programme. Formal register.
+    SECTIONS — in order:
+    Programme Details — key_value — Programme, Date(s), Venue/Mode, Organised by
+    Participants — list — groups/cadres represented; count only if stated
+    Sessions — table — columns: Session/Topic, Resource Person, Key Points
+    Key Takeaways — list
+    Feedback & Suggestions — list — as voiced by participants
+    Follow-up — list — assignments, certification, next phase
+  section_ids: []
+
+- id: b4daa0d8-3b14-4947-9582-75c1208eb284
+  title: Gram Sabha Karyavritt · Village Assembly Minutes
+  type: default
+  desc: |-
+    Structure the recording as minutes of a Gram Sabha / Ward Sabha or similar open village assembly. Formal but simple register.
+    SECTIONS — in order:
+    Sabha Details — key_value — Gram Panchayat/Ward, Date, Venue, Presided by
+    Attendance — list — officials and elected members present; attendance/quorum count only if stated
+    Agenda Items — narrative — one block per item (accounts, beneficiary selection, works, social audit): discussion and outcome
+    Resolutions Passed — list — each resolution and how it was decided (consensus/majority) if stated
+    Beneficiaries / Works Approved — table — columns: Item (Beneficiary/Work), Scheme, Decision
+    Demands & Issues Raised by Villagers — list
+    Replies & Assurances Given — list — by whom
+    Follow-up — list
+  section_ids: []
+
+- id: 0f7e6f9d-ac6a-43f1-90f0-c195f66b8f06
+  title: Tippani · Briefing Note for File
+  type: default
+  desc: |-
+    Structure the recording as a concise briefing note / office noting suitable for placing on file. Formal noting register; crisp numbered-style points, no conversational detail.
+    SECTIONS — in order:
+    Subject — key_value
+    Background — narrative — the context in 2–4 sentences
+    Points Discussed — list — the substantive points, condensed
+    Options / Views — list — alternatives or differing views placed, with who holds them
+    Recommendation — narrative — the course of action proposed, if stated
+    Decision / Orders — narrative — the decision taken or approval sought
+    Action Required — table — columns: Action, By Whom, By When
+  section_ids: []
+
+- id: 82c53385-a22f-46dd-b962-c0eede40e198
+  title: Daura Vritt · Tour Report
+  type: default
+  desc: |-
+    Structure the recording as an officer's tour report covering one or more places visited. Formal register.
+    SECTIONS — in order:
+    Tour Details — key_value — Officer, Period, Places Visited, Purpose
+    Programme — list — chronological: place/institution and activity
+    Meetings & Interactions — list — with whom and the gist
+    Observations — list — findings place-wise
+    Actions Initiated on Tour — list — instructions or decisions given during the tour
+    Recommendations — list — matters proposed for further action
+    Follow-up — table — columns: Action, Responsibility, Timeline
+  section_ids: []
+
+- id: a73a5da9-5bca-43df-9998-8fdf0a5d0086
+  title: Media Samvaad · Press Briefing Record
+  type: default
+  desc: |-
+    Structure the recording as the record of a press conference / media briefing. Keep official statements and announcements exact; attribute every statement to its speaker.
+    SECTIONS — in order:
+    Briefing Details — key_value — Occasion/Subject, Date, Venue, Briefed by
+    Statement / Announcements — narrative — the official statement and announcements made, as delivered
+    Key Facts & Figures Shared — list — exactly as stated
+    Questions & Responses — list — one item per question: the question (attributed to outlet if named) and the response given
+    Clarifications Issued — list
+    Matters Taken Note Of — list — questions or requests to be responded to later
+  section_ids: []
+
+- id: f76716aa-b4ff-44ae-af89-e3106c0c6098
+  title: Quick Notes · Everyday Meetings
+  type: default
+  desc: |-
+    Structure the recording as concise, plain-language meeting notes.
+    SECTIONS — in order:
+    Meeting Details — key_value — Date, Attendees, Purpose
+    Topics Discussed — list — one line per topic
+    Key Points — narrative — substance of the discussion, grouped by topic
+    Decisions — list
+    Action Items — table — columns: Task, Owner, Deadline
+    Open Questions — list
+    Next Steps — list
+  section_ids: []
+
+- id: 2f7e9a10-8c1d-4b6e-9f2a-3c4d5e6f7a8b
+  title: Charcha · Discussion & 1-on-1 Notes
+  type: default
+  desc: |-
+    Structure the recording as brief notes of an informal discussion or one-on-one.
+    SECTIONS — in order:
+    Context — key_value — Date, Participants, Topic
+    Points Discussed — list
+    Agreements — list — what the participants aligned on
+    To-dos — table — columns: Task, Owner, By When
+    Parked for Later — list — items deferred or needing another conversation
   section_ids: []

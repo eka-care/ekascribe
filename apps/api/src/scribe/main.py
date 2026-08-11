@@ -17,7 +17,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import ValidationError
 
-from scribe_core.auth import DevAuthMiddleware
+from scribe_core.auth import CookieAuthMiddleware, DevAuthMiddleware
 from scribe_core.settings import get_settings
 
 from scribe.core.custom_logger import get_logger
@@ -58,8 +58,18 @@ def create_app() -> FastAPI:
     app.add_exception_handler(RequestValidationError, validation_exception_handler)
     app.add_exception_handler(ValidationError, pydantic_validation_exception_handler)
 
-    app.add_middleware(DevAuthMiddleware)
-    allowed_regex = r"^https?://.*" if s.env != "prod" else r"^https://.*"
+    if s.auth_mode == "jwt":
+        app.add_middleware(CookieAuthMiddleware)
+    else:
+        app.add_middleware(DevAuthMiddleware)
+    # app://ekascribe = the Electron desktop app's custom-protocol origin
+    allowed_regex = (
+        r"^(https?://.*|app://ekascribe)$"
+        if s.env != "prod"
+        else r"^(https://.*|app://ekascribe)$"
+    )
+
+    # app://ekascribe
     app.add_middleware(
         CORSMiddleware,
         allow_origin_regex=allowed_regex,
@@ -102,9 +112,11 @@ def create_app() -> FastAPI:
 
     # --- On-prem additions ---------------------------------------------------
     from scribe.routers.account_router import account_router
+    from scribe.routers.auth_routes import auth_router
     from scribe.routers.blob_router import blob_router
 
     app.include_router(account_router, tags=["account"])
+    app.include_router(auth_router, prefix="/connect-auth/v1", tags=["auth"])
     app.include_router(blob_router, prefix="/voice/v1", tags=["blob"])
 
     # --- AG-UI (in scope for v1) --------------------------------------------

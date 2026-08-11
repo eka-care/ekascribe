@@ -31,21 +31,10 @@ class ContextDocumentItem:
 
 
 @dataclass
-class ContextAttachmentItem:
-    kind: ContextItemKind
-    filename: str
-    text: Optional[str] = None
-    media_type: Optional[str] = None
-    data_base64: Optional[str] = None
-    url: Optional[str] = None
-
-
-@dataclass
 class ResolvedContext:
     past_sessions: List[PastSessionItem] = field(default_factory=list)
     documents: List[ContextDocumentItem] = field(default_factory=list)
-    attachments: List[ContextAttachmentItem] = field(default_factory=list)
     warnings: List[str] = field(default_factory=list)
 
     def is_empty(self) -> bool:
-        return not (self.past_sessions or self.documents or self.attachments)
+        return not (self.past_sessions or self.documents)

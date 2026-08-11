@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import SidebarPastSessions from './sidebar-past-sessions';
 import SidebarSearchBar from './sidebar-search-bar';
+import { VaartaLogoLottie } from '@/shared-components/vaarta-logo-lottie';
 import { useRouter } from 'next/navigation';
 import useVoice2RxStore from '@/store/store';
 import { getPlatform, getStorage, useAppUpdates, WebOnly, DesktopOnly } from '@/platform';
@@ -278,15 +279,8 @@ const CustomSidebar = () => {
             </button>
           </div>
         ) : (
-          <div className="flex items-center justify-between px-2">
-            <div className="flex items-center gap-2">
-              <DotLottieReact
-                src="/assets/vaarta-logo.lottie"
-                autoplay
-                loop
-                className="w-36 h-12 shrink-0"
-              />
-            </div>
+          <div className="flex items-center justify-between px-2 py-2">
+            <VaartaLogoLottie className="shrink-0" />
             <button
               className="cursor-pointer hidden md:flex p-1 rounded hover:bg-accent transition-colors"
               onClick={() => {
