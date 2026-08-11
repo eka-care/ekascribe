@@ -8,7 +8,7 @@
  * app boots with a fresh whoami. Logout redirects land here (HOSTS.LOGIN_URL).
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@ui/src';
 import { VaartaLogoLottie } from '@/shared-components/vaarta-logo-lottie';
 
@@ -18,6 +18,27 @@ const FIELD_CLS =
   'w-full rounded-md border border-input bg-background px-3 py-2 text-sm ' +
   'outline-none focus:ring-2 focus:ring-ring focus:border-transparent';
 
+// Desktop-app login handoff target — loopback-only so tokens can't leak to arbitrary origins.
+function getDesktopRedirect(): { redirectUri: string; state: string } | null {
+  if (typeof window === 'undefined') return null;
+  const params = new URLSearchParams(window.location.search);
+  const redirectUri = params.get('redirect_uri') ?? '';
+  if (!/^http:\/\/(localhost|127\.0\.0\.1):\d+\//.test(redirectUri)) return null;
+  return { redirectUri, state: params.get('state') ?? '' };
+}
+
+function redirectToDesktop(
+  desktop: { redirectUri: string; state: string },
+  accessToken: string,
+  refreshToken: string
+): void {
+  const target = new URL(desktop.redirectUri);
+  target.searchParams.set('access_token', accessToken);
+  target.searchParams.set('refresh_token', refreshToken);
+  if (desktop.state) target.searchParams.set('state', desktop.state);
+  window.location.href = target.toString();
+}
+
 export default function LoginPage() {
   const [mode, setMode] = useState<Mode>('login');
   const [username, setUsername] = useState('');
@@ -25,6 +46,36 @@ export default function LoginPage() {
   const [displayName, setDisplayName] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  // Desktop handoff: probe the existing browser session before showing the form.
+  const [checkingSession, setCheckingSession] = useState(() => !!getDesktopRedirect());
+
+  // With a live session cookie, mint fresh tokens and bounce straight back to the app.
+  useEffect(() => {
+    const desktop = getDesktopRedirect();
+    if (!desktop) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/connect-auth/v1/refresh', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'client-id': 'doc-web' },
+          body: JSON.stringify({}),
+          credentials: 'include',
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!cancelled && res.ok && data?.access_token && data?.refresh_token) {
+          redirectToDesktop(desktop, data.access_token, data.refresh_token);
+          return; // keep the splash up while the redirect lands
+        }
+      } catch {
+        // fall through to the form
+      }
+      if (!cancelled) setCheckingSession(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,6 +93,11 @@ export default function LoginPage() {
       const data = await res.json().catch(() => ({}));
 
       if (res.ok && data?.status === 'success') {
+        const desktop = getDesktopRedirect();
+        if (desktop && data.access_token && data.refresh_token) {
+          redirectToDesktop(desktop, data.access_token, data.refresh_token);
+          return;
+        }
         window.location.href = '/';
         return;
       }
@@ -56,6 +112,17 @@ export default function LoginPage() {
       setSubmitting(false);
     }
   };
+
+  if (checkingSession) {
+    return (
+      <div className="flex min-h-screen w-full flex-1 items-center justify-center bg-background px-4">
+        <div className="flex flex-col items-center gap-3">
+          <VaartaLogoLottie />
+          <p className="text-sm text-muted-foreground">Signing you in…</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen w-full flex-1 items-center justify-center bg-background px-4">
