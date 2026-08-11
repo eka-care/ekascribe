@@ -62,7 +62,14 @@ def create_app() -> FastAPI:
         app.add_middleware(CookieAuthMiddleware)
     else:
         app.add_middleware(DevAuthMiddleware)
-    allowed_regex = r"^https?://.*" if s.env != "prod" else r"^https://.*"
+    # app://ekascribe = the Electron desktop app's custom-protocol origin
+    allowed_regex = (
+        r"^(https?://.*|app://ekascribe)$"
+        if s.env != "prod"
+        else r"^(https://.*|app://ekascribe)$"
+    )
+
+    # app://ekascribe
     app.add_middleware(
         CORSMiddleware,
         allow_origin_regex=allowed_regex,
