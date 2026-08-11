@@ -82,6 +82,12 @@ const SessionBody = ({ sessionId, onAddTranscript, isLimitExceeded }: SessionBod
   const { handleTryAgain, handleDiscard, handleContinueRecording } = useErrorHandlers(sessionId);
   const { endRecording } = useSessionLifecycle();
 
+  // Template runs re-read the transcript server-side; without a stored
+  // transcript file (no presigned get_url) the run 404s, so don't offer
+  // conversion.
+  const hasTranscript = transcriptDocs.some((t) => !!t.get_url || !!t.content);
+  const canConvert = showConvertOption && hasTranscript;
+
   const isContextTab = activeTab === 'context';
   const isTranscriptTab = activeTab === 'transcript';
   const isStreamTab = activeTab.startsWith('stream:');
@@ -161,10 +167,8 @@ const SessionBody = ({ sessionId, onAddTranscript, isLimitExceeded }: SessionBod
           : undefined
       }
       templates={userSelectedTemplatesList}
-      onStreamTemplate={
-        showConvertOption ? (template) => streamAgUiRun(template, close) : undefined
-      }
-      showConvertOption={showConvertOption}
+      onStreamTemplate={canConvert ? (template) => streamAgUiRun(template, close) : undefined}
+      showConvertOption={canConvert}
       showGenerateTranscriptOption={showGenerateTranscript}
     />
   );

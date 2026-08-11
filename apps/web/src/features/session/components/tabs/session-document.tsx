@@ -11,6 +11,7 @@ import {
   useState,
 } from 'react';
 import { Loader2, MessageSquare, RefreshCw, TriangleAlert } from 'lucide-react';
+import type { JSONContent } from '@tiptap/core';
 import { Button } from '@ui/src';
 
 import useVoice2RxStore from '@/store/store';
@@ -210,19 +211,29 @@ const DocumentView = forwardRef<SessionDocumentHandle, DocumentProps>(function D
 
   const { editorWrapperRef, handleFocusChange } = useEditorFocus(editorRef);
 
-  const isDocumentEmpty = useMemo(
-    () =>
-      loaderState.status === 'empty' ||
-      (loaderState.status === 'ready' &&
-        loaderState.source === 'markdown' &&
-        !loaderState.initialValue?.trim()),
-    [loaderState]
-  );
+  const isDocumentEmpty = useMemo(() => {
+    if (loaderState.status === 'empty') return true;
+    if (loaderState.status !== 'ready') return false;
+    return loaderState.source === 'markdown'
+      ? !loaderState.initialValue?.trim()
+      : isTiptapJsonEmpty(loaderState.initialJSON);
+  }, [loaderState]);
 
   const isCustomDoc = doc?.document_type === 'custom';
 
+  // The API refuses to stream into a document that already has saved tiptap
+  // JSON (400 "already has edited content"), so never offer or trigger a run
+  // for one.
+  const hasSavedTiptap = loaderState.status === 'ready' && loaderState.source === 'json';
+
   const canRetry =
-    isCustomDoc && !!doc?.template_id && !!doc?.document_id && !!hasTranscriptContent && !regenerating;
+    isCustomDoc &&
+    doc?.status !== 'success' &&
+    !!doc?.template_id &&
+    !!doc?.document_id &&
+    !!hasTranscriptContent &&
+    !hasSavedTiptap &&
+    !regenerating;
 
   const handleRetry = useCallback(() => {
     streamKeyRef.current = `regen:${documentId}:${Date.now()}`;
@@ -255,6 +266,7 @@ const DocumentView = forwardRef<SessionDocumentHandle, DocumentProps>(function D
       isCustomDoc &&
       doc?.status === 'in-progress' &&
       isDocumentEmpty &&
+      !hasSavedTiptap &&
       !!doc.template_id &&
       loaderState.status !== 'loading'
     ) {
@@ -262,7 +274,7 @@ const DocumentView = forwardRef<SessionDocumentHandle, DocumentProps>(function D
       streamKeyRef.current = `auto-regen:${documentId}:${Date.now()}`;
       setRegenerating(true);
     }
-  }, [autoStream, regenerating, isCustomDoc, doc?.status, isDocumentEmpty, doc?.template_id, documentId, loaderState.status]);
+  }, [autoStream, regenerating, isCustomDoc, doc?.status, isDocumentEmpty, hasSavedTiptap, doc?.template_id, documentId, loaderState.status]);
 
   // Doc metadata status branches
   if (!doc) return <SessionBodySkeleton />;
@@ -358,8 +370,31 @@ const DocumentView = forwardRef<SessionDocumentHandle, DocumentProps>(function D
     );
   }
 
+  // Generated doc came back empty and re-running is impossible — no transcript
+  // (run would 404) or tiptap already saved (run would 400) — so show an empty
+  // state (mirrors the transcript tab).
+  if (
+    isCustomDoc &&
+    doc.status === 'success' &&
+    isDocumentEmpty &&
+    (!hasTranscriptContent || hasSavedTiptap)
+  ) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full">
+        <div className="flex flex-col items-center gap-2 text-center">
+          <p className="text-2xl font-medium leading-none tracking-[-0.6px] text-foreground">
+            No notes available
+          </p>
+          <p className="text-sm leading-5 text-[#999]">
+            This session&apos;s recording didn&apos;t produce any notes
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   // Success custom document with no content — auto-start streaming (once per document)
-  const autoStreamNeeded = isCustomDoc && doc.status === 'success' && isDocumentEmpty && !!doc.template_id && !regenerating && !autoStreamAttempted.has(documentId);
+  const autoStreamNeeded = isCustomDoc && doc.status === 'success' && isDocumentEmpty && !hasSavedTiptap && !!doc.template_id && !regenerating && !autoStreamAttempted.has(documentId);
   if (autoStreamNeeded && !autoStreamKeyRef.current) {
     autoStreamKeyRef.current = `auto:${documentId}:${Date.now()}`;
   }
@@ -430,6 +465,15 @@ const DocumentView = forwardRef<SessionDocumentHandle, DocumentProps>(function D
   );
 });
 
+// A tiptap doc of only empty paragraphs has no real content; any text or
+// non-structural node (image, table, …) counts as content.
+function isTiptapJsonEmpty(node: JSONContent | undefined): boolean {
+  if (!node) return true;
+  if (node.text?.trim()) return false;
+  if (node.type && !['doc', 'paragraph', 'text', 'hardBreak'].includes(node.type)) return false;
+  return (node.content ?? []).every(isTiptapJsonEmpty);
+}
+
 // ─────────────────────────────────────────────────────────────────────────
 // Local UI helpers
 // ─────────────────────────────────────────────────────────────────────────
@@ -477,9 +521,16 @@ function StreamStatusBanner({
   pendingToolCallId: string | null;
 }) {
   if (phase === 'error') {
+    const raw = error || '';
+    let message = raw || 'Streaming failed.';
+    if (/transcript document .* not ready|missing document_path/.test(raw)) {
+      message = 'No transcript available in this session.';
+    } else if (/already has edited content/.test(raw)) {
+      message = 'This note already has saved content. Reload the page to view it.';
+    }
     return (
       <div className="rounded-md border border-[#FECACA] bg-[#FEF2F2] text-[#991B1B] px-3 py-2 text-sm">
-        {error || 'Streaming failed.'}
+        {message}
       </div>
     );
   }

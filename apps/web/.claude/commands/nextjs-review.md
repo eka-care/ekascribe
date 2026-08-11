@@ -45,7 +45,7 @@ Follow these steps precisely:
    - Zustand selectors that return a new array or object literal when the underlying data is absent — must use a stable constant defined outside the component (e.g. `const EMPTY: never[] = []` then `?? EMPTY`, not `?? []`)
    - Inline arrow functions or object literals passed as props to any React.memo() component — each render creates a new reference, breaking Object.is() comparison
    - useCallback/useMemo with a missing dependency (stale closure) or an over-broad dependency (causes the memo to recompute every render anyway)
-   - List-item components that render inside .map() without React.memo() when the list can be long or the parent re-renders frequently (see RecordCard, RecordRow patterns in features/medical-records/)
+   - List-item components that render inside .map() without React.memo() when the list can be long or the parent re-renders frequently (see RecordCard, RecordRow patterns in features)
    - Module-level mutable variables inside a hook file (e.g. `let count = 0`) that should be useRef — module-level state is shared across all instances and not cleaned up on unmount
    - useEffect with a Firestore onSnapshot / SDK listener that doesn't return a cleanup function to unsubscribe — causes listener accumulation
    - useEffect dependencies that include the entire store object rather than a fine-grained selector value
@@ -62,7 +62,7 @@ Follow these steps precisely:
 
    Agent 5 — Architecture & Security:
    Check structural correctness and security. Focus on:
-   - New patient or clinical data (diagnoses, medications, vitals, transcripts) added to the global Zustand store (src/store/store.ts) when it belongs in a feature-scoped store (see features/medical-records/stores/ pattern)
+   - New patient or clinical data (diagnoses, medications, vitals, transcripts) added to the global Zustand store (src/store/store.ts) when it belongs in a feature-scoped store
    - dangerouslySetInnerHTML without explicit sanitization — especially risky given the codebase converts markdown to HTML (see utils/convert-markdown-to-html.ts)
    - Authenticated API calls that bypass with401Retry — any fetch/axios/SDK call to a protected endpoint must go through the retry wrapper in src/fetch-client/
    - Patient identifiers, PHI (protected health information), or auth tokens logged to the console or included in error messages
