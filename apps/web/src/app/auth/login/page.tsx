@@ -8,12 +8,19 @@
  * app boots with a fresh whoami. Logout redirects land here (HOSTS.LOGIN_URL).
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@ui/src';
 import { Eye, EyeOff } from 'lucide-react';
 import { VaartaLogoLottie } from '@/shared-components/vaarta-logo-lottie';
 
 type Mode = 'login' | 'signup';
+
+type AuthModeInfo = {
+  mode: 'dev' | 'jwt' | 'sso';
+  allow_password_login: boolean;
+  allow_signup: boolean;
+  login_url: string;
+};
 
 const FIELD_CLS =
   'w-full rounded-md border border-border bg-background px-3 py-2 text-sm ' +
@@ -27,6 +34,23 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [authInfo, setAuthInfo] = useState<AuthModeInfo | null>(null);
+
+  // SSO deployments never show this page — bounce to the platform login.
+  useEffect(() => {
+    fetch('/connect-auth/v1/auth-mode')
+      .then((r) => r.json())
+      .then((info: AuthModeInfo) => {
+        if (info?.mode === 'sso' || info?.allow_password_login === false) {
+          window.location.replace(info.login_url || '/');
+          return;
+        }
+        setAuthInfo(info);
+      })
+      .catch(() => setAuthInfo(null)); // offline/unknown: keep the password form
+  }, []);
+
+  const signupAllowed = authInfo?.allow_signup !== false;
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -122,7 +146,7 @@ export default function LoginPage() {
         </form>
 
         <p className="mt-5 text-center text-sm text-muted-foreground">
-          {mode === 'login' ? (
+          {mode === 'login' && !signupAllowed ? null : mode === 'login' ? (
             <>
               New here?{' '}
               <button

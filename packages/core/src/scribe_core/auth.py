@@ -296,6 +296,7 @@ class CookieAuthMiddleware(BaseHTTPMiddleware):
     """
 
     EXEMPT_PREFIXES = DevAuthMiddleware.EXEMPT_PREFIXES + (
+        "/connect-auth/v1/auth-mode",
         "/connect-auth/v1/login",
         "/connect-auth/v1/signup",
         "/connect-auth/v1/logout",
@@ -328,6 +329,9 @@ class CookieAuthMiddleware(BaseHTTPMiddleware):
         from starlette.responses import JSONResponse
 
         if not token:
+            recovered = await self._on_browser_auth_failure(request, call_next)
+            if recovered is not None:
+                return recovered
             return JSONResponse({"detail": "missing_token"}, status_code=403)
 
         try:
@@ -367,12 +371,19 @@ class CookieAuthMiddleware(BaseHTTPMiddleware):
                         )
                     return response
             if source == "cookie":
+                recovered = await self._on_browser_auth_failure(request, call_next)
+                if recovered is not None:
+                    return recovered
                 # browser with a dead refresh token: nothing can cure this
                 # request -> 403: redirect to login
                 return JSONResponse({"detail": "session_expired"}, status_code=403)
             # bearer/native path: 401 -> client calls /refresh and retries
             return JSONResponse({"detail": "token_expired"}, status_code=401)
         except pyjwt.PyJWTError:
+            if source == "cookie":
+                recovered = await self._on_browser_auth_failure(request, call_next)
+                if recovered is not None:
+                    return recovered
             # bad signature / malformed -> hard logout signal
             return JSONResponse({"detail": "invalid_token"}, status_code=403)
 
@@ -380,3 +391,130 @@ class CookieAuthMiddleware(BaseHTTPMiddleware):
         headers[JWT_PAYLOAD_HEADER] = json.dumps(claims)
         request.scope["headers"] = headers.raw
         return await call_next(request)
+
+    async def _on_browser_auth_failure(self, request: Request, call_next):
+        """Hook: SSO mode recovers the session from the platform token here.
+        None = fall through to the normal 403."""
+        return None
+
+
+# --- SSO (AUTH_MODE=sso): trusted platform-cookie exchange ---------------------
+
+
+async def exchange_sso_token(raw_token: str):
+    """Validate the platform's token against its userinfo API and upsert the
+    user. Returns the users-table row, or None if the token is no good.
+
+    Mapping: platform ``id`` -> uuid (stable across exchanges), ``email`` ->
+    username + oid, ``name`` -> display_name, b_id = the deployment workspace.
+    SSO rows carry NO password hash — password login for them fails closed."""
+    import time
+
+    from scribe_core.db import ConditionalCheckFailed, get_table
+
+    s = get_settings()
+    if not raw_token or not s.sso_userinfo_url:
+        return None
+
+    import httpx
+
+    try:
+        async with httpx.AsyncClient(
+            timeout=s.sso_request_timeout_s, verify=s.sso_verify_ssl
+        ) as client:
+            resp = await client.get(
+                s.sso_userinfo_url,
+                headers={
+                    "Authorization": f"Bearer {raw_token}",
+                    "Cookie": f"{s.sso_token_cookie}={raw_token}",
+                },
+            )
+    except Exception as exc:  # noqa: BLE001 — network failure = not authenticated
+        import logging
+
+        logging.getLogger(__name__).warning("SSO userinfo call failed: %s", exc)
+        return None
+    if resp.status_code != 200:
+        return None
+    try:
+        data = resp.json()
+    except Exception:
+        return None
+
+    email = (data.get("email") or "").strip().lower()
+    platform_id = str(data.get("id") or "").strip()
+    if not email or not platform_id:
+        return None
+
+    users = get_table("users")
+    row = users.get_item({"username": email})
+    if row:
+        return row
+    user = {
+        "username": email,
+        "display_name": (data.get("name") or email).strip(),
+        "uuid": platform_id,
+        "oid": email,
+        "b_id": s.dev_b_id,
+        "is_active": True,
+        "sso": True,
+        "created_at": int(time.time()),
+    }
+    try:
+        users.put_item(user, if_not_exists=True)
+    except ConditionalCheckFailed:
+        return users.get_item({"username": email})
+    return user
+
+
+class SSOAuthMiddleware(CookieAuthMiddleware):
+    """AUTH_MODE=sso: CookieAuthMiddleware plus silent session bootstrap.
+
+    When our session is missing / expired-beyond-refresh / invalid but the
+    platform's token cookie is present, exchange it on the spot: the request
+    proceeds and the response carries fresh session+refresh cookies. Without a
+    platform token, browser navigations 302 to SSO_LOGIN_REDIRECT_URL and API
+    calls get 403 sso_login_required carrying the login_url."""
+
+    async def _on_browser_auth_failure(self, request: Request, call_next):
+        from starlette.responses import JSONResponse, RedirectResponse
+
+        s = get_settings()
+        raw = request.cookies.get(s.sso_token_cookie, "")
+        user = await exchange_sso_token(raw) if raw else None
+        if user:
+            principal = principal_from_user(user)
+            access = mint_session_token(
+                principal,
+                sub=user["username"],
+                secret=s.auth_jwt_secret or "",
+                ttl_seconds=s.auth_access_ttl_seconds,
+            )
+            claims = verify_session_token(access, s.auth_jwt_secret or "")
+            new_refresh = issue_refresh_token(user["username"], user.get("uuid", ""))
+            headers = request.headers.mutablecopy()
+            headers[JWT_PAYLOAD_HEADER] = json.dumps(claims)
+            request.scope["headers"] = headers.raw
+            response = await call_next(request)
+            cookie_kwargs = dict(
+                max_age=s.auth_refresh_ttl_seconds,
+                httponly=True,
+                secure=s.auth_cookie_secure,
+                samesite="lax",
+                domain=cookie_domain(),
+                path="/",
+            )
+            response.set_cookie(s.auth_cookie_name, access, **cookie_kwargs)
+            response.set_cookie(
+                s.auth_refresh_cookie_name, new_refresh, **cookie_kwargs
+            )
+            return response
+
+        # No usable platform token: send the user to the platform login.
+        accepts_html = "text/html" in (request.headers.get("accept") or "")
+        if request.method == "GET" and accepts_html:
+            return RedirectResponse(s.sso_login_redirect_url, status_code=302)
+        return JSONResponse(
+            {"detail": "sso_login_required", "login_url": s.sso_login_redirect_url},
+            status_code=403,
+        )

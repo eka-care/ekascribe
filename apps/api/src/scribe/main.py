@@ -17,7 +17,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import ValidationError
 
-from scribe_core.auth import CookieAuthMiddleware, DevAuthMiddleware
+from scribe_core.auth import CookieAuthMiddleware, DevAuthMiddleware, SSOAuthMiddleware
 from scribe_core.settings import get_settings
 
 from scribe.core.custom_logger import get_logger
@@ -58,7 +58,9 @@ def create_app() -> FastAPI:
     app.add_exception_handler(RequestValidationError, validation_exception_handler)
     app.add_exception_handler(ValidationError, pydantic_validation_exception_handler)
 
-    if s.auth_mode == "jwt":
+    if s.auth_mode == "sso":
+        app.add_middleware(SSOAuthMiddleware)
+    elif s.auth_mode == "jwt":
         app.add_middleware(CookieAuthMiddleware)
     else:
         app.add_middleware(DevAuthMiddleware)
