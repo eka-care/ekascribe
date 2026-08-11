@@ -29,11 +29,7 @@ const nextConfig: NextConfig = {
   // Static export: the bundle in out/ is served by the FastAPI api container
   // (apps/api web_static.py), which also owns the cache headers the old
   // headers() block set here. Export doesn't support headers()/rewrites().
-  // Build-only: `next dev` enforces export's generateStaticParams matching,
-  // which would 500 every real /session/<id> deep link on :3000.
-  ...(process.env.NODE_ENV === 'development'
-    ? {}
-    : { output: useStaticExport ? ('export' as const) : ('standalone' as const) }),
+  output: useStaticExport ? 'export' : 'standalone',
   // Lint never gated builds before (the old eslint config crashed and was
   // skipped); keep it advisory via `npm run lint` until violations are fixed.
   eslint: { ignoreDuringBuilds: true },
