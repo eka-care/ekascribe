@@ -1,5 +1,6 @@
 'use client';
 
+import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 import { useCallback, useMemo, useState, useEffect, useRef } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { Sidebar, SidebarFooter, SidebarHeader, Button, SidebarContent } from '@ui/src';
@@ -277,17 +278,14 @@ const CustomSidebar = () => {
             </button>
           </div>
         ) : (
-          <div className="flex items-center justify-between px-2 py-2">
+          <div className="flex items-center justify-between px-2">
             <div className="flex items-center gap-2">
-              <img src="/assets/logo-mark.png" alt="vaarta" className="w-8 h-8 shrink-0" />
-              <div className="flex flex-col justify-center">
-                <span className="text-lg font-bold tracking-tight text-primary leading-5">
-                  vaarta
-                </span>
-                <span className="text-[9px] italic font-medium tracking-wide text-[#767676] leading-3">
-                  powered by @eka.care
-                </span>
-              </div>
+              <DotLottieReact
+                src="/assets/vaarta-logo.lottie"
+                autoplay
+                loop
+                className="w-36 h-12 shrink-0"
+              />
             </div>
             <button
               className="cursor-pointer hidden md:flex p-1 rounded hover:bg-accent transition-colors"
@@ -436,7 +434,7 @@ const CustomSidebar = () => {
             >
               <SidebarPanelItem
                 icon={<Settings className="size-4 text-[#6B7280]" />}
-                label="User Defaults"
+                label="User Settings"
                 onClick={() => {
                   setIsUserDefaultsOpen(true);
                   setActivePanel(null);
@@ -468,7 +466,7 @@ const CustomSidebar = () => {
           {/* Bottom tab bar */}
           <div
             className={`flex items-start border-t border-[#D1D1D1] px-2 pb-3 ${
-              isCollapsed ? 'flex-col gap-1 pt-2' : 'gap-2 pt-3'
+              isCollapsed ? 'flex-col gap-1 pt-2' : 'gap-3 pt-3'
             }`}
           >
             {/* Profile */}

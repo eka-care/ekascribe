@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Loader2, RotateCcw } from 'lucide-react';
 import useVoice2RxStore from '@/store/store';
 import { with401Retry } from '@/fetch-client/api-with-retry';
-import { SessionBodySkeleton } from '@/app/new-session/loading';
+import { DelayedSessionBodySkeleton } from '@/app/new-session/loading';
 import ErrorComponent from '@/features/session/components/output/error-component';
 import * as sdkService from '../../services/sdk-service';
 import * as documentService from '../../services/document-service';
@@ -161,7 +161,7 @@ export function TranscriptTabContent({ sessionId }: TranscriptTabContentProps) {
   if (isLoading) {
     return (
       <div className="pt-3">
-        <SessionBodySkeleton />
+        <DelayedSessionBodySkeleton />
       </div>
     );
   }

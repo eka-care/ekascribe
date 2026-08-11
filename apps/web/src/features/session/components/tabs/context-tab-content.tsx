@@ -3,7 +3,7 @@
 import { forwardRef, useImperativeHandle } from 'react';
 import dynamic from 'next/dynamic';
 import useVoice2RxStore from '@/store/store';
-import { SessionBodySkeleton } from '@/app/new-session/loading';
+import { DelayedSessionBodySkeleton } from '@/app/new-session/loading';
 import { useContextEditor } from '../../hooks/context/use-context-editor';
 import { buildScribeEditorExtensions } from '../../ag-ui/editor/editor-extensions';
 
@@ -36,7 +36,7 @@ export const ContextTabContent = forwardRef<ContextTabContentHandle, ContextTabC
     useImperativeHandle(ref, () => ({ save: saveContext }), [saveContext]);
 
     if (isLoadingContent) {
-      return <SessionBodySkeleton />;
+      return <DelayedSessionBodySkeleton />;
     }
 
     return (

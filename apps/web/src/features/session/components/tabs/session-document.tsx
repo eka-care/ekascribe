@@ -15,7 +15,7 @@ import type { JSONContent } from '@tiptap/core';
 import { Button } from '@ui/src';
 
 import useVoice2RxStore from '@/store/store';
-import { SessionBodySkeleton } from '@/app/new-session/loading';
+import { DelayedSessionBodySkeleton } from '@/app/new-session/loading';
 import ErrorComponent from '../output/error-component';
 import { TEMPLATE_WARNINGS_MSG } from '@/constants/enums';
 import { useStreamEditor } from '../../ag-ui/hooks/use-stream-editor';
@@ -277,7 +277,7 @@ const DocumentView = forwardRef<SessionDocumentHandle, DocumentProps>(function D
   }, [autoStream, regenerating, isCustomDoc, doc?.status, isDocumentEmpty, hasSavedTiptap, doc?.template_id, documentId, loaderState.status]);
 
   // Doc metadata status branches
-  if (!doc) return <SessionBodySkeleton />;
+  if (!doc) return <DelayedSessionBodySkeleton />;
 
   if (regenerating) {
     return (
@@ -330,7 +330,7 @@ const DocumentView = forwardRef<SessionDocumentHandle, DocumentProps>(function D
   }
 
   // Content loader branches
-  if (loaderState.status === 'loading') return <SessionBodySkeleton />;
+  if (loaderState.status === 'loading') return <DelayedSessionBodySkeleton />;
 
   if (loaderState.status === 'error') {
     return (
