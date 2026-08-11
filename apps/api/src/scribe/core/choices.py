@@ -48,18 +48,39 @@ class Action(str, Enum):
     CHUKING = "CHUNKING"
 
 class InputLanguage(str, Enum):
-    """STT languages exposed to clients. Deliberately restricted to what
-    the deployed transcription models support."""
+    """STT languages exposed to clients — keep in sync with SUPPORTED_LANGUAGES."""
 
     EN = "en"
     HI = "hi"
     EN_HI = "en-hi"  # code-mixed English + Hindi
+    EN_IN = "en-IN"
+    EN_US = "en-US"
+    GU = "gu"
+    KN = "kn"
+    ML = "ml"
+    TA = "ta"
+    TE = "te"
+    BN = "bn"
+    MR = "mr"
+    PA = "pa"
+    OR = "or"
+    AS = "as"
 
 
 SUPPORTED_LANGUAGES = [
     {"id": "en", "name": "English"},
     {"id": "hi", "name": "Hindi"},
     {"id": "en-hi", "name": "English + Hindi"},
+    {"id": "gu", "name": "Gujarati"},
+    {"id": "kn", "name": "Kannada"},
+    {"id": "ml", "name": "Malayalam"},
+    {"id": "ta", "name": "Tamil"},
+    {"id": "te", "name": "Telugu"},
+    {"id": "bn", "name": "Bengali"},
+    {"id": "mr", "name": "Marathi"},
+    {"id": "pa", "name": "Punjabi"},
+    {"id": "or", "name": "Oriya"},
+    {"id": "as", "name": "Assamese"},
 ]
 
 # Case-insensitive lookup of any client-supplied language string to its
