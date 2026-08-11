@@ -87,7 +87,7 @@ export const useSettings = () => {
 
     // Set default selected preferences on error
     setUserLevelPreferences({
-      input_languages: [defaultLanguage],
+      input_languages: [SUPPORTED_LANGUAGES[0], SUPPORTED_LANGUAGES[2]],
       output_language: 'en-IN',
       output_format_template: [SUPPORTED_OUTPUT_FORMATS[0]],
       consultation_mode: 'dictation',

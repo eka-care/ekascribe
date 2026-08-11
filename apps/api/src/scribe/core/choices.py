@@ -70,7 +70,6 @@ class InputLanguage(str, Enum):
 SUPPORTED_LANGUAGES = [
     {"id": "en", "name": "English"},
     {"id": "hi", "name": "Hindi"},
-    {"id": "en-hi", "name": "English + Hindi"},
     {"id": "gu", "name": "Gujarati"},
     {"id": "kn", "name": "Kannada"},
     {"id": "ml", "name": "Malayalam"},
