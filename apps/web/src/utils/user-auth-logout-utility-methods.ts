@@ -4,7 +4,15 @@ import { postV1AuthAccountLogout } from '@/fetch-client/post-v1-auth-account-log
 import { getStorage, getHost, getAuthTokens } from '@/platform';
 import useVoice2RxStore from '@/store/store';
 
+// Single-flight guard: on a 403 storm (every boot fetch rejected at once),
+// only the FIRST caller runs the logout + redirect; the rest no-op. Without
+// this, N parallel 403s fire N server logouts and N competing navigations
+// (visible as "(canceled)" document loads before the login page settles).
+let logoutInFlight = false;
+
 const handleUserLogout = async () => {
+  if (logoutInFlight) return;
+  logoutInFlight = true;
   try {
     // Best-effort server-side logout, called DIRECTLY (no with401Retry): that helper
     // calls handleUserLogout on 401, which would recurse right back here forever.
@@ -22,6 +30,7 @@ const handleUserLogout = async () => {
  * Safe to call from deep utility layers (e.g., 401 retry handler) without causing recursion.
  */
 const forceUserLogout = () => {
+  logoutInFlight = true; // suppress any late 403 handlers racing this logout
   handleUserClearStoreAfterLogout();
   handleUserRedirectAfterLogout();
 };
@@ -35,6 +44,12 @@ const handleUserRedirectAfterLogout = () => {
   }
 
   const redirectURL = process.env.NEXT_PUBLIC_ENV === 'PROD' ? LOGOUT_PROD_URL : LOGOUT_DEV_URL;
+
+  // Already on the login page (or another /auth screen) — nothing to redirect.
+  if (window.location.pathname.startsWith('/auth')) {
+    logoutInFlight = false; // allow a future logout cycle from the app
+    return;
+  }
 
   // Add popstate listener to handle back button after logout
   // This prevents old route params from being appended to the login URL
