@@ -51,6 +51,15 @@ class Settings(BaseSettings):
     dev_oid: str = "onprem-doctor-oid"
     dev_client_id: str | None = None         # machine-client id (optional)
     auth_issuer: str = "scribe.local"
+    # --- Session auth (AUTH_MODE=jwt): username/password login + cookie JWT --
+    auth_jwt_secret: str | None = None       # REQUIRED in jwt mode (HS256 signing key)
+    auth_access_ttl_seconds: int = 900       # access JWT lifetime (15 min)
+    auth_refresh_ttl_seconds: int = 2592000  # refresh token + cookie lifetime (30 d)
+    auth_cookie_name: str = "scribe_session"
+    auth_refresh_cookie_name: str = "scribe_refresh"
+    auth_cookie_secure: bool = False         # True behind HTTPS (prod)
+    auth_cookie_domain: str | None = None    # e.g. .dev.eka.care to span FE/BE subdomains
+    auth_allow_signup: bool = True           # open registration; set False to lock down
     upload_url_signing_secret: str = "change-me"  # signs tokenized upload URLs (attachAuth: false path)
 
     # --- Models: STT (decision #14: Sarvam cloud default, local optional) ---

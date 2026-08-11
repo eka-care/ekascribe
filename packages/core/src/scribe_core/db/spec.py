@@ -38,6 +38,20 @@ _SPECS: List[TableSpec] = [
         indexes=(("b_id", "created_at"), ("uuid", "created_at"), ("patient_oid", "created_at")),
     ),
     TableSpec(
+        logical_name="refresh_tokens",
+        pg_name="refresh_tokens",
+        pk=("token_hash",),
+        columns=("username", "expires_at", "revoked", "created_at"),
+        indexes=(("username",),),
+    ),
+    TableSpec(
+        logical_name="users",
+        pg_name="users",
+        pk=("username",),
+        columns=("uuid", "oid", "b_id", "created_at"),
+        indexes=(("uuid",),),
+    ),
+    TableSpec(
         logical_name="audio_chunks",
         pg_name="audio_chunks",
         pk=("txn_id", "filename"),
