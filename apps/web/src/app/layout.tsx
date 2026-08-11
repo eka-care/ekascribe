@@ -86,7 +86,6 @@ export default function RootLayout({
             </QueryClientRootProvider>
           </SecretsProvider>
         </ErrorBoundaryProvider>
-
       </body>
     </html>
   );

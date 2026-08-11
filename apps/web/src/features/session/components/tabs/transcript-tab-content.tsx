@@ -30,9 +30,7 @@ export function TranscriptTabContent({ sessionId }: TranscriptTabContentProps) {
   const transcriptLoading = useVoice2RxStore(
     (s) => s.sessionV2ContentById[sessionId]?.ui?.transcript_loading ?? EMPTY_TRANSCRIPT_LOADING
   );
-  const userStatus = useVoice2RxStore(
-    (s) => s.sessionV2ContentById[sessionId]?.user_status || ''
-  );
+  const userStatus = useVoice2RxStore((s) => s.sessionV2ContentById[sessionId]?.user_status || '');
 
   const [isRetrying, setIsRetrying] = useState(false);
 
@@ -186,18 +184,13 @@ export function TranscriptTabContent({ sessionId }: TranscriptTabContentProps) {
   // Session finished but no transcript came back — neutral state, not an error.
   if (!hasContent) {
     return (
-      <div className="flex flex-col items-center justify-center h-full">
-        <div className="flex flex-col items-center gap-4">
-          <div className="flex flex-col items-center gap-2 text-center">
-            <p className="text-2xl font-medium leading-none tracking-[-0.6px] text-foreground">
-              No transcription available
-            </p>
-            <p className="text-sm leading-5 text-[#999]">
-              This session&apos;s recording didn&apos;t produce a transcript
-            </p>
-          </div>
-          {/* Recommit only helps when audio was recorded but never committed */}
-          {userStatus === 'recording_started' && (
+      <ErrorComponent
+        title="No transcription available"
+        description="This session's recording didn't produce a transcript"
+        variant="warning"
+        action={
+          // Recommit only helps when audio was recorded but never committed
+          userStatus === 'recording_started' ? (
             <button
               onClick={handleRetry}
               disabled={isRetrying}
@@ -210,9 +203,9 @@ export function TranscriptTabContent({ sessionId }: TranscriptTabContentProps) {
               )}
               Retry transcription
             </button>
-          )}
-        </div>
-      </div>
+          ) : undefined
+        }
+      />
     );
   }
 

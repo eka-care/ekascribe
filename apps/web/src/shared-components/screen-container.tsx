@@ -71,7 +71,9 @@ const ScreenContainer = ({ children }: { children: React.ReactNode }) => {
         <div className="flex items-center gap-2 pl-1">
           <img src="/assets/logo-mark.png" alt="vaarta" className="w-8 h-8" />
           <div className="flex flex-col justify-center">
-            <span className="text-lg font-bold tracking-tight text-[#1A1A1A] leading-5">vaarta</span>
+            <span className="text-lg font-bold tracking-tight text-[#1A1A1A] leading-5">
+              vaarta
+            </span>
             <span className="text-[9px] italic font-medium tracking-wide text-[#767676] leading-3">
               powered by @eka.care
             </span>
