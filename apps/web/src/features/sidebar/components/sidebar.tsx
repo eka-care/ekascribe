@@ -1,6 +1,5 @@
 'use client';
 
-import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 import { useCallback, useMemo, useState, useEffect, useRef } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { Sidebar, SidebarFooter, SidebarHeader, Button, SidebarContent } from '@ui/src';
