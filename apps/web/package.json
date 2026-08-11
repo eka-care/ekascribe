@@ -74,6 +74,7 @@
     "framer-motion": "^12.23.12",
     "geist": "^1.7.2",
     "input-otp": "^1.4.2",
+    "lottie-react": "^2.4.1",
     "lucide-react": "^0.539.0",
     "med-scribe-alliance-ts-sdk": "file:../../packages/scribe-client-sdk/med-scribe-alliance-ts-sdk",
     "next": "15.4.6",
