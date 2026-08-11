@@ -32,7 +32,6 @@ export const emptySessionV2Content: SessionV2Content = {
   phase: SESSION_PHASE.IDLE,
   error: null,
   is_limit_exceeded: false,
-  patient_details: null,
   created_at: '',
   upload_url: {},
   expires_at: '',

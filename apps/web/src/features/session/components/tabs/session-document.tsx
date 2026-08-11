@@ -424,7 +424,7 @@ const DocumentView = forwardRef<SessionDocumentHandle, DocumentProps>(function D
       <div className="flex flex-col gap-4 p-4">
         <div className="flex items-center gap-2 rounded-md border border-[#FCD34D] bg-[#FEF8E1] text-[#92400E] px-3 py-2 text-sm">
           <TriangleAlert className="w-4 h-4 shrink-0" />
-          {TEMPLATE_WARNINGS_MSG.NO_MEDICAL_CONTEXT}
+          {TEMPLATE_WARNINGS_MSG.NO_RELEVANT_CONTENT}
         </div>
         {canRetry && (
           <div className="flex justify-end">

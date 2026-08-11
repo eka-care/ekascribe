@@ -5,7 +5,6 @@ import { with401Retry } from '@/fetch-client/api-with-retry';
 import { TPastSessionHistory } from '@/constants/types';
 import { getSDK } from '@/features/session/services/sdk-provider';
 import useVoice2RxStore from '@/store/store';
-import { normalizePatientDetails, TRawPatientDetails } from '@/utils/shared-helpers';
 
 interface UseOptimizedPastSessionsOptions {
   initialBatchSize?: number;
@@ -27,20 +26,24 @@ export const usePastSessionsHistory = ({
   const [currentPage, setCurrentPage] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const { setRefreshPastSessionsCallback } = useVoice2RxStore();
+  const sessionV2ContentById = useVoice2RxStore((s) => s.sessionV2ContentById);
 
   // Search state
   const isSearching = searchQuery.trim().length > 0;
 
-  // Filter sessions by patient name when searching
+  // Filter sessions by title when searching (titles live in session_details,
+  // available once a session's details are in the store)
   const filteredSessions = useMemo(() => {
     if (!isSearching) return [];
 
     const query = searchQuery.toLowerCase().trim();
     return allSessions.filter((session) => {
-      const patientName = session.patient_details?.username?.toLowerCase() || '';
-      return patientName.includes(query);
+      const title = (
+        (sessionV2ContentById[session.txn_id]?.session_details?.title as string | undefined) || ''
+      ).toLowerCase();
+      return title.includes(query);
     });
-  }, [allSessions, searchQuery, isSearching]);
+  }, [allSessions, searchQuery, isSearching, sessionV2ContentById]);
 
   const totalFetchedRef = useRef(0);
 
@@ -85,18 +88,11 @@ export const usePastSessionsHistory = ({
       }
 
       if (statusCode === 200 && sessionData && sessionData.length > 0) {
-        const normalized = sessionData.map((session) => ({
-          ...session,
-          patient_details:
-            normalizePatientDetails(
-              session.patient_details as TRawPatientDetails | null | undefined
-            ) ?? undefined,
-        }));
-        setAllSessions(normalized);
-        totalFetchedRef.current = normalized.length;
+        setAllSessions(sessionData);
+        totalFetchedRef.current = sessionData.length;
         // Check if we have more data available
         setHasMore(sessionData.length >= count);
-        return normalized;
+        return sessionData;
       } else {
         setAllSessions([]);
       }

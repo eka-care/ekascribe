@@ -21,7 +21,7 @@ const geistMono = { variable: GeistMono.variable };
 
 export const metadata: Metadata = {
   title: 'vaarta',
-  description: 'vaarta - AI-powered voice transcription and note taking',
+  description: 'Vaarta - AI-powered voice transcription and note taking',
   other: {
     'apple-itunes-app': 'app-id=6756741683',
   },

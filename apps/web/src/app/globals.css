@@ -91,54 +91,11 @@
 .wysiwyg-focused .tiptap {
   caret-color: auto;
 }
-/* Custom NodeView inputs (medication table cells, etc.) live inside .tiptap
-   but are real form inputs — restore their caret. */
+/* Custom NodeView inputs live inside .tiptap but are real form inputs —
+   restore their caret. */
 .wysiwyg-wrapper .tiptap input,
 .wysiwyg-wrapper .tiptap textarea {
   caret-color: auto;
-}
-
-/* Table row separators. Each row's NodeViewWrapper is itself wrapped by
-   Tiptap's ReactRenderer in a `.react-renderer.node-<name>` div, so the
-   row view divs are NOT siblings. The actual siblings are the renderer
-   wrappers — target those with adjacent-sibling combinators. */
-.node-medicationRow + .node-medicationRow,
-.node-procedureRow + .node-procedureRow {
-  border-top: 1px solid #E5E7EB;
-}
-.medication-table-body > div + div,
-.procedure-table-body > div + div {
-  border-top: 1px solid #E5E7EB;
-}
-
-/* Medication table — always-visible horizontal scrollbar */
-.medication-table-scroll {
-  scrollbar-gutter: stable;
-}
-.medication-table-scroll::-webkit-scrollbar {
-  height: 6px;
-}
-.medication-table-scroll::-webkit-scrollbar-track {
-  background: #F3F4F6;
-  border-radius: 3px;
-}
-.medication-table-scroll::-webkit-scrollbar-thumb {
-  background: #D1D5DB;
-  border-radius: 3px;
-}
-.medication-table-scroll::-webkit-scrollbar-thumb:hover {
-  background: #9CA3AF;
-}
-
-.lab-result-table-body,
-.lab-result-table-body [data-node-view-content-react],
-.react-renderer.node-labResultRow {
-  display: contents;
-}
-
-.lab-result-table-body [data-node-view-content-react] > :last-child,
-.lab-result-table-body [data-node-view-content-react] > :last-child .lab-result-row {
-  border-bottom: 0;
 }
 
 /* Focused editor — focus ring (applied directly via React state) */
@@ -787,12 +744,6 @@
   /* Hide tab row, footer bar, and warning overlays inside session */
   [data-no-print],
   button {
-    display: none !important;
-  }
-
-  /* Medication table — hide interactive icons (search, chevron, loader) */
-  .medication-table svg,
-  .medication-row svg {
     display: none !important;
   }
 

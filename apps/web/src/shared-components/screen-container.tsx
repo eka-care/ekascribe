@@ -69,7 +69,7 @@ const ScreenContainer = ({ children }: { children: React.ReactNode }) => {
       <header className="fixed top-0 left-0 right-0 z-50 h-14 flex items-center space-x-1 px-2 bg-background border-b border-border md:hidden">
         <SidebarTrigger className="cursor-pointer" />
         <div className="flex items-center gap-2 pl-1">
-          <img src="/assets/logo-mark.png" alt="Vaarta" className="w-8 h-8" />
+          <img src="/assets/logo-mark.png" alt="vaarta" className="w-8 h-8" />
           <div className="flex flex-col justify-center">
             <span className="text-lg font-bold tracking-tight text-[#1A1A1A] leading-5">
               vaarta

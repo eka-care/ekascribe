@@ -31,7 +31,6 @@ const nextConfig: NextConfig = {
   // The export pipeline has no image-optimizer server; all images are local
   // /assets/* files, so plain <img> behavior is fine.
   images: { unoptimized: true },
-  transpilePackages: ['@eka-care/medical-records-ui'],
   // StrictMode's dev double-mount fires the AG-UI run POST twice, creating ghost documents
   reactStrictMode: false,
   // Dev-only API proxy: hosts.ts uses relative URLs (same-origin as the API in

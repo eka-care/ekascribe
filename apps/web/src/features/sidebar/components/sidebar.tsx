@@ -72,11 +72,6 @@ const CustomSidebar = () => {
       state.sessionV2ContentById[state.sessionV2Ongoing.recording_session_id]?.is_limit_exceeded ??
       false
   );
-  const v2PatientDetails = useVoice2RxStore(
-    (state) =>
-      state.sessionV2ContentById[state.sessionV2Ongoing.recording_session_id]?.patient_details ??
-      null
-  );
   const { createSession } = useSessionLifecycle();
   // Two paths open this dialog:
   // 1. sessionStorage (set by SectionContainer when ?modal=user-defaults arrives)
@@ -231,10 +226,9 @@ const CustomSidebar = () => {
     const displayStatus = phaseToStatus[v2Phase] || 'initialized';
 
     return {
-      patientName: v2PatientDetails?.username || null,
       processingStatus: displayStatus,
     };
-  }, [isNewSession, v2IsLimitExceeded, v2Phase, v2PatientDetails]);
+  }, [isNewSession, v2IsLimitExceeded, v2Phase]);
 
   const handleRefreshSessions = async () => {
     if (!isRefreshingSessions) {
@@ -271,7 +265,7 @@ const CustomSidebar = () => {
       <SidebarHeader>
         {isCollapsed ? (
           <div className="flex flex-col items-center gap-1">
-            <img src="/assets/logo-mark.png" alt="Vaarta" className="w-8 h-8" />
+            <img src="/assets/logo-mark.png" alt="vaarta" className="w-8 h-8" />
             <button
               className="cursor-pointer hidden md:flex p-1 rounded hover:bg-accent transition-colors"
               onClick={() => {
@@ -285,7 +279,7 @@ const CustomSidebar = () => {
         ) : (
           <div className="flex items-center justify-between px-2 py-2">
             <div className="flex items-center gap-2">
-              <img src="/assets/logo-mark.png" alt="Vaarta" className="w-8 h-8 shrink-0" />
+              <img src="/assets/logo-mark.png" alt="vaarta" className="w-8 h-8 shrink-0" />
               <div className="flex flex-col justify-center">
                 <span className="text-lg font-bold tracking-tight text-primary leading-5">
                   vaarta
@@ -409,7 +403,9 @@ const CustomSidebar = () => {
                 <div className="flex items-center gap-2">
                   <div className="size-10 shrink-0 rounded-full bg-[#DBEAFE] flex items-center justify-center text-[#1E40AF] text-sm font-semibold">
                     {loggedInUserDetails?.fn || loggedInUserDetails?.ln ? (
-                      `${(loggedInUserDetails?.fn?.[0] || '').toUpperCase()}${(loggedInUserDetails?.ln?.[0] || '').toUpperCase()}`
+                      `${(loggedInUserDetails?.fn?.[0] || '').toUpperCase()}${(
+                        loggedInUserDetails?.ln?.[0] || ''
+                      ).toUpperCase()}`
                     ) : (
                       <User className="size-5" strokeWidth={1.5} />
                     )}
@@ -492,7 +488,9 @@ const CustomSidebar = () => {
                 >
                   <span className="size-9 flex items-center justify-center rounded-md bg-linear-to-b from-[#FEF9E7] to-[#FEF3C7] text-[#854D0E] text-xs font-semibold border border-[#F5D580]">
                     {loggedInUserDetails?.fn || loggedInUserDetails?.ln ? (
-                      `${(loggedInUserDetails?.fn?.[0] || '').toUpperCase()}${(loggedInUserDetails?.ln?.[0] || '').toUpperCase()}`
+                      `${(loggedInUserDetails?.fn?.[0] || '').toUpperCase()}${(
+                        loggedInUserDetails?.ln?.[0] || ''
+                      ).toUpperCase()}`
                     ) : (
                       <User className="size-5" strokeWidth={1.5} />
                     )}
