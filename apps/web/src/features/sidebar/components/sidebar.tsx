@@ -14,6 +14,7 @@ import {
   LogOut,
   RefreshCw,
   Check,
+  User,
 } from 'lucide-react';
 import SidebarPastSessions from './sidebar-past-sessions';
 import SidebarSearchBar from './sidebar-search-bar';
@@ -407,15 +408,26 @@ const CustomSidebar = () => {
               header={
                 <div className="flex items-center gap-2">
                   <div className="size-10 shrink-0 rounded-full bg-[#DBEAFE] flex items-center justify-center text-[#1E40AF] text-sm font-semibold">
-                    {(loggedInUserDetails?.fn?.[0] || '').toUpperCase()}
-                    {(loggedInUserDetails?.ln?.[0] || '').toUpperCase()}
+                    {loggedInUserDetails?.fn || loggedInUserDetails?.ln ? (
+                      `${(loggedInUserDetails?.fn?.[0] || '').toUpperCase()}${(loggedInUserDetails?.ln?.[0] || '').toUpperCase()}`
+                    ) : (
+                      <User className="size-5" strokeWidth={1.5} />
+                    )}
                   </div>
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-[#1A1A1A] truncate">
-                      {loggedInUserDetails?.s || 'Dr'}{' '}
-                      {[loggedInUserDetails?.fn, loggedInUserDetails?.mn, loggedInUserDetails?.ln]
-                        .filter(Boolean)
-                        .join(' ')}
+                      {(() => {
+                        const fullName = [
+                          loggedInUserDetails?.fn,
+                          loggedInUserDetails?.mn,
+                          loggedInUserDetails?.ln,
+                        ]
+                          .filter(Boolean)
+                          .join(' ');
+                        return (
+                          [loggedInUserDetails?.s, fullName].filter(Boolean).join(' ') || 'User'
+                        );
+                      })()}
                     </p>
                     {loggedInUserDetails?.['w-n'] && (
                       <p className="text-xs text-[#6B7280] truncate">
@@ -479,16 +491,23 @@ const CustomSidebar = () => {
                   }}
                 >
                   <span className="size-9 flex items-center justify-center rounded-md bg-linear-to-b from-[#FEF9E7] to-[#FEF3C7] text-[#854D0E] text-xs font-semibold border border-[#F5D580]">
-                    {(loggedInUserDetails?.fn?.[0] || '').toUpperCase()}
-                    {(loggedInUserDetails?.ln?.[0] || '').toUpperCase()}
+                    {loggedInUserDetails?.fn || loggedInUserDetails?.ln ? (
+                      `${(loggedInUserDetails?.fn?.[0] || '').toUpperCase()}${(loggedInUserDetails?.ln?.[0] || '').toUpperCase()}`
+                    ) : (
+                      <User className="size-5" strokeWidth={1.5} />
+                    )}
                   </span>
                 </Button>
               </CustomTooltipTrigger>
               <CustomTooltipContent collisionPadding={8}>
-                {loggedInUserDetails?.s || 'Dr'}{' '}
-                {[loggedInUserDetails?.fn, loggedInUserDetails?.mn, loggedInUserDetails?.ln]
+                {[
+                  loggedInUserDetails?.s,
+                  loggedInUserDetails?.fn,
+                  loggedInUserDetails?.mn,
+                  loggedInUserDetails?.ln,
+                ]
                   .filter(Boolean)
-                  .join(' ')}
+                  .join(' ') || 'Profile'}
               </CustomTooltipContent>
             </CustomTooltip>
 

@@ -17,7 +17,6 @@ const eslintConfig = [
       ...reactHooks.configs.recommended.rules,
       "@typescript-eslint/no-explicit-any": "warn",
       "@typescript-eslint/no-unused-vars": ["error"],
-      "@typescript-eslint/no-unused-imports": "error",
       "no-console": "warn"
     },
   },

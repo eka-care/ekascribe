@@ -1,6 +1,6 @@
 # ekascribe
 
-On-prem, self-hostable AI medical scribe: record a consultation → transcribe →
+On-prem, self-hostable AI scribe: record a consultation → transcribe →
 structured clinical note → edit → print/copy.
 
 ## Run locally

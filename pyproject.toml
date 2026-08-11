@@ -1,7 +1,7 @@
 [project]
 name = "ekascribe"
 version = "0.1.0"
-description = "On-prem AI medical scribe — monorepo root (uv workspace)"
+description = "On-prem AI scribe — monorepo root (uv workspace)"
 requires-python = ">=3.11"
 dependencies = []
 
