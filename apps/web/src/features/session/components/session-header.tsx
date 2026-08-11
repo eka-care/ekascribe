@@ -336,7 +336,7 @@ const SessionHeader = ({
                 {settingsItems.length > 0 && (
                   <span className="w-1 h-1 rounded-full bg-foreground" />
                 )}
-                <span className="text-xs text-[#767676]">{sessionId}</span>
+                <span className="text-xs text-foreground">{sessionId}</span>
               </span>
             )}
           </div>
@@ -359,7 +359,6 @@ const SessionHeader = ({
             </button>
           )}
         </div>
-
       </div>
 
       {/* 4. Microphone — beside Start on mobile (row 2 col 2), under Start on desktop (row 2 col 2) */}

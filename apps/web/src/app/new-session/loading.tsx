@@ -1,5 +1,7 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+
 import { Skeleton } from '@ui/src';
 
 const HomeLoadingSkeleton = () => {
@@ -73,6 +75,22 @@ export const SessionBodySkeleton = () => {
       </div>
     </div>
   );
+};
+
+/**
+ * Skeleton that only appears if loading outlasts `delayMs` — a fast fetch
+ * renders nothing, avoiding a flash of skeleton before content.
+ */
+export const DelayedSessionBodySkeleton = ({ delayMs = 300 }: { delayMs?: number }) => {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setVisible(true), delayMs);
+    return () => clearTimeout(timer);
+  }, [delayMs]);
+
+  if (!visible) return null;
+  return <SessionBodySkeleton />;
 };
 
 export default HomeLoadingSkeleton;

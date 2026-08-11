@@ -10,6 +10,8 @@ interface ErrorComponentProps {
   variant?: 'error' | 'warning' | 'in-progress' | 'loading';
   description?: string;
   icon?: ReactNode;
+  /** Optional action (e.g. retry button) rendered below the description. */
+  action?: ReactNode;
 }
 
 const DEFAULT_DESCRIPTION =
@@ -21,6 +23,7 @@ const ErrorComponent = ({
   variant,
   description,
   icon,
+  action,
 }: ErrorComponentProps) => {
   const resolvedVariant = variant ?? (errors[0]?.type === 'error' ? 'error' : 'warning');
   const resolvedDescription = description || errors[0]?.msg || DEFAULT_DESCRIPTION;
@@ -59,6 +62,7 @@ const ErrorComponent = ({
           </h3>
           <p className="text-sm text-[#595959] max-w-sm text-balance">{resolvedDescription}</p>
         </div>
+        {action}
       </div>
     </div>
   );

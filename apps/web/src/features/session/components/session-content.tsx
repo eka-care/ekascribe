@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import { TriangleAlert, CheckCircle2 } from 'lucide-react';
 import useVoice2RxStore from '@/store/store';
 import SessionAlert from '@/features/session/utils/session-alert';
-import { SessionBodySkeleton } from '@/app/new-session/loading';
+import { DelayedSessionBodySkeleton } from '@/app/new-session/loading';
 import AnalysingStateDisplay from './output/analysing-component';
 import ErrorComponent, { getSessionErrorContent } from './output/error-component';
 import { ContextTabContent } from './tabs/context-tab-content';
@@ -153,7 +153,7 @@ const SessionContent = ({
         })()}
 
       {/* Phase overlay — skeleton loader while UI is initializing */}
-      {showLoading && <SessionBodySkeleton />}
+      {showLoading && <DelayedSessionBodySkeleton />}
 
       {/* Warning toast — floating alert for recording/session warnings */}
       {showWarning && (

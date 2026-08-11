@@ -1,5 +1,6 @@
 'use client';
 
+import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 import { useCallback, useMemo, useState, useEffect, useRef } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { Sidebar, SidebarFooter, SidebarHeader, Button, SidebarContent } from '@ui/src';
@@ -394,7 +395,9 @@ const CustomSidebar = () => {
                 <div className="flex items-center gap-2">
                   <div className="size-10 shrink-0 rounded-full bg-[#DBEAFE] flex items-center justify-center text-[#1E40AF] text-sm font-semibold">
                     {loggedInUserDetails?.fn || loggedInUserDetails?.ln ? (
-                      `${(loggedInUserDetails?.fn?.[0] || '').toUpperCase()}${(loggedInUserDetails?.ln?.[0] || '').toUpperCase()}`
+                      `${(loggedInUserDetails?.fn?.[0] || '').toUpperCase()}${(
+                        loggedInUserDetails?.ln?.[0] || ''
+                      ).toUpperCase()}`
                     ) : (
                       <User className="size-5" strokeWidth={1.5} />
                     )}
@@ -425,7 +428,7 @@ const CustomSidebar = () => {
             >
               <SidebarPanelItem
                 icon={<Settings className="size-4 text-[#6B7280]" />}
-                label="User Defaults"
+                label="User Settings"
                 onClick={() => {
                   setIsUserDefaultsOpen(true);
                   setActivePanel(null);
@@ -457,7 +460,7 @@ const CustomSidebar = () => {
           {/* Bottom tab bar */}
           <div
             className={`flex items-start border-t border-[#D1D1D1] px-2 pb-3 ${
-              isCollapsed ? 'flex-col gap-1 pt-2' : 'gap-2 pt-3'
+              isCollapsed ? 'flex-col gap-1 pt-2' : 'gap-3 pt-3'
             }`}
           >
             {/* Profile */}
@@ -477,7 +480,9 @@ const CustomSidebar = () => {
                 >
                   <span className="size-9 flex items-center justify-center rounded-md bg-linear-to-b from-[#FEF9E7] to-[#FEF3C7] text-[#854D0E] text-xs font-semibold border border-[#F5D580]">
                     {loggedInUserDetails?.fn || loggedInUserDetails?.ln ? (
-                      `${(loggedInUserDetails?.fn?.[0] || '').toUpperCase()}${(loggedInUserDetails?.ln?.[0] || '').toUpperCase()}`
+                      `${(loggedInUserDetails?.fn?.[0] || '').toUpperCase()}${(
+                        loggedInUserDetails?.ln?.[0] || ''
+                      ).toUpperCase()}`
                     ) : (
                       <User className="size-5" strokeWidth={1.5} />
                     )}

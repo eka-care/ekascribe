@@ -40,14 +40,39 @@ export function getPresets(platform: Platform): readonly string[] {
 
 export const OS_RESERVED_BY_PLATFORM: Record<Platform, Set<string>> = {
   mac: new Set([
-    'Cmd + Space', 'Cmd + Tab', 'Cmd + Q', 'Cmd + W', 'Cmd + M', 'Cmd + H',
-    'Cmd + C', 'Cmd + V', 'Cmd + X', 'Cmd + Z', 'Cmd + Shift + Z',
-    'Cmd + A', 'Cmd + P', 'Cmd + F', 'Cmd + N', 'Cmd + O', 'Cmd + T',
+    'Cmd + Space',
+    'Cmd + Tab',
+    'Cmd + Q',
+    'Cmd + W',
+    'Cmd + M',
+    'Cmd + H',
+    'Cmd + C',
+    'Cmd + V',
+    'Cmd + X',
+    'Cmd + Z',
+    'Cmd + Shift + Z',
+    'Cmd + A',
+    'Cmd + P',
+    'Cmd + F',
+    'Cmd + N',
+    'Cmd + O',
+    'Cmd + T',
   ]),
   windows: new Set([
-    'Alt + Tab', 'Alt + F4', 'Ctrl + Esc', 'Ctrl + C', 'Ctrl + V', 'Ctrl + X',
-    'Ctrl + Z', 'Ctrl + Y', 'Ctrl + A', 'Ctrl + P', 'Ctrl + F', 'Ctrl + N',
-    'Ctrl + O', 'Ctrl + T',
+    'Alt + Tab',
+    'Alt + F4',
+    'Ctrl + Esc',
+    'Ctrl + C',
+    'Ctrl + V',
+    'Ctrl + X',
+    'Ctrl + Z',
+    'Ctrl + Y',
+    'Ctrl + A',
+    'Ctrl + P',
+    'Ctrl + F',
+    'Ctrl + N',
+    'Ctrl + O',
+    'Ctrl + T',
   ]),
   other: new Set(),
 };
@@ -59,9 +84,18 @@ export function resolveKey(e: KeyboardEvent): string {
     if (/^Digit(\d)$/.test(e.code)) return e.code.slice(5);
     if (/^F(\d+)$/.test(e.code)) return e.code;
     const codeMap: Record<string, string> = {
-      Space: 'Space', Minus: '-', Equal: '=', BracketLeft: '[',
-      BracketRight: ']', Backslash: '\\', Semicolon: ';', Quote: "'",
-      Backquote: '`', Comma: ',', Period: '.', Slash: '/',
+      Space: 'Space',
+      Minus: '-',
+      Equal: '=',
+      BracketLeft: '[',
+      BracketRight: ']',
+      Backslash: '\\',
+      Semicolon: ';',
+      Quote: "'",
+      Backquote: '`',
+      Comma: ',',
+      Period: '.',
+      Slash: '/',
     };
     if (codeMap[e.code]) return codeMap[e.code];
     return e.code;
@@ -72,7 +106,7 @@ export function resolveKey(e: KeyboardEvent): string {
 export function validateHotkey(
   modifiers: string[],
   key: string,
-  platform: Platform,
+  platform: Platform
 ): string | null {
   if (modifiers.length !== 1) {
     return 'Shortcut must be exactly two keys: one modifier and one main key.';
@@ -145,8 +179,7 @@ export function useDesktopWidgetSettings(onClose: () => void) {
         if (loadedPrefs) setPrefs(loadedPrefs);
         if (loadedShortcut) {
           const combo =
-            typeof loadedShortcut.shortcut === 'string' &&
-            loadedShortcut.shortcut.trim().length > 0
+            typeof loadedShortcut.shortcut === 'string' && loadedShortcut.shortcut.trim().length > 0
               ? loadedShortcut.shortcut.trim()
               : defaultPreset;
           const enabled = loadedShortcut.enabled !== false;
@@ -193,23 +226,26 @@ export function useDesktopWidgetSettings(onClose: () => void) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isListeningForKey, platform]);
 
-  const togglePref = useCallback((key: NotificationPrefKey) => {
-    setPrefs((previous) => {
-      const nextValue = !previous[key];
-      const optimistic: NotificationPrefs = { ...previous, [key]: nextValue };
-      desktopSettings
-        ?.updateNotificationPreferences({ [key]: nextValue })
-        .then((resolved: NotificationPrefs | null) => {
-          if (!isMountedRef.current || !resolved) return;
-          setPrefs(resolved);
-        })
-        .catch(() => {
-          if (!isMountedRef.current) return;
-          setPrefs(previous);
-        });
-      return optimistic;
-    });
-  }, [desktopSettings]);
+  const togglePref = useCallback(
+    (key: NotificationPrefKey) => {
+      setPrefs((previous) => {
+        const nextValue = !previous[key];
+        const optimistic: NotificationPrefs = { ...previous, [key]: nextValue };
+        desktopSettings
+          ?.updateNotificationPreferences({ [key]: nextValue })
+          .then((resolved: NotificationPrefs | null) => {
+            if (!isMountedRef.current || !resolved) return;
+            setPrefs(resolved);
+          })
+          .catch(() => {
+            if (!isMountedRef.current) return;
+            setPrefs(previous);
+          });
+        return optimistic;
+      });
+    },
+    [desktopSettings]
+  );
 
   const handleEnableHotkey = () => setHotkeyEnabled((prev) => !prev);
 
@@ -376,10 +412,10 @@ const DesktopWidgetSettings = ({
                       customKeyError
                         ? 'border-destructive'
                         : isListeningForKey
-                          ? 'border-primary bg-primary/5'
-                          : isCustomKeyHovered
-                            ? 'bg-muted/30 border-border'
-                            : 'border-border'
+                        ? 'border-primary bg-primary/5'
+                        : isCustomKeyHovered
+                        ? 'bg-muted/30 border-border'
+                        : 'border-border'
                     }`}
                   >
                     <span className={customKeyError ? 'text-destructive' : ''}>{customKey}</span>

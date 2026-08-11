@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Loader2, RotateCcw } from 'lucide-react';
 import useVoice2RxStore from '@/store/store';
 import { with401Retry } from '@/fetch-client/api-with-retry';
-import { SessionBodySkeleton } from '@/app/new-session/loading';
+import { DelayedSessionBodySkeleton } from '@/app/new-session/loading';
 import ErrorComponent from '@/features/session/components/output/error-component';
 import * as sdkService from '../../services/sdk-service';
 import * as documentService from '../../services/document-service';
@@ -30,9 +30,7 @@ export function TranscriptTabContent({ sessionId }: TranscriptTabContentProps) {
   const transcriptLoading = useVoice2RxStore(
     (s) => s.sessionV2ContentById[sessionId]?.ui?.transcript_loading ?? EMPTY_TRANSCRIPT_LOADING
   );
-  const userStatus = useVoice2RxStore(
-    (s) => s.sessionV2ContentById[sessionId]?.user_status || ''
-  );
+  const userStatus = useVoice2RxStore((s) => s.sessionV2ContentById[sessionId]?.user_status || '');
 
   const [isRetrying, setIsRetrying] = useState(false);
 
@@ -163,7 +161,7 @@ export function TranscriptTabContent({ sessionId }: TranscriptTabContentProps) {
   if (isLoading) {
     return (
       <div className="pt-3">
-        <SessionBodySkeleton />
+        <DelayedSessionBodySkeleton />
       </div>
     );
   }
@@ -186,18 +184,13 @@ export function TranscriptTabContent({ sessionId }: TranscriptTabContentProps) {
   // Session finished but no transcript came back — neutral state, not an error.
   if (!hasContent) {
     return (
-      <div className="flex flex-col items-center justify-center h-full">
-        <div className="flex flex-col items-center gap-4">
-          <div className="flex flex-col items-center gap-2 text-center">
-            <p className="text-2xl font-medium leading-none tracking-[-0.6px] text-foreground">
-              No transcription available
-            </p>
-            <p className="text-sm leading-5 text-[#999]">
-              This session&apos;s recording didn&apos;t produce a transcript
-            </p>
-          </div>
-          {/* Recommit only helps when audio was recorded but never committed */}
-          {userStatus === 'recording_started' && (
+      <ErrorComponent
+        title="No transcription available"
+        description="This session's recording didn't produce a transcript"
+        variant="warning"
+        action={
+          // Recommit only helps when audio was recorded but never committed
+          userStatus === 'recording_started' ? (
             <button
               onClick={handleRetry}
               disabled={isRetrying}
@@ -210,9 +203,9 @@ export function TranscriptTabContent({ sessionId }: TranscriptTabContentProps) {
               )}
               Retry transcription
             </button>
-          )}
-        </div>
-      </div>
+          ) : undefined
+        }
+      />
     );
   }
 
