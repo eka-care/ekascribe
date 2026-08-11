@@ -7,7 +7,7 @@ export interface TrackEvent {
 }
 
 export interface ErrorContext {
-  domain: 'recording' | 'processing' | 'auth' | 'api' | 'infra' | 'crash' | 'patient';
+  domain: 'recording' | 'processing' | 'auth' | 'api' | 'infra' | 'crash';
   component?: string;
   tags?: Record<string, string>;
   extra?: Record<string, unknown>;

@@ -3,7 +3,6 @@ import { getTransport } from '@/transport';
 import * as sdkService from './sdk-service';
 import { getSDK } from './sdk-provider';
 import useVoice2RxStore from '@/store/store';
-import { formatDate } from '@/utils/format-date-time';
 import { getPlatform } from '@/platform';
 import type { NormalizedDocument } from '../types';
 import { tracker } from '@/analytics';
@@ -588,7 +587,6 @@ function sanitizeContentForPrint(html: string, compact: boolean): string {
 function buildDocumentHtml(
   contentHtml: string,
   hf: DoctorHeaderFooter,
-  patientLine?: string,
   mode: 'print' | 'preview' = 'print',
   compact: boolean = false
 ): string {
@@ -626,7 +624,7 @@ function buildDocumentHtml(
       <div class="print-brand-left">
         <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAACXklEQVR42mNQjP/PMJQxw6gHhpEHLIB4CxD/J4BXAbHuYPGAPBA/J8LRuPAtIBYaCA/IUuBoXJiHXh64QAPHw/AOWnqAhQgHvAbifCCWwKJfDogrgfgnEeZQ3QNGBCz0JCMm4wiYKUEtD+BzvDsVSpJkPOaLUeoBVjxJhdplOlnJiRxDV9CwYsJWQFwn1wPnyHB8NBDPBOKpQOxDpieukxILpJTzr/AY9AVPErhIheRkR6oHiE2LmiSU8aR4AD1AaknxgBwWyz1IzHi4MCORHviLpq+KFA88JTL0cDnyDoH2ESMZSciEFA8QU0lxYlF3HIu6T2R44h8lmdiESM19JFjykQRPfMWibhcpHtiApvk5Do13SMykX4jwxFdqVGTomrNwaHyARW07ActwOVAXTywxUOoBYRwaF2JRu5QIC39Su9gl5AFSSgpiy/h/tGxOk2IQFxBfBuJrQMxPpYbbf0o7NBQZRgL+TQ3HUzMJXSXB0hcEHA9iM1PLA7gycRsWtfZUcjxVMzGuYhRbU6GFio4nuxgltiJ7hMUyNgocD8K/qFGREduUmEGCRc9JcBi2ym4/qR0aYhpz/ES2Wd6REar/KO2RUdqcvgTE9ygs59H1mA6WDg2xRe0fNH3VtOpSGtGoS4meF+qo0al/TUKIDXinHoTPYDFoJQGLE4B4AXRoxZ/MZsYNagyr4EtKK2nYRrqIxb5rI3pokVBG9aSCw1NoObhLbGlDzjBiEr2G1wklJ2InOOShA1S/BmKCg15TTNtHJ/nImGZ9QYGjQWW+wGCZ6DYfihPdo2slRrwHAE7RSHNTvAY3AAAAAElFTkSuQmCC" width="30" height="30" alt="" />
         <div class="print-brand-text">
-          <span class="print-brand-name">Varta</span>
+          <span class="print-brand-name">Vaarta</span>
           <span class="print-brand-tagline">Session notes</span>
         </div>
       </div>
@@ -647,7 +645,6 @@ function buildDocumentHtml(
     : hasFooterHeight
     ? `<div class="print-footer-frame"></div>`
     : defaultFooterHtml;
-  const patientLineHtml = patientLine ? `<div class="print-patient-line">${patientLine}</div>` : '';
 
   const sharedStyles = `
     body {
@@ -708,29 +705,6 @@ function buildDocumentHtml(
       font-size: 9.5px;
       color: #9CA3AF;
       background: white;
-    }
-    .print-patient-line {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 8px 24px;
-      font-size: 14px;
-      color: #1a1a1a;
-      background: #f8f8f8;
-      border-bottom: 1px solid #d1d1d1;
-    }
-    .print-patient-line .patient-name {
-      font-weight: 700;
-      font-style: italic;
-      font-size: 16px;
-    }
-    .print-patient-line .separator {
-      margin: 0 8px;
-      color: #999;
-    }
-    .print-patient-line .print-date {
-      color: #555;
-      white-space: nowrap;
     }
     .print-body {
       padding: 0 8px;
@@ -868,9 +842,6 @@ function buildDocumentHtml(
     .print-body .scribe-section *:first-child {
       margin-top: 0 !important;
     }
-    .print-patient-line {
-      padding: 4px 24px !important;
-    }
     .print-body .kv-item {
       padding-top: 1px !important;
       padding-bottom: 1px !important;
@@ -924,7 +895,6 @@ function buildDocumentHtml(
 </head>
 <body>
   ${headerImgTag}
-  ${patientLineHtml}
   <div class="print-body">${styledContentHtml}</div>
   ${footerImgTag}
   <style>.print-body th,.print-body td{border:1px solid #888 !important;padding:${cellPadding} !important}.print-body table{border-collapse:collapse !important;border:1px solid #888 !important}</style>
@@ -1007,7 +977,7 @@ function buildDocumentHtml(
   ${headerImgTag}
   ${footerImgTag}
   <table class="print-table">
-    <thead><tr><td><div class="print-header-spacer"></div>${patientLineHtml}</td></tr></thead>
+    <thead><tr><td><div class="print-header-spacer"></div></td></tr></thead>
     <tfoot><tr><td><div class="print-footer-spacer"></div></td></tr></tfoot>
     <tbody><tr><td>
   <div class="print-body">${styledContentHtml}</div>
@@ -1018,40 +988,9 @@ function buildDocumentHtml(
 </html>`;
 }
 
-function printHtml(
-  contentHtml: string,
-  hf: DoctorHeaderFooter,
-  patientLine?: string,
-  compact: boolean = false
-) {
-  const html = buildDocumentHtml(contentHtml, hf, patientLine, 'print', compact);
+function printHtml(contentHtml: string, hf: DoctorHeaderFooter, compact: boolean = false) {
+  const html = buildDocumentHtml(contentHtml, hf, 'print', compact);
   void getPlatform().printer?.printHtml(html);
-}
-
-const GENDER_LABEL: Record<string, string> = { M: 'Male', F: 'Female', O: 'Other' };
-
-function buildPatientLine(sessionId: string): string | undefined {
-  const sessionData = useVoice2RxStore.getState().sessionV2ContentById?.[sessionId];
-  const patientDetails = sessionData?.patient_details;
-  const createdAt = sessionData?.created_at;
-
-  const { date, time } = formatDate(createdAt);
-
-  const sep = '<span class="separator">|</span>';
-  const parts: string[] = [];
-  if (patientDetails?.username)
-    parts.push(`<span class="patient-name">${patientDetails.username}</span>`);
-  if (patientDetails?.age) parts.push(`${patientDetails.age} yrs`);
-  if (patientDetails?.biologicalSex) parts.push(GENDER_LABEL[patientDetails.biologicalSex] || '');
-
-  const filtered = parts.filter(Boolean);
-  const dateStr = createdAt ? `${date}, ${time}` : '';
-
-  if (filtered.length === 0) return undefined;
-
-  const leftSide = filtered.join(sep);
-  const rightSide = dateStr ? `<span class="print-date">${dateStr}</span>` : '';
-  return `<span>${leftSide}</span>${rightSide}`;
 }
 
 async function resolveHeaderFooter(): Promise<DoctorHeaderFooter> {
@@ -1071,9 +1010,7 @@ function capturePrintContentHtml(): string | null {
   return contentEl.innerHTML;
 }
 
-export const printDocument = async ({
-  sessionId,
-}: {
+export const printDocument = async (_args: {
   documentId: string;
   sessionId: string;
   fallbackMarkdown?: string;
@@ -1083,17 +1020,15 @@ export const printDocument = async ({
   if (!contentHtml) return;
 
   const hf = await resolveHeaderFooter();
-  const patientLine = buildPatientLine(sessionId);
-  printHtml(contentHtml, hf, patientLine, getCompactPrintSetting());
+  printHtml(contentHtml, hf, getCompactPrintSetting());
 };
 
-export const buildPrintPreviewHtml = async (sessionId: string): Promise<string | null> => {
+export const buildPrintPreviewHtml = async (): Promise<string | null> => {
   const contentHtml = capturePrintContentHtml();
   if (!contentHtml) return null;
   const hf = await resolveHeaderFooter();
-  const patientLine = buildPatientLine(sessionId);
 
-  return buildDocumentHtml(contentHtml, hf, patientLine, 'preview', getCompactPrintSetting());
+  return buildDocumentHtml(contentHtml, hf, 'preview', getCompactPrintSetting());
 };
 
 /**
@@ -1107,7 +1042,7 @@ function toPdfFileName(fallbackName?: string): string {
 }
 
 export const buildDocumentPdfBuffer = async (
-  sessionId: string,
+  _sessionId: string,
   _documentId: string,
   fallbackName?: string
 ): Promise<{ buffer: ArrayBuffer; fileName: string } | null> => {
@@ -1118,8 +1053,7 @@ export const buildDocumentPdfBuffer = async (
   if (!htmlToPdf) return null;
 
   const hf = await resolveHeaderFooter();
-  const patientLine = buildPatientLine(sessionId);
-  const html = buildDocumentHtml(contentHtml, hf, patientLine, 'print', getCompactPrintSetting());
+  const html = buildDocumentHtml(contentHtml, hf, 'print', getCompactPrintSetting());
 
   const blob = await htmlToPdf(html);
   return { buffer: await blob.arrayBuffer(), fileName: toPdfFileName(fallbackName) };

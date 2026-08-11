@@ -113,7 +113,7 @@ def batch_convert_to_s3_protocol(urls):
 
 if __name__ == "__main__":
     # Example usage
-    https_url = "https://m-prod-ekascribe-batch.s3.amazonaws.com/EC_173210496011417/EC_173210496011417/niharika_test/20250623_120134/"
+    https_url = "https://my-bucket.s3.amazonaws.com/workspace/session/20250623_120134/"
     s3_url = "s3://my-bucket/path/file.txt"
     regular_url = "https://example.com/file.txt"
     

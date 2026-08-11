@@ -17,7 +17,7 @@ data:
   # pipeline's own PATCH callback also uses it (out through the ingress and
   # back; matches the proven compose deployment). No API_BASE_URL needed —
   # it falls back to SELF_URL + /voice.
-  SELF_URL: "http://varta.bharatai.gov.in"
+  SELF_URL: "http://vaarta.bharatai.gov.in"
   # The api image ships the static web UI at /app/web-static and serves it at /
   # (scribe/web_static.py). The bundle uses relative URLs, so no WEB_URL or
   # NEXT_PUBLIC_* host vars exist anymore. Unset this to run the pod API-only.
@@ -66,7 +66,7 @@ data:
 
   # --- Models: STT — self-hosted transcribe service -----------------------
   ECHO_DEFAULT_TRANSCRIBER_PROVIDER: "model_api"
-  MODEL_API_BASE_URL: "http://varta-model.bharatai.gov.in/v1"
+  MODEL_API_BASE_URL: "http://vaarta-model.bharatai.gov.in/v1"
   ECHO_DEFAULT_TRANSCRIBER_MODEL: "/model/parrotlet-a"
 
   # --- Models: LLM — Open WebUI fronting qwen -----------------------------

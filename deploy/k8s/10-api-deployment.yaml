@@ -46,10 +46,10 @@ spec:
       hostAliases:
         - ip: "10.185.27.69"
           hostnames:
-            - "varta-model.bharatai.gov.in"    
+            - "vaarta-model.bharatai.gov.in"    
         # - ip: "100.78.69.4"
         #   hostnames:
-        #     - "varta.bharatai.gov.in"                     
+        #     - "vaarta.bharatai.gov.in"                     
       imagePullSecrets:
         - name: ekascribe-regcred
       # Without this the scheduler is free to place both replicas on one node,

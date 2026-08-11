@@ -8,7 +8,7 @@ const HomeLoadingSkeleton = () => {
       {/* Session Header Skeleton */}
       <div className="flex items-start justify-between w-full p-4">
         <div className="flex flex-col gap-2.5">
-          {/* Patient Name / Directory Toggle */}
+          {/* Session title row */}
           <div className="flex items-center gap-2">
             <Skeleton className="h-6 w-6 rounded-full bg-card" />
             <Skeleton className="h-6 w-48 bg-card" />

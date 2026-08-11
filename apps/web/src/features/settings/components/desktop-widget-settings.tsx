@@ -338,7 +338,7 @@ const DesktopWidgetSettings = ({
                   <p className="font-semibold text-sm leading-5">Quick access shortcut</p>
                 </div>
                 <div className="text-xs text-muted-foreground leading-4">
-                  Trigger the Varta widget from anywhere on your desktop
+                  Trigger the Vaarta widget from anywhere on your desktop
                 </div>
               </div>
               <Switch

@@ -1,4 +1,3 @@
-import type { TSelectedPatientDetails } from '@/constants/types';
 import { SESSION_PHASE } from '@/constants/enums';
 import type { TResolvedSessionPreferences } from './utils/resolve-session-preferences';
 
@@ -56,7 +55,6 @@ export type SessionV2Content = {
   phase: SessionV2Phase;
   error: SessionV2Error | null;
   is_limit_exceeded: boolean;
-  patient_details: TSelectedPatientDetails | null;
   created_at: string;
   upload_url: Record<string, unknown>;
   expires_at: string;
