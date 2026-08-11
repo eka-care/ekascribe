@@ -15,6 +15,9 @@ Steps (each skippable):
   8. Serve-and-verify: boot API, hit /voice/ping + discovery [--no-serve-check]
   9. --smoke: end-to-end session against a RUNNING api+worker
 
+Run a subset with --only, e.g. `--only migrations` (db preflight always runs):
+    uv run python scripts/setup.py --only migrations
+
 Run from the repo root. Idempotent — safe to re-run.
 """
 
@@ -162,6 +165,8 @@ def step_queue() -> bool:
 
 def step_seed() -> bool:
     try:
+        from datetime import datetime, timezone
+
         import yaml
 
         from scribe_core.settings import get_settings
@@ -170,14 +175,42 @@ def step_seed() -> bool:
         s = get_settings()
         data = yaml.safe_load((ROOT / "templates" / "seed_data.yaml").read_text())
 
-        section_db = DocStore("ekascribe_template_section")
-        for sec in data.get("sections", []):
-            sec.setdefault("wid", "DEFAULT")
-            section_db.upsert_item(key_dict={"id": sec["id"]}, update_dict=sec)
-        template_db = DocStore("ekascribe_template")
-        for tpl in data.get("templates", []):
-            tpl.setdefault("wid", "DEFAULT")
-            template_db.upsert_item(key_dict={"id": tpl["id"]}, update_dict=tpl)
+        # seed_mode: append  -> upsert what's in the file, leave everything else alone
+        # seed_mode: replace -> additionally archive (soft-delete) any wid=DEFAULT
+        #   row whose id is no longer in the file. Never hard-deletes, so existing
+        #   sessions/documents referencing an archived template keep working —
+        #   archived templates just stop appearing in the directory and are
+        #   dropped from users' saved selections (config_service).
+        seed_mode = data.get("seed_mode", "append")
+        if seed_mode not in ("append", "replace"):
+            print(
+                f"{FAIL} seed: invalid seed_mode {seed_mode!r} (use 'append' or 'replace')"
+            )
+            return False
+        now_iso = datetime.now(timezone.utc).isoformat()
+
+        archived_count = 0
+        for table, items in (
+            ("ekascribe_template_section", data.get("sections", [])),
+            ("ekascribe_template", data.get("templates", [])),
+        ):
+            db = DocStore(table)
+            for item in items:
+                item.setdefault("wid", "DEFAULT")
+                # Explicitly reactivate: upsert merges fields, so a previously
+                # archived id would otherwise stay archived.
+                item["archived"] = False
+                item["archived_at"] = None
+                db.upsert_item(key_dict={"id": item["id"]}, update_dict=item)
+            if seed_mode == "replace":
+                seeded_ids = {item["id"] for item in items}
+                for row in db.scan_by_filter({"wid": "DEFAULT"}):
+                    if row.get("id") not in seeded_ids and not row.get("archived"):
+                        db.upsert_item(
+                            key_dict={"id": row["id"]},
+                            update_dict={"archived": True, "archived_at": now_iso},
+                        )
+                        archived_count += 1
 
         # No default template selection — users pick from the directory.
         config_db = DocStore("ekascribe_config")
@@ -185,9 +218,13 @@ def step_seed() -> bool:
             key_dict={"b_id": s.dev_b_id, "user_uuid": "_"},
             update_dict={"model_type": "pro"},
         )
+        archived_note = (
+            f", archived {archived_count} stale" if seed_mode == "replace" else ""
+        )
         print(
             f"{OK} seeded {len(data.get('sections', []))} sections, "
-            f"{len(data.get('templates', []))} templates, config for b_id={s.dev_b_id}"
+            f"{len(data.get('templates', []))} templates ({seed_mode} mode{archived_note}), "
+            f"config for b_id={s.dev_b_id}"
         )
         return True
     except Exception as e:
@@ -204,7 +241,9 @@ def step_models() -> bool:
         svc = get_prompt_service()
         for key in AGENT_PROMPT_NAMES:
             svc.get_parsed_agent_prompt(key)
-        print(f"{OK} all {len(AGENT_PROMPT_NAMES)} agent prompts resolve from agents/prompts/")
+        print(
+            f"{OK} all {len(AGENT_PROMPT_NAMES)} agent prompts resolve from agents/prompts/"
+        )
     except Exception as e:
         print(f"{FAIL} prompts: {e}")
         ok = False
@@ -227,7 +266,9 @@ def step_models() -> bool:
             )
         )
         ctx = ConversationContext(
-            messages=[Message(role=MessageRole.USER, content=[TextMessage(text="Say OK")])]
+            messages=[
+                Message(role=MessageRole.USER, content=[TextMessage(text="Say OK")])
+            ]
         )
         resp, _ = asyncio.run(llm.invoke(context=ctx))
         print(f"{OK} LLM ping via {s.echo_default_llm_provider} ({s.echo_llm_model})")
@@ -251,12 +292,20 @@ def step_models() -> bool:
             print(f"{SKIP} STT ping (no SARVAM_API_KEY set)")
         else:
             fixture = (
-                ROOT / "apps" / "api" / "scripts" / "files" / "synthetic_audio" / "1.m4a"
+                ROOT
+                / "apps"
+                / "api"
+                / "scripts"
+                / "files"
+                / "synthetic_audio"
+                / "1.m4a"
             )
             t = get_transcriber(
                 TranscriberConfig(provider=s.echo_default_transcriber_provider)
             )
-            result = asyncio.run(t.transcribe(fixture.read_bytes(), mime_type="audio/mp4"))
+            result = asyncio.run(
+                t.transcribe(fixture.read_bytes(), mime_type="audio/mp4")
+            )
             if result.error:
                 raise RuntimeError(result.error)
             print(f"{OK} STT ping via {s.echo_default_transcriber_provider}")
@@ -346,7 +395,10 @@ def step_smoke() -> bool:
             )
             up.raise_for_status()
         end = httpx.patch(
-            f"{base}/sessions/{sid}", json={"action": "end"}, headers=headers, timeout=30
+            f"{base}/sessions/{sid}",
+            json={"action": "end"},
+            headers=headers,
+            timeout=30,
         )
         print(f"       session={sid} uploaded; end status={end.status_code}")
         for _ in range(30):
@@ -356,7 +408,9 @@ def step_smoke() -> bool:
             if poll.status_code == 200:
                 print(f"{OK} smoke: session completed end-to-end")
                 return True
-        print(f"{WARN} smoke: session did not complete in 150s (check worker + STT/LLM)")
+        print(
+            f"{WARN} smoke: session did not complete in 150s (check worker + STT/LLM)"
+        )
         return False
     except Exception as e:
         print(f"{FAIL} smoke: {e}")
@@ -371,28 +425,63 @@ def main() -> int:
     parser.add_argument("--skip-model-check", action="store_true")
     parser.add_argument("--no-serve-check", action="store_true")
     parser.add_argument("--smoke", action="store_true")
+    parser.add_argument(
+        "--only",
+        metavar="STEPS",
+        help="comma-separated steps to run (env,db,storage,migrations,queue,seed,"
+        "models,serve,smoke); db always runs first as a preflight",
+    )
     args = parser.parse_args()
+
+    all_steps = (
+        "env",
+        "db",
+        "storage",
+        "migrations",
+        "queue",
+        "seed",
+        "models",
+        "serve",
+        "smoke",
+    )
+    only: set[str] | None = None
+    if args.only:
+        only = {s.strip() for s in args.only.split(",") if s.strip()}
+        unknown = only - set(all_steps)
+        if unknown:
+            print(
+                f"unknown step(s): {', '.join(sorted(unknown))} (choose from {', '.join(all_steps)})"
+            )
+            return 2
+
+    def wanted(name: str) -> bool:
+        return only is None or name in only
 
     print("ekascribe setup\n" + "=" * 40)
     results = []
-    if not args.no_env:
+    if wanted("env") and not args.no_env:
         results.append(("env", step_env(args.non_interactive)))
     _load_env()
 
     results.append(("db", step_db()))
     if not results[-1][1]:
-        print("\nDatabase unreachable — start it (make dev / docker compose) and re-run.")
+        print(
+            "\nDatabase unreachable — start it (make dev / docker compose) and re-run."
+        )
         return 1
-    results.append(("storage", step_storage()))
-    results.append(("migrations", step_migrations()))
-    results.append(("queue", step_queue()))
-    if not args.no_seed:
+    if wanted("storage"):
+        results.append(("storage", step_storage()))
+    if wanted("migrations"):
+        results.append(("migrations", step_migrations()))
+    if wanted("queue"):
+        results.append(("queue", step_queue()))
+    if wanted("seed") and not args.no_seed:
         results.append(("seed", step_seed()))
-    if not args.skip_model_check:
+    if wanted("models") and not args.skip_model_check:
         results.append(("models", step_models()))
-    if not args.no_serve_check:
+    if wanted("serve") and not args.no_serve_check:
         results.append(("serve", step_serve()))
-    if args.smoke:
+    if args.smoke or (only is not None and "smoke" in only):
         results.append(("smoke", step_smoke()))
 
     print("=" * 40)

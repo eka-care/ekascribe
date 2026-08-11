@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import SidebarPastSessions from './sidebar-past-sessions';
 import SidebarSearchBar from './sidebar-search-bar';
+import { VaartaLogoLottie } from '@/shared-components/vaarta-logo-lottie';
 import { useRouter } from 'next/navigation';
 import useVoice2RxStore from '@/store/store';
 import { getPlatform, getStorage, useAppUpdates, WebOnly, DesktopOnly } from '@/platform';
@@ -278,17 +279,7 @@ const CustomSidebar = () => {
           </div>
         ) : (
           <div className="flex items-center justify-between px-2 py-2">
-            <div className="flex items-center gap-2">
-              <img src="/assets/logo-mark.png" alt="vaarta" className="w-8 h-8 shrink-0" />
-              <div className="flex flex-col justify-center">
-                <span className="text-lg font-bold tracking-tight text-primary leading-5">
-                  vaarta
-                </span>
-                <span className="text-[9px] italic font-medium tracking-wide text-[#767676] leading-3">
-                  powered by @eka.care
-                </span>
-              </div>
-            </div>
+            <VaartaLogoLottie className="shrink-0" />
             <button
               className="cursor-pointer hidden md:flex p-1 rounded hover:bg-accent transition-colors"
               onClick={() => {

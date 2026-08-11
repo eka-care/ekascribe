@@ -1,5 +1,4 @@
 from scribe.services.context.models import (
-    ContextAttachmentItem,
     ContextDocumentItem,
     ContextItemKind,
     PastSessionItem,
@@ -15,7 +14,6 @@ from scribe.services.context.conversation_builder import (
 )
 
 __all__ = [
-    "ContextAttachmentItem",
     "ContextDocumentItem",
     "ContextItemKind",
     "ContextResolutionService",
