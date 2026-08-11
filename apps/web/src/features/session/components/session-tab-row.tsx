@@ -71,7 +71,7 @@ const SessionTabRow = ({
     }
   }, [activeTabId]);
 
-  const NON_DELETABLE_TABS = ['transcript', 'context', 'records'];
+  const NON_DELETABLE_TABS = ['transcript', 'context'];
 
   const handleRenameSubmit = useCallback(() => {
     if (editingTabId && editValue.trim()) {

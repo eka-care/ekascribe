@@ -1,6 +1,6 @@
 'use client';
 
-import { memo, useCallback, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useRef, useState } from 'react';
 import {
   Bold,
   ChevronDown,
@@ -29,9 +29,6 @@ type ExecCommand = (command: string, payload?: Record<string, unknown>) => void;
 interface EditorToolbarProps {
   onExecCommand: ExecCommand;
   activeHeadingLevel: 1 | 2 | 3 | null;
-  showLabResultTable?: boolean;
-  showLabInvestigationTable?: boolean;
-  showMedicationTable?: boolean;
   /** When provided, shows the "Add to favourite notes" button on the right end. */
   favouriteNote?: { documentId: string; documentName: string };
 }
@@ -40,10 +37,6 @@ type ToolbarAction = {
   label: string;
   command: string;
   icon: LucideIcon;
-};
-
-type TableAction = ToolbarAction & {
-  requires?: 'labResult' | 'labInvestigation' | 'medication';
 };
 
 const MARK_ACTIONS: ToolbarAction[] = [
@@ -67,7 +60,7 @@ const QUOTE_ACTION: ToolbarAction = { label: 'Quote', command: 'blockquote', ico
 
 export const HEADING_LEVELS = [1, 2, 3] as const;
 
-const TABLE_ACTIONS: TableAction[] = [{ label: 'Table', command: 'table', icon: Table2 }];
+const TABLE_ACTION: ToolbarAction = { label: 'Table', command: 'table', icon: Table2 };
 
 const toggleClass =
   'size-10 shrink-0 flex items-center justify-center cursor-pointer rounded-lg text-[#1A1A1A] hover:bg-[#F5F5F5] transition-colors';
@@ -192,77 +185,11 @@ function HeadingDropdown({
   );
 }
 
-function TableDropdown({
-  actions,
-  onExecCommand,
-}: {
-  actions: TableAction[];
-  onExecCommand: ExecCommand;
-}) {
-  const { open, setOpen, onMouseEnter, onMouseLeave } = useHoverDropdown();
-
-  return (
-    <DropdownMenu
-      modal={false}
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (!next) onExecCommand('focus');
-      }}
-    >
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          aria-label="Table styles"
-          className={toggleClass}
-          onMouseDown={(e) => e.preventDefault()}
-          onMouseEnter={onMouseEnter}
-          onMouseLeave={onMouseLeave}
-        >
-          <Table2 className="w-4 h-4" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="start"
-        className="min-w-48 border-[#D1D1D1]"
-        onCloseAutoFocus={(e) => e.preventDefault()}
-        onMouseEnter={onMouseEnter}
-        onMouseLeave={onMouseLeave}
-      >
-        {actions.map((action) => (
-          <DropdownMenuItem
-            key={action.command}
-            className="cursor-pointer"
-            onSelect={() => onExecCommand(action.command)}
-          >
-            <action.icon className="text-primary" />
-            {action.label}
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
 const EditorToolbar = memo(function EditorToolbar({
   onExecCommand,
   activeHeadingLevel,
-  showLabResultTable = false,
-  showLabInvestigationTable = false,
-  showMedicationTable = false,
   favouriteNote,
 }: EditorToolbarProps) {
-  const tableActions = useMemo(
-    () =>
-      TABLE_ACTIONS.filter((action) => {
-        if (action.requires === 'labResult') return showLabResultTable;
-        if (action.requires === 'labInvestigation') return showLabInvestigationTable;
-        if (action.requires === 'medication') return showMedicationTable;
-        return true;
-      }),
-    [showLabResultTable, showLabInvestigationTable, showMedicationTable]
-  );
-
   return (
     <div className="flex items-center justify-between gap-2 py-1">
       <div className="flex items-center min-w-0 overflow-x-auto">
@@ -278,11 +205,7 @@ const EditorToolbar = memo(function EditorToolbar({
           ))}
           <ToolbarSeparator />
           <ToolbarButton action={QUOTE_ACTION} onExecCommand={onExecCommand} />
-          {tableActions.length > 1 ? (
-            <TableDropdown actions={tableActions} onExecCommand={onExecCommand} />
-          ) : (
-            <ToolbarButton action={tableActions[0]} onExecCommand={onExecCommand} />
-          )}
+          <ToolbarButton action={TABLE_ACTION} onExecCommand={onExecCommand} />
           <ToolbarSeparator />
           {HISTORY_ACTIONS.map((action) => (
             <ToolbarButton key={action.command} action={action} onExecCommand={onExecCommand} />

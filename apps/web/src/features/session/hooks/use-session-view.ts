@@ -34,17 +34,15 @@ export function useSessionView(sessionId: string) {
   const getFooterMode = useCallback(
     (activeTab: string, activeDocStatus?: string): FooterMode => {
       const isContext = activeTab === 'context';
-      const isRecords = activeTab === 'records';
       const isStream = activeTab.startsWith('stream:');
       const isTranscript = activeTab === 'transcript';
 
-      // Session-level errors override tab footer (except context/records)
-      if (phase === SESSION_PHASE.ERROR && !isContext && !isRecords) {
+      // Session-level errors override tab footer (except context)
+      if (phase === SESSION_PHASE.ERROR && !isContext) {
         return errorCode === 'chunk_limit_reached' ? 'chunk-limit' : 'error';
       }
 
       if (isContext) return 'context';
-      if (isRecords) return 'none';
       if (isStream) return 'stream';
       if (!activeDocStatus) return 'none';
       if (activeDocStatus === 'failure') return 'doc-error';

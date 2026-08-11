@@ -22,7 +22,7 @@ const CustomSectionSideSheetGuide = () => {
         <div className="space-y-1.5">
           <p className="text-sm font-semibold">How Templates Work</p>
           <p className="text-xs sm:text-sm text-muted-foreground">
-            Varta will use these instructions as a guide whenever you record a session with this
+            Vaarta will use these instructions as a guide whenever you record a session with this
             template. Describe what you want to see in the final note, rather than filling fixed
             fields.
           </p>

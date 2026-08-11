@@ -15,7 +15,6 @@ import {
   CustomTooltipTrigger,
 } from '@/shared-components/custom-tooltip';
 import { getOngoingSessionStatus } from '@/features/session/utils/get-ongoing-session-processing-status';
-import { getInitials } from '@/utils/shared-helpers';
 import { useJumpToSelected } from '@/features/sidebar/hooks/use-jump-to-selected';
 import JumpToSelectedChip from '@/features/sidebar/components/jump-to-selected-chip';
 import { SESSION_PHASE } from '@/constants/enums';
@@ -52,7 +51,6 @@ const SidebarPastSessions = ({
   isSearching?: boolean;
   onDeleteSession?: (txnId: string) => void;
   ongoingSession?: {
-    patientName: string | null;
     processingStatus: string;
   } | null;
   onCurrentSessionClick?: () => void;
@@ -224,12 +222,12 @@ const SidebarPastSessions = ({
                 isCurrentSessionSelected ? 'bg-[#E9EFFF]' : 'hover:bg-[#F5F5F5]'
               }`}
             >
-              <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-sm font-medium bg-[#BFDBFE] text-primary">
-                {getInitials(ongoingSession.patientName)}
+              <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 bg-[#F5F5F5] border border-[#D1D1D1] text-[#767676]">
+                <User className="w-3.5 h-3.5" />
               </div>
               <div className="flex flex-col  gap-px flex-1 min-w-0">
                 <p className="text-xs truncate leading-4 capitalize font-medium text-[#1A1A1A]">
-                  {ongoingSession.patientName || 'New Session'}
+                  New Session
                 </p>
                 <div className="flex items-center justify-between gap-1">
                   <p className="text-xs leading-4 text-secondary-foreground">
@@ -269,17 +267,11 @@ const SidebarPastSessions = ({
               {/* Session cards */}
               {dateSessions.map((session) => {
                 const { time } = formatDate(session.created_at);
-                // Use store patient details if session was loaded (reflects edits), else API data
                 const storeContent = sessionV2ContentById[session.txn_id];
-                const effectivePatientDetails = storeContent?.patient_details ?? session.patient_details;
-                const { username } = effectivePatientDetails || {};
                 // Title lives in session_details — available once the session's
                 // details are in the store (opened or created this visit).
                 const sessionTitle =
                   (storeContent?.session_details?.title as string | undefined) || null;
-
-                const hasPatientInfo = Boolean(username);
-                const initials = getInitials(username);
 
                 // Check if pathname matches this session (navigation completed)
                 const isPathnameMatch = pathname === `/session/${session.txn_id}`;
@@ -308,11 +300,6 @@ const SidebarPastSessions = ({
                 const isSelectedSession = isPathnameMatch || isClickedSession;
                 const isHovered = hoveredSessionId === session.txn_id;
 
-                const { age, biologicalSex } = effectivePatientDetails || {};
-                const ageMeta = [age != null && age > 0 ? `${age}` : null, biologicalSex || null]
-                  .filter(Boolean)
-                  .join(', ');
-
                 return (
                   <div
                     key={session.txn_id}
@@ -335,15 +322,9 @@ const SidebarPastSessions = ({
                       if (openDropdownId !== session.txn_id) setHoveredSessionId(null);
                     }}
                   >
-                    {/* Profile Circle Avatar */}
-                    <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-medium ${
-                        hasPatientInfo
-                          ? 'bg-[#BFDBFE] text-primary'
-                          : 'bg-[#F5F5F5] border border-[#D1D1D1] text-[#767676]'
-                      }`}
-                    >
-                      {hasPatientInfo ? initials : <User className="w-3.5 h-3.5" />}
+                    {/* Session avatar */}
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 bg-[#F5F5F5] border border-[#D1D1D1] text-[#767676]">
+                      <User className="w-3.5 h-3.5" />
                     </div>
 
                     {/* Card content */}
@@ -356,20 +337,6 @@ const SidebarPastSessions = ({
                           <p className="text-xs leading-4 text-[#767676]">
                             {hasNotesReady ? `${time} · Notes Ready` : time}
                           </p>
-                        </>
-                      ) : hasPatientInfo ? (
-                        <>
-                          <div className="flex items-center gap-1">
-                            <p className="text-xs truncate leading-4 capitalize font-medium text-[#1A1A1A]">
-                              {username}
-                            </p>
-                            {ageMeta && (
-                              <p className="text-xs leading-4 font-medium text-[#767676]">
-                                {ageMeta}
-                              </p>
-                            )}
-                          </div>
-                          <p className="text-xs leading-4 text-[#767676]">{time}</p>
                         </>
                       ) : (
                         <>
