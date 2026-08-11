@@ -270,7 +270,7 @@ const CustomSidebar = () => {
       <SidebarHeader>
         {isCollapsed ? (
           <div className="flex flex-col items-center gap-1">
-            <img src="/assets/logo-mark.png" alt="varta" className="w-8 h-8" />
+            <img src="/assets/logo-mark.png" alt="Vaarta" className="w-8 h-8" />
             <button
               className="cursor-pointer hidden md:flex p-1 rounded hover:bg-accent transition-colors"
               onClick={() => {
@@ -284,10 +284,10 @@ const CustomSidebar = () => {
         ) : (
           <div className="flex items-center justify-between px-2 py-2">
             <div className="flex items-center gap-2">
-              <img src="/assets/logo-mark.png" alt="varta" className="w-8 h-8 shrink-0" />
+              <img src="/assets/logo-mark.png" alt="Vaarta" className="w-8 h-8 shrink-0" />
               <div className="flex flex-col justify-center">
                 <span className="text-lg font-bold tracking-tight text-primary leading-5">
-                  varta
+                  vaarta
                 </span>
                 <span className="text-[9px] italic font-medium tracking-wide text-[#767676] leading-3">
                   powered by @eka.care

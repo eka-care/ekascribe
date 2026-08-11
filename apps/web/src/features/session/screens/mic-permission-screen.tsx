@@ -35,16 +35,16 @@ const MicPermissionScreen = () => {
       </div>
 
       {/* Card */}
-      <div className="w-full max-w-[540px] text-center flex flex-col items-center relative z-[1]">
+      <div className="w-full max-w-135 text-center flex flex-col items-center relative z-1">
         {/* Brand pill */}
-        <div className="inline-flex items-center gap-2.5 py-[7px] pr-3.5 pl-2.5 rounded-full bg-white border border-[#ECEDF2] text-[13px] font-medium text-[#2B3042] tracking-[-0.005em] mb-9">
+        <div className="inline-flex items-center gap-2.5 py-1.75 pr-3.5 pl-2.5 rounded-full bg-white border border-[#ECEDF2] text-[13px] font-medium text-[#2B3042] tracking-[-0.005em] mb-9">
           <span
-            className="w-[22px] h-[22px] rounded-[6px] bg-[#2F5BFF] grid place-items-center text-white"
+            className="w-5.5 h-5.5 rounded-md bg-[#2F5BFF] grid place-items-center text-white"
             aria-hidden="true"
           >
             <Mic size={13} strokeWidth={2.4} />
           </span>
-          Varta
+          Vaarta
           <span className="w-1.5 h-1.5 rounded-full bg-[#0B8A5A] ml-0.5" />
           <span className="text-[#5A6075] font-normal">Microphone setup</span>
         </div>
@@ -62,38 +62,37 @@ const MicPermissionScreen = () => {
         </h1>
 
         {/* Lede */}
-        <p className="text-[17px] max-[680px]:text-[15.5px] leading-[1.55] text-[#5A6075] mb-10 max-w-[440px] text-pretty">
+        <p className="text-[17px] max-[680px]:text-[15.5px] leading-[1.55] text-[#5A6075] mb-10 max-w-110 text-pretty">
           Your browser is showing a permission popup in the top-left corner. Click{' '}
-          <strong className="font-semibold">Allow</strong> to let Varta listen during
-          sessions.
+          <strong className="font-semibold">Allow</strong> to let Vaarta listen during sessions.
         </p>
 
         {/* Hint pill */}
         <div className="inline-flex items-center gap-2.5 py-2.5 pr-4 pl-3.5 bg-white border border-[#ECEDF2] rounded-xl text-sm text-[#2B3042] mb-10 shadow-[0_1px_2px_rgba(14,18,32,0.03)]">
           <ArrowUpRight size={16} strokeWidth={2} className="text-[#858AA0]" />
           <span>In the popup, choose</span>
-          <span className="inline-flex items-center py-[3px] px-[9px] rounded-[6px] bg-[#EEF2FF] text-[#2F5BFF] font-semibold text-[13px] tracking-[-0.005em]">
+          <span className="inline-flex items-center py-0.75 px-2.25 rounded-md bg-[#EEF2FF] text-[#2F5BFF] font-semibold text-[13px] tracking-[-0.005em]">
             Allow while visiting the site
           </span>
         </div>
 
         {/* Meta row */}
-        <div className="flex items-center gap-[18px] text-[13px] text-[#858AA0] flex-wrap justify-center">
+        <div className="flex items-center gap-4.5 text-[13px] text-[#858AA0] flex-wrap justify-center">
           <span>One-time setup</span>
-          <span className="w-[3px] h-[3px] rounded-full bg-[#858AA0] opacity-50" />
+          <span className="w-0.75 h-0.75 rounded-full bg-[#858AA0] opacity-50" />
           <span>Secure & encrypted</span>
-          <span className="w-[3px] h-[3px] rounded-full bg-[#858AA0] opacity-50" />
+          <span className="w-0.75 h-0.75 rounded-full bg-[#858AA0] opacity-50" />
           <a
             href="https://scribe.eka.care"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-[#2F5BFF] font-medium no-underline inline-flex items-center gap-[5px] hover:text-[#1E46E0] group"
+            className="text-[#2F5BFF] font-medium no-underline inline-flex items-center gap-1.25 hover:text-[#1E46E0] group"
           >
-            Explore Varta
+            Explore Vaarta
             <ArrowUpRight
               size={11}
               strokeWidth={2.2}
-              className="transition-transform duration-200 ease-out group-hover:translate-x-[2px] group-hover:-translate-y-[2px]"
+              className="transition-transform duration-200 ease-out group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
             />
           </a>
         </div>

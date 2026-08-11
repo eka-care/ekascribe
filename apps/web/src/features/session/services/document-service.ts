@@ -626,7 +626,7 @@ function buildDocumentHtml(
       <div class="print-brand-left">
         <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAACXklEQVR42mNQjP/PMJQxw6gHhpEHLIB4CxD/J4BXAbHuYPGAPBA/J8LRuPAtIBYaCA/IUuBoXJiHXh64QAPHw/AOWnqAhQgHvAbifCCWwKJfDogrgfgnEeZQ3QNGBCz0JCMm4wiYKUEtD+BzvDsVSpJkPOaLUeoBVjxJhdplOlnJiRxDV9CwYsJWQFwn1wPnyHB8NBDPBOKpQOxDpieukxILpJTzr/AY9AVPErhIheRkR6oHiE2LmiSU8aR4AD1AaknxgBwWyz1IzHi4MCORHviLpq+KFA88JTL0cDnyDoH2ESMZSciEFA8QU0lxYlF3HIu6T2R44h8lmdiESM19JFjykQRPfMWibhcpHtiApvk5Do13SMykX4jwxFdqVGTomrNwaHyARW07ActwOVAXTywxUOoBYRwaF2JRu5QIC39Su9gl5AFSSgpiy/h/tGxOk2IQFxBfBuJrQMxPpYbbf0o7NBQZRgL+TQ3HUzMJXSXB0hcEHA9iM1PLA7gycRsWtfZUcjxVMzGuYhRbU6GFio4nuxgltiJ7hMUyNgocD8K/qFGREduUmEGCRc9JcBi2ym4/qR0aYhpz/ES2Wd6REar/KO2RUdqcvgTE9ygs59H1mA6WDg2xRe0fNH3VtOpSGtGoS4meF+qo0al/TUKIDXinHoTPYDFoJQGLE4B4AXRoxZ/MZsYNagyr4EtKK2nYRrqIxb5rI3pokVBG9aSCw1NoObhLbGlDzjBiEr2G1wklJ2InOOShA1S/BmKCg15TTNtHJ/nImGZ9QYGjQWW+wGCZ6DYfihPdo2slRrwHAE7RSHNTvAY3AAAAAElFTkSuQmCC" width="30" height="30" alt="" />
         <div class="print-brand-text">
-          <span class="print-brand-name">Varta</span>
+          <span class="print-brand-name">Vaarta</span>
           <span class="print-brand-tagline">Session notes</span>
         </div>
       </div>

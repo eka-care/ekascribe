@@ -20,8 +20,8 @@ const geistSans = { variable: GeistSans.variable };
 const geistMono = { variable: GeistMono.variable };
 
 export const metadata: Metadata = {
-  title: 'varta',
-  description: 'Varta - AI-powered voice transcription and note taking',
+  title: 'vaarta',
+  description: 'vaarta - AI-powered voice transcription and note taking',
   other: {
     'apple-itunes-app': 'app-id=6756741683',
   },
@@ -86,7 +86,6 @@ export default function RootLayout({
             </QueryClientRootProvider>
           </SecretsProvider>
         </ErrorBoundaryProvider>
-
       </body>
     </html>
   );
