@@ -10,7 +10,7 @@
 
 import { useState } from 'react';
 import { Button } from '@ui/src';
-import { Mic } from 'lucide-react';
+import { VaartaLogoLottie } from '@/shared-components/vaarta-logo-lottie';
 
 type Mode = 'login' | 'signup';
 
@@ -61,11 +61,7 @@ export default function LoginPage() {
     <div className="flex min-h-screen w-full flex-1 items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm rounded-xl border border-border bg-card p-8 shadow-sm">
         <div className="mb-6 flex flex-col items-center gap-2 text-center">
-          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/10">
-            <Mic className="h-5 w-5 text-primary" />
-          </div>
-          <h1 className="text-xl font-semibold">vaarta</h1>
-          <p className="text-xs text-muted-foreground">powered by @eka.care</p>
+          <VaartaLogoLottie />
           <p className="text-sm text-muted-foreground">
             {mode === 'login' ? 'Sign in to continue' : 'Create your account'}
           </p>
