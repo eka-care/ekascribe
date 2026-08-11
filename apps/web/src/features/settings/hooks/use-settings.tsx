@@ -6,6 +6,7 @@ import useVoice2RxStore from '@/store/store';
 import {
   CONSULTATION_MODES,
   SUPPORTED_LANGUAGES,
+  findLanguage,
   SUPPORTED_OUTPUT_FORMATS,
 } from '@/constants/settings';
 import { with401Retry } from '@/fetch-client/api-with-retry';
@@ -27,11 +28,7 @@ export const useSettings = () => {
     setRefreshLoggedInUserDetailsPromise,
     userSelectedTemplatesList,
     setUserSelectedTemplatesList,
-    userRegion,
   } = useVoice2RxStore();
-
-  const defaultLanguage =
-    userRegion?.isIndia === true ? SUPPORTED_LANGUAGES[0] : SUPPORTED_LANGUAGES[1];
 
   const {
     data: cachedConfigData,
@@ -57,7 +54,12 @@ export const useSettings = () => {
 
     const input_languages = (() => {
       const valid = (saved.input_languages ?? []).filter((l) => validLangIds.has(l.id));
-      return valid.length ? valid : [supported_languages[0] ?? SUPPORTED_LANGUAGES[0]];
+      if (valid.length) return valid;
+      // Nothing selected in the config -> default to English + Hindi.
+      const defaults = ['en', 'hi']
+        .map((id) => supported_languages.find((l) => l.id === id) ?? findLanguage(id))
+        .filter(Boolean) as TPreferenceItem[];
+      return defaults.length ? defaults : [supported_languages[0] ?? SUPPORTED_LANGUAGES[0]];
     })();
 
     const output_format_template = (() => {
@@ -87,7 +89,9 @@ export const useSettings = () => {
 
     // Set default selected preferences on error
     setUserLevelPreferences({
-      input_languages: [SUPPORTED_LANGUAGES[0], SUPPORTED_LANGUAGES[2]],
+      input_languages: [findLanguage('en-IN'), findLanguage('hi')].filter(
+        Boolean
+      ) as typeof SUPPORTED_LANGUAGES,
       output_language: 'en-IN',
       output_format_template: [SUPPORTED_OUTPUT_FORMATS[0]],
       consultation_mode: 'dictation',

@@ -3,10 +3,14 @@ import { TPreferenceItem } from './types';
 
 const env = (process.env.NEXT_PUBLIC_ENV || 'PROD') as 'DEV' | 'PROD';
 
+// Keep in sync with the backend's SUPPORTED_LANGUAGES (scribe/core/choices.py) —
+// ids not known to the backend fail session creation.
 export const SUPPORTED_LANGUAGES: TPreferenceItem[] = [
+  { id: 'en', name: 'English' },
+  { id: 'hi', name: 'Hindi' },
+  { id: 'en-hi', name: 'English + Hindi' },
   { id: 'en-IN', name: 'English (India)' },
   { id: 'en-US', name: 'English (United States)' },
-  { id: 'hi', name: 'Hindi' },
   { id: 'gu', name: 'Gujarati' },
   { id: 'kn', name: 'Kannada' },
   { id: 'ml', name: 'Malayalam' },
@@ -15,9 +19,13 @@ export const SUPPORTED_LANGUAGES: TPreferenceItem[] = [
   { id: 'bn', name: 'Bengali' },
   { id: 'mr', name: 'Marathi' },
   { id: 'pa', name: 'Punjabi' },
+  { id: 'or', name: 'Oriya' },
   { id: 'as', name: 'Assamese' },
-  { id: 'auto_detect', name: 'Auto Detect Language' },
 ];
+
+/** Lookup by id — never index positionally; list order is presentation, not meaning. */
+export const findLanguage = (id: string): TPreferenceItem | undefined =>
+  SUPPORTED_LANGUAGES.find((l) => l.id === id);
 
 export const SUPPORTED_OUTPUT_FORMATS_PROD: TPreferenceItem[] = [
   {
