@@ -5,7 +5,8 @@
 # SYSTEM prompt — do not duplicate them here.
 # Section notation: Name — kind (list | table | key_value | narrative) — guidance.
 # `section_ids` stays empty (markdown/desc-based templates).
-# Order = directory order: formal GoI archetypes first, lightweight last.
+# Order = directory order: the everyday default first, then formal GoI
+# archetypes, lightweight last.
 #
 # seed_mode controls what re-running setup does to previously seeded rows:
 #   append  (default) — upsert everything in this file; rows seeded earlier but
@@ -18,6 +19,19 @@ seed_mode: replace
 
 sections: []
 templates:
+
+- id: 9fd477a1-ea35-4fa6-be51-46006808b09d
+  title: Meeting Notes
+  type: default
+  desc: |-
+    Structure the recording as clean, skimmable meeting notes someone can scan in under a minute — works for any transcript, formal meeting or casual conversation. Extract whatever signal exists; a low-content transcript still gets a short TL;DR plus whatever else is present. Strip filler, tangents, small talk, and restated points. Preserve names, numbers, dates, and specifics exactly (e.g. ₹30 lakh, 20%).
+    SECTIONS — in order (TL;DR is ALWAYS emitted, even for thin transcripts):
+    TL;DR — narrative — one or two sentences: the point of the conversation
+    Key Topics — list — grouped by theme, not chronology; each topic a bold label followed by 1–3 tight bullets
+    Decisions — list — each decision plain and standalone
+    Action Items — list — checkbox form: "[ ] Task — Owner (due date)"; if no owner or date is stated, keep the task and mark the gap (e.g. "— owner TBD"); never invent owners or dates
+    Open Questions — list — anything unresolved or explicitly flagged for follow-up
+  section_ids: []
 
 - id: 912c2577-1259-44b0-85ba-0c54de7a7891
   title: Karyavritt · Official Meeting Minutes
