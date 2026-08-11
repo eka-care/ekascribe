@@ -47,6 +47,9 @@ spec:
         - ip: "10.185.27.69"
           hostnames:
             - "vaarta-model.bharatai.gov.in"    
+        - ip: "10.185.27.77"
+          hostnames:
+            - "bharatai.gov.in"
         # - ip: "100.78.69.4"
         #   hostnames:
         #     - "vaarta.bharatai.gov.in"                     
@@ -140,7 +143,6 @@ spec:
               memory: 6656Mi
       volumes:
         - name: storage
-          persistentVolumeClaim:
-            claimName: ekascribe-api-storage
+          emptyDir: {}
         - name: logs
           emptyDir: {}

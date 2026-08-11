@@ -1,0 +1,103 @@
+# Ingress gateway for the H100 model cluster:
+#   varta-model.bharatai.gov.in -> eka-care-parrotlet-asr-model:8000
+#
+# Apply with:
+#   kubectl apply -f varta-model-gateway-full.yaml --kubeconfig=./Kubeconfig_H100.yaml
+#
+# If the pod goes ImagePullBackOff on registry.istio.io (same as the other
+# cluster), pin the proxy image to this cluster's mirror (derive it from the
+# istiod image by swapping 'pilot' -> 'proxyv2'):
+#   kubectl set image deployment/varta-model-ingress \
+#     istio-proxy=<mirror-registry>/docker.io/istio/proxyv2:<istiod-tag> \
+#     -n eka-care --kubeconfig=./Kubeconfig_H100.yaml
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: varta-model-ingress
+  namespace: eka-care
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      istio: varta-model-ingress
+  template:
+    metadata:
+      annotations:
+        inject.istio.io/templates: gateway
+      labels:
+        istio: varta-model-ingress
+        sidecar.istio.io/inject: "true"
+    spec:
+      containers:
+      - name: istio-proxy
+        image: auto
+        securityContext:
+          capabilities:
+            drop:
+            - ALL
+          runAsUser: 1337
+          runAsGroup: 1337
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: varta-model-ingress
+  namespace: eka-care
+spec:
+  type: NodePort
+  selector:
+    istio: varta-model-ingress
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
+  - name: https
+    port: 443
+    targetPort: 8443
+---
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: varta-model-gw
+  namespace: eka-care
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - hosts:
+    - varta-model.bharatai.gov.in
+    port:
+      name: http
+      number: 80
+      protocol: HTTP
+  # For HTTPS later: create the cert secret in eka-care on THIS cluster:
+  #   kubectl create secret tls varta-model-tls -n eka-care --cert=... --key=... \
+  #     --kubeconfig=./Kubeconfig_H100.yaml
+  # then uncomment:
+  # - hosts:
+  #   - varta-model.bharatai.gov.in
+  #   port:
+  #     name: https
+  #     number: 443
+  #     protocol: HTTPS
+  #   tls:
+  #     mode: SIMPLE
+  #     credentialName: varta-model-tls
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: varta-model-vs
+  namespace: eka-care
+spec:
+  gateways:
+  - varta-model-gw
+  hosts:
+  - varta-model.bharatai.gov.in
+  http:
+  - route:
+    - destination:
+        host: eka-care-parrotlet-asr-model.eka-care.svc.cluster.local
+        port:
+          number: 8000
