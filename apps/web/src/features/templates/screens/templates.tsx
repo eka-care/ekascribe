@@ -5,14 +5,13 @@ import TemplateCard from '@/features/templates/components/template-card';
 import { TEMPLATE_HEADER_CONFIG_STATE } from '@/features/templates/config/template-header-config';
 import { useGetAllTemplates } from '@/features/templates/hooks/use-get-all-templates';
 import { CustomInput } from '@ui/src';
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState } from 'react';
 import { TEMPLATE_TABS } from '@/constants/enums';
 import { AlertCircle, Search } from 'lucide-react';
 import AlertComponent from '@/shared-components/alert/alert-component';
 import TemplatesLoadingSkeleton from '@/app/template/(main)/loading';
 import { useSearchParams } from 'next/navigation';
 import useVoice2RxStore from '@/store/store';
-import AiGenerateTemplateDialog from '@/features/templates/components/dialog/ai-generate-template-dialog';
 
 const TEMPLATE_TAB_ITEMS = [
   { value: TEMPLATE_TABS.MY_LIBRARY, label: 'Active' },
@@ -29,9 +28,7 @@ const Templates = () => {
     tabParam === 'template-directory' ? TEMPLATE_TABS.TEMPLATE_DIRECTORY : TEMPLATE_TABS.MY_LIBRARY
   );
   const [searchQuery, setSearchQuery] = useState('');
-  const [showAiDialog, setShowAiDialog] = useState(false);
 
-  const handleAiGenerate = useCallback(() => setShowAiDialog(true), []);
   const userSelectedTemplatesList = useVoice2RxStore((state) => state.userSelectedTemplatesList);
 
   const displayedTemplates = useMemo(() => {
@@ -109,13 +106,9 @@ const Templates = () => {
 
   return (
     <div className="min-h-full w-full bg-[#F5F8FF]">
-      <TemplateHeader
-        configKey={TEMPLATE_HEADER_CONFIG_STATE.DEFAULT}
-        onAiGenerate={handleAiGenerate}
-      />
+      <TemplateHeader configKey={TEMPLATE_HEADER_CONFIG_STATE.DEFAULT} />
 
       {renderTemplates()}
-      <AiGenerateTemplateDialog open={showAiDialog} onOpenChange={setShowAiDialog} />
     </div>
   );
 };

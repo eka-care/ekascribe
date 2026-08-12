@@ -9,6 +9,8 @@ export type TPastSessionHistoryData = {
   mode: string;
   uuid: string;
   oid: string;
+  /** Session meta blob stored on the transaction row; carries the user-set title. */
+  session_details?: { title?: string };
 };
 
 export type TPreferenceItem = {

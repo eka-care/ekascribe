@@ -304,11 +304,16 @@ def _enrich_past_sessions(past_sessions: list, b_id: str) -> list:
         if not session_id:
             continue
         date_epoch = None
+        title = None
         try:
             past_txn = transaction_repo.get_transaction(session_id, b_id)
             if past_txn:
                 session_date = past_txn.get("created_at")
                 date_epoch = iso_to_epoch(session_date)
+                # Same row already in hand — no extra read to carry the title.
+                session_details = past_txn.get("session_details") or {}
+                if isinstance(session_details, dict):
+                    title = session_details.get("title") or None
         except Exception as e:
             logger.warning(
                 "Failed to fetch past session for context enrichment",
@@ -316,7 +321,9 @@ def _enrich_past_sessions(past_sessions: list, b_id: str) -> list:
                 error=str(e),
                 severity="medium",
             )
-        enriched.append({"session_id": session_id, "date_epoch": date_epoch})
+        enriched.append(
+            {"session_id": session_id, "date_epoch": date_epoch, "title": title}
+        )
     return enriched
 
 def _apply_context_patch(

@@ -22,7 +22,6 @@ import {
   BreadcrumbItem,
   BreadcrumbSeparator,
   BreadcrumbPage,
-  Switch,
 } from '@ui/src';
 import PreferenceCard from '@/features/settings/components/preference-card';
 import DesktopWidgetSettings, {
@@ -31,7 +30,7 @@ import DesktopWidgetSettings, {
 import DownloadDesktopApp from '@/features/settings/components/download-desktop-app';
 import { MODEL_TYPE } from '@/constants/enums';
 import { TUserSelectedPreferences } from '@/constants/types';
-import { Sparkles, List, Cpu, MonitorCog } from 'lucide-react';
+import { Sparkles, List, MonitorCog } from 'lucide-react';
 import MultiSelectInput from '@/shared-components/input/multi-select-input';
 import React from 'react';
 import { with401Retry } from '@/fetch-client/api-with-retry';
@@ -255,29 +254,6 @@ const UserDefaultsDialog = ({ open, onOpenChange }: UserDefaultsDialogProps) => 
                       }}
                       placeholder="Select output formats"
                       maxSelections={1}
-                    />
-                  </div>
-                </PreferenceCard>
-
-                <PreferenceCard
-                  CardIcon={<Cpu className="w-4 h-4" />}
-                  title="Help us make the model better"
-                  description="Share anonymized data for model training & research purposes."
-                >
-                  <div className="space-y-2">
-                    <Switch
-                      defaultChecked={localPreferences.model_training_consent.value}
-                      disabled={!localPreferences.model_training_consent.editable}
-                      onCheckedChange={(checked) => {
-                        setLocalPreferences((prev) => ({
-                          ...prev,
-                          model_training_consent: {
-                            ...prev.model_training_consent,
-                            value: checked,
-                          },
-                        }));
-                      }}
-                      className="shrink-0 w-11 h-6 *:data-[slot=switch-thumb]:size-5 *:data-[slot=switch-thumb]:data-[state=checked]:translate-x-[calc(100%)] data-[state=unchecked]:bg-muted-foreground cursor-pointer"
                     />
                   </div>
                 </PreferenceCard>

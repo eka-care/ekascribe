@@ -39,6 +39,8 @@ class AttachmentItem(BaseModel):
 class PastSessionRef(BaseModel):
     session_id: str
     date_epoch: Optional[Any] = None
+    # Resolved server-side from the linked session's row; clients need not send it.
+    title: Optional[str] = None
 
 
 class TransactionContext(BaseModel):
