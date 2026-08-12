@@ -231,7 +231,7 @@ def revoke_all_refresh_tokens(username: str) -> None:
     from scribe_core.db import get_table
 
     table = get_table("refresh_tokens")
-    for row in table.find({"username": username}):
+    for row in table.find([("username", "eq", username)]):
         table.update_item(
             {"token_hash": row["token_hash"]},
             {"revoked": 1, "rotated_at": int(time.time())},
@@ -303,6 +303,11 @@ class CookieAuthMiddleware(BaseHTTPMiddleware):
         "/connect-auth/v1/refresh",
         "/connect-auth/v1/account/logout",
         "/connect-auth/v1/account/refresh-token",
+        # device authorization flow (RFC 8628): the desktop calls these two
+        # WITHOUT a session. NOTE: exact paths, not "/device" — the approve
+        # endpoint must stay behind the session cookie.
+        "/connect-auth/v1/device/code",
+        "/connect-auth/v1/device/token",
     )
     API_PREFIXES = DevAuthMiddleware.API_PREFIXES
     async def dispatch(self, request: Request, call_next):
