@@ -1,14 +1,14 @@
-# cert-manager alternative to gen-varta-tls.sh — produces the SAME secret
-# (varta-tls) the gateway references, but the key is generated in-cluster and
-# renewal is automatic. Try this first; if the Certificate never goes Ready
-# (TCL webhook denial, or their cert-manager doesn't watch tenant namespaces),
-# fall back to the openssl script. Do not run both — they fight over the secret.
+# EMERGENCY FALLBACK ONLY — not applied. The live cert is the eMudhra wildcard
+# in the TCL-owned secret istio-ingress/vaarta-server-tls (see the gateway
+# file); renewals go through TCL. If that ever breaks, apply this to get a
+# self-signed cert, then point the gateway's credentialName at varta-tls.
 #
 #   kubectl --context openweb apply -f varta-cert-manager.yaml
 #   kubectl --context openweb -n eka-care get certificate varta-tls -w   # wait for READY=True
 #
-# Evidence either way is one command:
-#   kubectl --context openweb -n eka-care describe certificate varta-tls
+# NOTE: only cert-manager-created secrets ever worked from the tenant
+# namespace on openweb (TCL machinery syncs them to the gateway); a plain
+# `kubectl create secret tls` in eka-care is never picked up by SDS.
 ---
 # SelfSigned issuer: signs the cert with its own key. Namespaced Issuer, not
 # ClusterIssuer — clusterissuers are 403 for the `customer` user.
@@ -41,5 +41,5 @@ spec:
   privateKey:
     algorithm: RSA
     size: 2048
-# When the trusted eMudhra cert arrives: delete Certificate + Issuer, then load
-# the real cert into the same secret name — the gateway never changes.
+# After recovery, delete the Certificate + Issuer again and point the gateway
+# back at the TCL secret — do not leave both paths active.

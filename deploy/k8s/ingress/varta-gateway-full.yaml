@@ -7,7 +7,7 @@ spec:
   selector:
     istio: ingressgateway
   servers:
-  # Port 80 stays open but only answers with a 301 to https.
+  # Port 80 serves plain HTTP. Flip httpsRedirect to true to force 301 -> https.
   - hosts:
     - vaarta.bharatai.gov.in
     port:
@@ -24,8 +24,11 @@ spec:
       protocol: HTTPS
     tls:
       mode: SIMPLE
-      credentialName: varta-tls
-      #credentialName: varta-tls-emudhra2
+      # TCL-owned secret in the istio-ingress namespace (eMudhra wildcard
+      # *.bharatai.gov.in, expires 2026-11-10). Gateway SDS resolves
+      # credentialName in the gateway pods' namespace, so tenant-namespace
+      # secrets are invisible here — renewals/changes go through TCL.
+      credentialName: vaarta-server-tls
 ---
 # 4. Route to the app.
 apiVersion: networking.istio.io/v1beta1
