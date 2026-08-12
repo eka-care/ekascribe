@@ -5,10 +5,12 @@ import useVoice2RxStore from '@/store/store';
 import SessionTabRow from '@/features/session/components/session-tab-row';
 import SessionContent from '@/features/session/components/session-content';
 import { AddOrConvertPopover } from '@/features/session/components/dialogs/add-or-convert-popover';
+import LinkPastSessionsDialog from '@/features/session/components/dialogs/link-past-sessions-dialog';
 import { printDocument } from '@/features/session/services/document-service';
 import type { SessionDocumentHandle } from './tabs/session-document';
 import { TabFooter } from './tabs/tab-footer';
 import {
+  getContextFooterConfig,
   getDocumentFooterConfig,
   getTranscriptFooterConfig,
   getErrorFooterConfig,
@@ -18,6 +20,7 @@ import type { TabFooterConfig } from '../config/tab-footer-config';
 import { useErrorHandlers } from '../hooks/use-error-handlers';
 import { useSessionLifecycle } from '../hooks/use-session-lifecycle';
 import { useContextEditor } from '../hooks/context/use-context-editor';
+import { useSessionContext } from '../hooks/context/use-session-context';
 import { useSessionTabs } from '../hooks/use-session-tabs';
 import { useSessionView } from '../hooks/use-session-view';
 import { copyMarkdownToClipboard } from '../utils/copy-output-utils';
@@ -79,6 +82,7 @@ const SessionBody = ({ sessionId, onAddTranscript, isLimitExceeded }: SessionBod
   );
 
   const { ensureContextDocument } = useContextEditor({ sessionId });
+  const sessionContext = useSessionContext({ sessionId });
   const { handleTryAgain, handleDiscard, handleContinueRecording } = useErrorHandlers(sessionId);
   const { endRecording } = useSessionLifecycle();
 
@@ -211,7 +215,22 @@ const SessionBody = ({ sessionId, onAddTranscript, isLimitExceeded }: SessionBod
       }
 
       case 'context':
-        return null;
+        return getContextFooterConfig({
+          onLinkPastSessions: sessionContext.handleOpenLinkDialog,
+          saveStatus,
+          overlay: sessionContext.showLinkDialog ? (
+            <div className="absolute bottom-full left-2 mb-2 z-10">
+              <LinkPastSessionsDialog
+                sessions={sessionContext.pastSessions}
+                loading={sessionContext.loadingPastSessions}
+                onClose={() => sessionContext.setShowLinkDialog(false)}
+                onAddContext={sessionContext.handleAddLinkedSessions}
+                onRemoveContext={sessionContext.handleRemoveLinkedSession}
+                alreadyLinkedIds={sessionContext.linkedSessions.map((s) => s.txn_id)}
+              />
+            </div>
+          ) : undefined,
+        });
 
       case 'transcript':
         return getTranscriptFooterConfig({
@@ -273,6 +292,8 @@ const SessionBody = ({ sessionId, onAddTranscript, isLimitExceeded }: SessionBod
           streamRef={streamRef}
           documentRef={documentRef}
           contextRef={contextRef}
+          linkedSessions={sessionContext.linkedSessions}
+          onRemoveLinkedSession={sessionContext.handleRemoveLinkedSession}
         />
 
         {footerConfig && <TabFooter config={footerConfig} />}

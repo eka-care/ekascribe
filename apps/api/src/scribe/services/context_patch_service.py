@@ -32,9 +32,10 @@ def _clean_attachments(values: Optional[Iterable[Any]]) -> List[Dict[str, Any]]:
 
 
 def _clean_past_sessions(values: Optional[Iterable[Any]]) -> List[Dict[str, Any]]:
-    """Normalise past_sessions to [{session_id, date_epoch}].
+    """Normalise past_sessions to [{session_id, date_epoch, title}].
 
-    Tolerates legacy string entries (treated as session_id with no date).
+    Tolerates legacy string entries (treated as session_id with no date) and
+    legacy dicts stored before `title` existed (title comes back None).
     """
     if not values:
         return []
@@ -46,9 +47,10 @@ def _clean_past_sessions(values: Optional[Iterable[Any]]) -> List[Dict[str, Any]
             cleaned.append({
                 "session_id": str(v["session_id"]),
                 "date_epoch": v.get("date_epoch"),
+                "title": v.get("title"),
             })
         elif isinstance(v, str) and v:
-            cleaned.append({"session_id": v, "date_epoch": None})
+            cleaned.append({"session_id": v, "date_epoch": None, "title": None})
     return cleaned
 
 

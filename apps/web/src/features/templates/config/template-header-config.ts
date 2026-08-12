@@ -1,4 +1,4 @@
-import { LucideIcon, Plus, Save, Sparkles } from 'lucide-react';
+import { LucideIcon, Plus, Save } from 'lucide-react';
 
 export enum TEMPLATE_HEADER_CONFIG_STATE {
   DEFAULT = 'default',
@@ -33,11 +33,6 @@ const templateHeaderConfig: TTemplateHeaderConfig = {
         icon: Plus,
         title: TEMPLATE_HEADER_BUTTON_TITLE.CREATE_TEMPLATE,
         variant: 'default',
-      },
-      {
-        icon: Sparkles,
-        title: TEMPLATE_HEADER_BUTTON_TITLE.AI_GENERATE_TEMPLATE,
-        variant: 'outline',
       },
     ],
   },

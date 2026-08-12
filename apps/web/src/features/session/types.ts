@@ -74,7 +74,7 @@ export type SessionV2Content = {
   session_details: Record<string, unknown>;
   session_config: TResolvedSessionPreferences | null;
   session_context: {
-    past_sessions?: Array<{ date_epoch: number; session_id: string }>;
+    past_sessions?: Array<{ date_epoch: number; session_id: string; title?: string }>;
     documents?: string[];
   };
   user_status: string;

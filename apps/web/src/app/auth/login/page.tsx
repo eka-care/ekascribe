@@ -10,12 +10,13 @@
 
 import { useState } from 'react';
 import { Button } from '@ui/src';
+import { Eye, EyeOff } from 'lucide-react';
 import { VaartaLogoLottie } from '@/shared-components/vaarta-logo-lottie';
 
 type Mode = 'login' | 'signup';
 
 const FIELD_CLS =
-  'w-full rounded-md border border-input bg-background px-3 py-2 text-sm ' +
+  'w-full rounded-md border border-border bg-background px-3 py-2 text-sm ' +
   'outline-none focus:ring-2 focus:ring-ring focus:border-transparent';
 
 export default function LoginPage() {
@@ -25,6 +26,7 @@ export default function LoginPage() {
   const [displayName, setDisplayName] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,7 +61,7 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen w-full flex-1 items-center justify-center bg-background px-4">
-      <div className="w-full max-w-sm rounded-xl border border-border bg-card p-8 shadow-sm">
+      <div className="w-full max-w-sm rounded-xl border border-muted-foreground bg-card p-8 shadow-md">
         <div className="mb-6 flex flex-col items-center gap-2 text-center">
           <VaartaLogoLottie />
           <p className="text-sm text-muted-foreground">
@@ -86,20 +88,35 @@ export default function LoginPage() {
             required
             minLength={3}
           />
-          <input
-            className={FIELD_CLS}
-            type="password"
-            placeholder={mode === 'signup' ? 'Password (min 8 characters)' : 'Password'}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-            required
-            minLength={mode === 'signup' ? 8 : 1}
-          />
+          <div className="relative">
+            <input
+              className={`${FIELD_CLS} pr-10`}
+              type={showPassword ? 'text' : 'password'}
+              placeholder={mode === 'signup' ? 'Password (min 8 characters)' : 'Password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+              required
+              minLength={mode === 'signup' ? 8 : 1}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((prev) => !prev)}
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+              aria-pressed={showPassword}
+              className="absolute inset-y-0 right-0 flex cursor-pointer items-center px-3 text-muted-foreground hover:text-foreground"
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
 
           {error && <p className="text-sm text-destructive">{error}</p>}
 
-          <Button type="submit" disabled={submitting || !username || !password} className="mt-1 w-full">
+          <Button
+            type="submit"
+            disabled={submitting || !username || !password}
+            className="mt-1 w-full"
+          >
             {submitting ? 'Please wait…' : mode === 'login' ? 'Sign in' : 'Create account'}
           </Button>
         </form>
@@ -111,7 +128,10 @@ export default function LoginPage() {
               <button
                 type="button"
                 className="cursor-pointer font-medium text-primary hover:underline"
-                onClick={() => { setMode('signup'); setError(''); }}
+                onClick={() => {
+                  setMode('signup');
+                  setError('');
+                }}
               >
                 Create an account
               </button>
@@ -122,7 +142,10 @@ export default function LoginPage() {
               <button
                 type="button"
                 className="cursor-pointer font-medium text-primary hover:underline"
-                onClick={() => { setMode('login'); setError(''); }}
+                onClick={() => {
+                  setMode('login');
+                  setError('');
+                }}
               >
                 Sign in
               </button>

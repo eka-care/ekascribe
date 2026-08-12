@@ -6,6 +6,8 @@ import useVoice2RxStore from '@/store/store';
 import { DelayedSessionBodySkeleton } from '@/app/new-session/loading';
 import { useContextEditor } from '../../hooks/context/use-context-editor';
 import { buildScribeEditorExtensions } from '../../ag-ui/editor/editor-extensions';
+import ContextItemsList from '../context-items-list';
+import type { TPastSessionHistoryData } from '@/constants/types';
 
 const WysiwygEditor = dynamic(() => import('../../components/editor/tiptap-wysiwyg-editor'), {
   ssr: false,
@@ -17,11 +19,13 @@ export type ContextTabContentHandle = {
 
 interface ContextTabContentProps {
   sessionId: string;
+  linkedSessions: TPastSessionHistoryData[];
+  onRemoveLinkedSession: (txnId: string) => void;
 }
 
 export const ContextTabContent = forwardRef<ContextTabContentHandle, ContextTabContentProps>(
   function ContextTabContent(
-    { sessionId },
+    { sessionId, linkedSessions, onRemoveLinkedSession },
     ref
   ) {
     const {
@@ -66,6 +70,10 @@ export const ContextTabContent = forwardRef<ContextTabContentHandle, ContextTabC
             showToolbar={true}
           />
         </div>
+        <ContextItemsList
+          linkedSessions={linkedSessions}
+          onRemoveLinkedSession={onRemoveLinkedSession}
+        />
       </div>
     );
   }

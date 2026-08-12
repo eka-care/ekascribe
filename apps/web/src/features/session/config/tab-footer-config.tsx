@@ -1,6 +1,7 @@
 import { type ReactNode } from 'react';
 import {
   Copy,
+  Layers,
   Play,
   Printer,
   RotateCcwIcon,
@@ -34,6 +35,30 @@ export type TabFooterConfig = {
 };
 
 // --- Config builders ---
+
+export function getContextFooterConfig({
+  onLinkPastSessions,
+  saveStatus,
+  overlay,
+}: {
+  onLinkPastSessions: () => void;
+  saveStatus: SaveStatusState;
+  overlay?: ReactNode;
+}): TabFooterConfig {
+  return {
+    saveStatus,
+    buttons: [
+      {
+        key: 'link',
+        label: 'Link past sessions',
+        icon: <Layers className="w-4 h-4 text-primary" />,
+        onClick: onLinkPastSessions,
+        buttonStyle: 'link',
+      },
+    ],
+    overlay,
+  };
+}
 
 export function getDocumentFooterConfig({
   onCopy,
