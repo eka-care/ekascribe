@@ -45,6 +45,13 @@ _SPECS: List[TableSpec] = [
         indexes=(("username",),),
     ),
     TableSpec(
+        logical_name="device_auth",
+        pg_name="device_auth",
+        pk=("device_code_hash",),
+        columns=("user_code", "status", "username", "expires_at", "created_at"),
+        indexes=(("user_code",),),
+    ),
+    TableSpec(
         logical_name="users",
         pg_name="users",
         pk=("username",),

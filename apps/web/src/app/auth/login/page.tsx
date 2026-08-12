@@ -44,7 +44,11 @@ export default function LoginPage() {
       const data = await res.json().catch(() => ({}));
 
       if (res.ok && data?.status === 'success') {
-        window.location.href = '/';
+        // ?next= lets flows like /auth/activate (desktop sign-in approval)
+        // resume after login. Relative paths only — never an absolute URL.
+        const next = new URLSearchParams(window.location.search).get('next') || '';
+        const safeNext = next.startsWith('/') && !next.startsWith('//') ? next : '/';
+        window.location.href = safeNext;
         return;
       }
       setError(

@@ -117,6 +117,12 @@ def create_app() -> FastAPI:
 
     app.include_router(account_router, tags=["account"])
     app.include_router(auth_router, prefix="/connect-auth/v1", tags=["auth"])
+
+    from scribe.routers.device_auth_routes import device_auth_router
+
+    app.include_router(
+        device_auth_router, prefix="/connect-auth/v1/device", tags=["auth"]
+    )
     app.include_router(blob_router, prefix="/voice/v1", tags=["blob"])
 
     # --- AG-UI (in scope for v1) --------------------------------------------
