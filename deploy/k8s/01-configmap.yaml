@@ -53,9 +53,15 @@ data:
   # conversion_pipeline.py) -- setting S3_BUCKET alone is not enough.
   S3_VADED_BUCKET_NAME: "voice-records"
   AWS_REGION: "ap-south-1"
+  AUTH_MODE: "jwt"
+
+  # --- optional (defaults shown) ---
+  AUTH_ACCESS_TTL_SECONDS: "3600"        # access JWT life (15 min) — middleware auto-renews it
+  AUTH_REFRESH_TTL_SECONDS: "2592000"     # refresh + BOTH cookies' life (30 d) = max idle time
+  AUTH_COOKIE_NAME: "scribe_session"
+  AUTH_REFRESH_COOKIE_NAME: "scribe_refresh"
 
   # --- Auth (v1: dev-token mode) ------------------------------------------
-  AUTH_MODE: "dev"
   DEV_B_ID: "onprem-workspace"
   DEV_UUID: "00000000-0000-0000-0000-000000000001"
   DEV_OID: "onprem-doctor-oid"
@@ -74,7 +80,6 @@ data:
   ECHO_DEFAULT_LLM_PROVIDER: "openwebui"
   ECHO_DEFAULT_LLM_MODEL: "qwen3-27b"
   OPENWEBUI_BASE_URL: "https://bharatai.gov.in"
-  OPENWEBUI_API_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImYzZGM4OTY3LTFmNmYtNGI1Ni1iMTI1LWMzNTFhM2EyMzAzYiIsImV4cCI6MTc4ODc4MzI1NiwianRpIjoiODc5ZWZmYTMtNDRkNy00YjQ3LWJkMzktNDZmYWE4M2UwOGY5IiwiaWF0IjoxNzg2MzY0MDU2fQ.EdGymypC1fFa5h5PM3PN1dxI5sk2jtjR1olAI3ru5GM"
   OPENWEBUI_ENABLE_THINKING: "false"
   ECHO_DEFAULT_LLM_TEMPERATURE: "0"
   OPENWEBUI_VERIFY_SSL: "false"

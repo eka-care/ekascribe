@@ -17,4 +17,4 @@ openssl x509 -in varta-tls.crt -noout -subject -enddate -ext subjectAltName
 
 echo
 echo "Now create the secret on openweb (the .key never leaves this machine otherwise):"
-echo "  kubectl --context openweb -n eka-care create secret tls varta-tls --cert=varta-tls.crt --key=varta-tls.key"
+echo "kubectl --context openweb -n eka-care create secret tls varta-tls-external --cert=varta-tls.crt --key=varta-tls.key"

@@ -2,3 +2,5 @@
 # harmless, but there is no reason to track either — regenerate from the cnf.
 *.key
 *.crt
+*.pem
+*.csr

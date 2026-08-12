@@ -1,0 +1,18 @@
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: varta-tls-cm2
+  namespace: eka-care
+spec:
+  secretName: varta-tls-cm2
+  issuerRef:
+    name: varta-selfsigned
+    kind: Issuer
+  dnsNames:
+    - vaarta.bharatai.gov.in
+  duration: 2160h
+  renewBefore: 360h
+  privateKey:
+    algorithm: RSA
+    size: 2048

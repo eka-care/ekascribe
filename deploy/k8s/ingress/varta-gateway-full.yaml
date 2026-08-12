@@ -1,60 +1,3 @@
-# Self-contained Istio ingress gateway in eka-care + routing for
-# varta.bharatai.gov.in -> ekascribe-api:8000. No istio-system access needed.
-#
-# Apply with:
-#   kubectl apply -f varta-gateway-full.yaml --kubeconfig=./Kubeconfig_BharatAI.yaml
-# ---
-# # 1. The gateway proxy itself — istiod's injection webhook turns this into
-# #    a full ingress gateway (image: auto is replaced automatically).
-# apiVersion: apps/v1
-# kind: Deployment
-# metadata:
-#   name: varta-ingress
-#   namespace: eka-care
-# spec:
-#   replicas: 1
-#   selector:
-#     matchLabels:
-#       istio: varta-ingress
-#   template:
-#     metadata:
-#       annotations:
-#         inject.istio.io/templates: gateway
-#       labels:
-#         istio: varta-ingress
-#         sidecar.istio.io/inject: "true"
-#     spec:
-#       containers:
-#       - name: istio-proxy
-#         image: auto
-#         securityContext:
-#           capabilities:
-#             drop:
-#             - ALL
-#           runAsUser: 1337
-#           runAsGroup: 1337
-# ---
-# 2. Expose the gateway. NodePort for on-prem; change to LoadBalancer if
-#    your cluster hands out external IPs.
-# apiVersion: v1
-# kind: Service
-# metadata:
-#   name: varta-ingress
-#   namespace: eka-care
-# spec:
-#   type: NodePort
-#   selector:
-#     istio: varta-ingress
-#   ports:
-#   - name: http
-#     port: 80
-#     targetPort: 8080     # injected gateways run as non-root: 80 -> 8080
-#   - name: https
-#     port: 443
-#     targetPort: 8443     # and 443 -> 8443 (for when you add TLS)
----
-# 3. Bind hostname + port to OUR gateway deployment (selector matches
-#    the pod labels above, not the classic istio=ingressgateway).
 apiVersion: networking.istio.io/v1beta1
 kind: Gateway
 metadata:
@@ -81,7 +24,8 @@ spec:
       protocol: HTTPS
     tls:
       mode: SIMPLE
-      credentialName: varta-tls   # the secret you create from tls/
+      credentialName: varta-tls
+      #credentialName: varta-tls-emudhra2
 ---
 # 4. Route to the app.
 apiVersion: networking.istio.io/v1beta1
