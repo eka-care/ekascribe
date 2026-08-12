@@ -407,15 +407,12 @@ async def exchange_sso_token(raw_token: str):
     username + oid, ``name`` -> display_name, b_id = the deployment workspace.
     SSO rows carry NO password hash — password login for them fails closed."""
     import time
-
     from scribe_core.db import ConditionalCheckFailed, get_table
-
     s = get_settings()
     if not raw_token or not s.sso_userinfo_url:
         return None
 
     import httpx
-
     try:
         async with httpx.AsyncClient(
             timeout=s.sso_request_timeout_s, verify=s.sso_verify_ssl
@@ -429,7 +426,6 @@ async def exchange_sso_token(raw_token: str):
             )
     except Exception as exc:  # noqa: BLE001 — network failure = not authenticated
         import logging
-
         logging.getLogger(__name__).warning("SSO userinfo call failed: %s", exc)
         return None
     if resp.status_code != 200:
@@ -463,7 +459,6 @@ async def exchange_sso_token(raw_token: str):
     except ConditionalCheckFailed:
         return users.get_item({"username": email})
     return user
-
 
 class SSOAuthMiddleware(CookieAuthMiddleware):
     """AUTH_MODE=sso: CookieAuthMiddleware plus silent session bootstrap.
