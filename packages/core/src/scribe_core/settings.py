@@ -64,7 +64,7 @@ class Settings(BaseSettings):
     # --- SSO (AUTH_MODE=sso): trust the platform's `token` cookie, exchange it
     # --- for our session via the platform's userinfo API (Open WebUI /api/v1/auths/)
     sso_userinfo_url: str | None = None      # e.g. http://indiaai-portal:8080/api/v1/auths/
-    sso_token_cookie: str = "token"          # platform cookie carrying the user's JWT
+    sso_token_cookie: str = "bharatai_token"          # platform cookie carrying the user's JWT
     sso_login_redirect_url: str = "https://bharatai.gov.in/auth"  # where unauthenticated users go
     sso_request_timeout_s: float = 10.0
     sso_verify_ssl: bool = True              # False for self-signed platform endpoints
