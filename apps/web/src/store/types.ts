@@ -111,7 +111,10 @@ type TStore = {
   autoStartRecording: boolean;
   setAutoStartRecording: (value: boolean) => void;
 
+  // Full wipe — logout only.
   clearStore: () => void;
+  // Session-scoped reset — keeps the user signed in.
+  clearSessionState: () => void;
 
   // --- V2 Session State ---
   sessionV2Ongoing: SessionV2Ongoing;

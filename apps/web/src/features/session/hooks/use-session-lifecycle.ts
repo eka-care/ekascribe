@@ -649,7 +649,7 @@ export function useSessionLifecycle() {
     const store = useVoice2RxStore.getState();
 
     store.clearRecordingSessionId();
-    store.clearStore();
+    store.clearSessionState();
     store.refreshPastSessionsCallback?.();
     router.replace('/new-session');
   }, [router]);

@@ -53,25 +53,6 @@ export const emptySessionV2Content: SessionV2Content = {
   ui: emptySessionV2UiState,
 };
 
-const storeInitialState = {
-  workspaceID: '',
-  templateData: null,
-  bannerTitle: undefined,
-  bannerSubtitle: undefined,
-  bannerActionComponent: undefined,
-  bannerTimeout: undefined,
-  showBannerCrossIcon: true,
-  warningMessage: undefined,
-  warningIcon: undefined,
-  warningAction: undefined,
-  warningListHeader: undefined,
-  warningListItems: undefined,
-  warningType: undefined,
-  playAudioCues: false,
-  sessionV2Ongoing: emptySessionV2Ongoing,
-  sessionV2ContentById: {} as Record<string, SessionV2Content>,
-};
-
 export const emptyUserSelectedPreferences: TUserSelectedPreferences = {
   input_languages: [],
   output_language: '',
@@ -82,6 +63,65 @@ export const emptyUserSelectedPreferences: TUserSelectedPreferences = {
   auto_detect_language: false,
   model_type: MODEL_TYPE.PRO,
   model_training_consent: { value: true, editable: false },
+};
+
+// The ongoing session only. Excludes sessionV2ContentById so discard/stop keep loaded sessions.
+const sessionInitialState = {
+  sessionV2Ongoing: emptySessionV2Ongoing,
+  newSessionId: '',
+  autoStartRecording: false,
+  warningMessage: undefined,
+  warningIcon: undefined,
+  warningAction: undefined,
+  warningListHeader: undefined,
+  warningListItems: undefined,
+  warningType: undefined,
+  warningScreen: undefined,
+};
+
+// Banners and template-editor scratch — reset on logout only.
+const transientUiInitialState = {
+  templateData: null,
+  templateAction: 'create' as TStore['templateAction'],
+  bannerTitle: undefined,
+  bannerSubtitle: undefined,
+  bannerActionComponent: undefined,
+  bannerTimeout: undefined,
+  showBannerCrossIcon: true,
+  showForAllUsers: true,
+};
+
+// Identity, preferences and cached account data — reset on logout only.
+const userInitialState = {
+  workspaceID: '',
+  appConfig: {
+    supported_languages: [],
+    output_template_formats: [],
+    consultation_modes: [],
+    max_selection: {
+      supported_languages: 2,
+      supported_output_formats: 1,
+      consultation_modes: 1,
+    },
+  } as TAppConfig,
+  userLevelPreferences: emptyUserSelectedPreferences,
+  userRegion: null,
+  loggedInUserDetails: null,
+  userSelectedTemplatesList: [] as TStore['userSelectedTemplatesList'],
+  templateNameById: {} as TStore['templateNameById'],
+  selectedMicrophone: null,
+  playAudioCues: false,
+  // Stale closures over the previous user's components — must not outlive a logout.
+  refreshPastSessionsCallback: null,
+  refreshLoggedInUserDetailsPromise: null,
+};
+
+// Single source of truth: spread into the initializer AND what clearStore resets to.
+const storeInitialState = {
+  ...sessionInitialState,
+  ...transientUiInitialState,
+  ...userInitialState,
+  sessionV2ContentById: {} as Record<string, SessionV2Content>,
 };
 
 // Only these survive a page refresh (sessionStorage). Everything else — transient UI,
@@ -98,7 +138,8 @@ const PERSISTED_KEYS = [
   'sessionV2Ongoing',
   'newSessionId',
   'sessionV2ContentById',
-] as const satisfies readonly (keyof TStore)[];
+  // Keyed off storeInitialState, not TStore, so nothing persisted can survive a logout.
+] as const satisfies readonly (keyof typeof storeInitialState)[];
 
 // Session-scoped backend for the persisted store, routed through the platform storage
 // capability instead of touching `sessionStorage` directly.
@@ -111,26 +152,15 @@ const sessionStateStorage: StateStorage = {
 const useVoice2RxStore = create<TStore>()(
   persist(
     (set) => ({
-      workspaceID: '',
+      ...storeInitialState,
+
       setWorkspaceID: (workspaceID) => set({ workspaceID }),
 
-      appConfig: {
-        supported_languages: [],
-        output_template_formats: [],
-        consultation_modes: [],
-        max_selection: {
-          supported_languages: 2,
-          supported_output_formats: 1,
-          consultation_modes: 1,
-        },
-      },
       setAppConfig: (config: TAppConfig) => set({ appConfig: config }),
 
-      userLevelPreferences: emptyUserSelectedPreferences,
       setUserLevelPreferences: (settings: TUserSelectedPreferences) =>
         set({ userLevelPreferences: settings }),
 
-      playAudioCues: false,
       setPlayAudioCues: (playAudioCues) => set({ playAudioCues }),
 
       setWarningInfo: (warningInfo) =>
@@ -155,33 +185,23 @@ const useVoice2RxStore = create<TStore>()(
           warningScreen: undefined,
         }),
 
-
-      templateData: null,
       setTemplateData: (data) => set({ templateData: data }),
 
-      userSelectedTemplatesList: [],
       setUserSelectedTemplatesList: (list) => set({ userSelectedTemplatesList: list }),
 
-      templateNameById: {},
       setTemplateNameById: (map) => set({ templateNameById: map }),
 
-      templateAction: 'create',
       setTemplateAction: (action) => set({ templateAction: action }),
 
-      loggedInUserDetails: null,
       setLoggedInUserDetails: (user) => set({ loggedInUserDetails: user }),
 
-      userRegion: null,
       setUserRegion: (region) => set({ userRegion: region }),
 
-      selectedMicrophone: null,
       setSelectedMicrophone: (microphone) => set({ selectedMicrophone: microphone }),
 
-      refreshPastSessionsCallback: null,
       setRefreshPastSessionsCallback: (refreshFn) =>
         set({ refreshPastSessionsCallback: refreshFn }),
 
-      refreshLoggedInUserDetailsPromise: null,
       setRefreshLoggedInUserDetailsPromise: (refreshFn) =>
         set({ refreshLoggedInUserDetailsPromise: refreshFn }),
 
@@ -205,20 +225,16 @@ const useVoice2RxStore = create<TStore>()(
           showForAllUsers: true,
         }),
 
-
-      autoStartRecording: false,
       setAutoStartRecording: (value) => set({ autoStartRecording: value }),
+
       // --- V2 Session State ---
-      sessionV2Ongoing: emptySessionV2Ongoing,
-      // Id of the session created via the new-session flow. Drives the "Current Session" card
-      // independently of history-list membership (which a refetch can change).
-      newSessionId: '',
+      // `newSessionId` drives the "Current Session" card independently of
+      // history-list membership (which a refetch can change).
       setNewSessionId: (sessionId) => set({ newSessionId: sessionId }),
       setRecordingSessionId: (sessionId) =>
         set({ sessionV2Ongoing: { recording_session_id: sessionId } }),
       clearRecordingSessionId: () => set({ sessionV2Ongoing: emptySessionV2Ongoing }),
 
-      sessionV2ContentById: {},
       setSessionV2Content: (sessionId, data) =>
         set((state) => {
           const prev = state.sessionV2ContentById[sessionId] || emptySessionV2Content;
@@ -360,12 +376,11 @@ const useVoice2RxStore = create<TStore>()(
           return { sessionV2ContentById: rest };
         }),
 
-      clearStore: () =>
-        set((state) => ({
-          ...storeInitialState,
-          workspaceID: state.workspaceID,
-          sessionV2ContentById: state.sessionV2ContentById,
-        })),
+      // Discard / stop-processing / unload — stays signed in, keeps loaded sessions.
+      clearSessionState: () => set({ ...sessionInitialState }),
+
+      // Logout — full wipe so nothing reaches the next user.
+      clearStore: () => set({ ...storeInitialState }),
     }),
     {
       name: 'ekascribe-ai-store',
