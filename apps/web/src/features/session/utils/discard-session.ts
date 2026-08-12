@@ -22,7 +22,7 @@ export function discardAndCleanup(
   with401Retry(() => sdkService.cancelSession(sessionId), 'cancel session');
   store.clearSessionV2Content(sessionId);
   store.clearRecordingSessionId();
-  store.clearStore();
+  store.clearSessionState();
   store.refreshPastSessionsCallback?.();
   store.setWarningInfo({
     message: 'Session was discarded',

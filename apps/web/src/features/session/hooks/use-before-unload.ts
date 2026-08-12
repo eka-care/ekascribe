@@ -32,7 +32,7 @@ export function useBeforeUnload() {
       }
 
       useVoice2RxStore.getState().clearRecordingSessionId();
-      useVoice2RxStore.getState().clearStore();
+      useVoice2RxStore.getState().clearSessionState();
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);

@@ -64,6 +64,7 @@ features/<feature>/
 ## Keep Code Simple and Clean
 
 - No dead code. No commented-out code. No unused imports.
+- Comments are one line. Never write multi-line comments or JSDoc blocks — if one line can't explain it, the code needs simplifying, not more prose.
 - Don't add comments, docstrings, or type annotations to code you didn't change.
 - Don't add error handling for scenarios that can't happen.
 - Don't build abstractions for one-time operations. Three similar lines > premature abstraction.
