@@ -17,10 +17,19 @@ const Player = dynamic(
   { ssr: false }
 );
 
-// Animated vaarta lockup (logo + wordmark + "powered by @eka.care"), 170x44.
-export function VaartaLogoLottie({ className }: { className?: string }) {
+// Animated vaarta lockup (logo + wordmark + "powered by @eka.care"), 200x50 by
+// default; the public download page renders it larger in the nav and footer.
+export function VaartaLogoLottie({
+  className,
+  width = 200,
+  height = 50,
+}: {
+  className?: string;
+  width?: number;
+  height?: number;
+}) {
   return (
-    <div className={className} style={{ width: 170, height: 44 }}>
+    <div className={className} style={{ width, height }}>
       <Player src="/assets/vaarta-logo.lottie" loop autoplay />
     </div>
   );

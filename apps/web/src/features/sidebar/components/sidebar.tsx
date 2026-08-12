@@ -535,7 +535,7 @@ const CustomSidebar = () => {
                     size="icon"
                     className="size-9 cursor-pointer rounded-lg text-[#1A1A1A] hover:bg-[#F3F4F6]"
                     onClick={() =>
-                      getPlatform().system?.openExternal('https://ekascribe.ai/download')
+                      getPlatform().system?.openExternal(`${window.location.origin}/download`)
                     }
                   >
                     <Download className="size-5" strokeWidth={1.5} />
