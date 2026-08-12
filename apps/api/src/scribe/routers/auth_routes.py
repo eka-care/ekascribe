@@ -124,9 +124,38 @@ def _login_response(user: dict) -> Response:
     return _session_response(user, refresh_raw)
 
 
+@auth_router.get("/auth-mode")
+def auth_mode():
+    """Public: how this deployment authenticates — the login page adapts."""
+    s = get_settings()
+    return ResponseFormatter.json_response(
+        {
+            "mode": s.auth_mode,
+            "allow_password_login": s.auth_allow_password_login,
+            "allow_signup": s.auth_allow_signup and s.auth_allow_password_login,
+            "login_url": s.sso_login_redirect_url if s.auth_mode == "sso" else "/auth/login",
+        },
+        200,
+    )
+
+
+def _password_flow_disabled():
+    s = get_settings()
+    if s.auth_allow_password_login:
+        return None
+    return ResponseFormatter.error(
+        code="password_login_disabled",
+        message="Username/password login is disabled on this deployment",
+        status_code=403,
+    )
+
+
 @auth_router.post("/signup")
 def signup(body: SignupRequest):
     s = get_settings()
+    disabled = _password_flow_disabled()
+    if disabled is not None:
+        return disabled
     if not s.auth_allow_signup:
         return ResponseFormatter.error(
             code="signup_disabled",
@@ -172,6 +201,10 @@ def signup(body: SignupRequest):
 @auth_router.post("/login")
 def login(body: LoginRequest):
     from argon2.exceptions import VerifyMismatchError
+
+    disabled = _password_flow_disabled()
+    if disabled is not None:
+        return disabled
 
     username = body.username.strip().lower()
     user = get_table("users").get_item({"username": username}) or {}
