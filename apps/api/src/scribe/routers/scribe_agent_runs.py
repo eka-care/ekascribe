@@ -54,6 +54,23 @@ _template_result_repo: TemplateResultORM = TemplateResultORM()
 _context_service: ContextResolutionService = ContextResolutionService()
 
 @functools.lru_cache(maxsize=1)
+def _require_identity(request: Request) -> tuple[str, str]:
+    """b_id + uuid from the verified jwt-payload header (injected by the auth
+    middleware in every mode). 401 when absent/invalid — the AG-UI endpoints
+    are session-scoped and must know their caller."""
+    from scribe.core.http.request_handler import RequestHandler
+
+    try:
+        b_id = RequestHandler.extract_business_id_from_request(request)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=401, detail=f"auth failed: {e}")
+    token_data = RequestHandler.extract_token_data_from_request(request)
+    jwt_uuid = token_data.get("uuid", "")
+    if not jwt_uuid:
+        raise HTTPException(status_code=401, detail="identity missing uuid claim")
+    return b_id, jwt_uuid
+
+
 def _get_default_llm_config():
     return LLMAgentConfig.from_env().to_llm_config()
 
@@ -130,9 +147,8 @@ async def run_input_resolver(
     jwt_uuid: str,
     document_id: Optional[str] = None,
 ) -> ResolvedRunInputs:
-    # sse endpoint do not work with authorizer so skipping the auth uuid etc check for now.
-    # if not jwt_uuid:
-    #     raise HTTPException(status_code=401, detail="JWT missing uuid claim")
+    if not jwt_uuid:
+        raise HTTPException(status_code=401, detail="JWT missing uuid claim")
 
     # transcript document — always written by the init API.
     transcript_doc_id = _document_service.get_document_id_by_session_and_template(
@@ -154,7 +170,7 @@ async def run_input_resolver(
     # owner. This replaces the source-doc ownership check from the
     # previous resolver.
 
-    # _validate_transcript_ownership(transcript_doc, jwt_uuid, b_id, session_id)
+    _validate_transcript_ownership(transcript_doc, jwt_uuid, b_id, session_id)
     transcript_path = transcript_doc.get("document_path")
     if not transcript_path:
         raise HTTPException(
@@ -331,14 +347,7 @@ def build_run_stream_response(
 async def start_run(
     template_id: str, request: Request, document_id: Optional[str] = None
 ):
-    # skip the jwt validation etc check
-    # try:
-    #     b_id = RequestHandler.extract_business_id_from_request(request)
-    # except Exception as e:
-    #     raise HTTPException(status_code=401, detail=f"auth failed: {e}")
-
-    # token_data = RequestHandler.extract_token_data_from_request(request)
-    # jwt_uuid = token_data.get("uuid", "")
+    b_id, jwt_uuid = _require_identity(request)
 
     try:
         body = await request.json()
@@ -392,9 +401,11 @@ async def start_run(
     inputs: Optional[ResolvedRunInputs]
     try:
         if document_id: 
-            inputs = await _run_input_resolver(template_id, session_id, "", "", document_id)
+            inputs = await _run_input_resolver(
+                template_id, session_id, b_id, jwt_uuid, document_id
+            )
         else:
-            inputs = await _run_input_resolver(template_id, session_id, "", "")
+            inputs = await _run_input_resolver(template_id, session_id, b_id, jwt_uuid)
     except HTTPException:
         raise
     except Exception as e:
@@ -412,13 +423,7 @@ async def start_run(
 
 @scribe_agent_router.post("/runs/{template_id}/resume")
 async def resume_run(template_id: str, request: Request):
-    # try:
-    #     b_id = RequestHandler.extract_business_id_from_request(request)
-    # except Exception as e:
-    #     raise HTTPException(status_code=401, detail=f"auth failed: {e}")
-
-    # token_data = RequestHandler.extract_token_data_from_request(request)
-    # jwt_uuid = token_data.get("uuid", "")
+    b_id, jwt_uuid = _require_identity(request)
 
     try:
         body = await request.json()
@@ -436,7 +441,7 @@ async def resume_run(template_id: str, request: Request):
         )
 
     try:
-        inputs = await _run_input_resolver(template_id, session_id, "", "")
+        inputs = await _run_input_resolver(template_id, session_id, b_id, jwt_uuid)
     except HTTPException:
         raise
     except Exception as e:

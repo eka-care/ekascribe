@@ -399,8 +399,6 @@ class CookieAuthMiddleware(BaseHTTPMiddleware):
 
 
 # --- SSO (AUTH_MODE=sso): trusted platform-cookie exchange ---------------------
-
-
 async def exchange_sso_token(raw_token: str):
     """Validate the platform's token against its userinfo API and upsert the
     user. Returns the users-table row, or None if the token is no good.
