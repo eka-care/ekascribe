@@ -48,7 +48,7 @@ class Settings(BaseSettings):
     database_url: str = "postgresql://scribe:scribe@localhost:5432/scribe"
 
     # --- Auth (decision #17: dev-token only for v1) -------------------------
-    auth_mode: Literal["dev", "jwt", "sso"] = "dev"
+    auth_mode: Literal["dev", "jwt", "sso", "oidc"] = "dev"
     dev_auth_token: str | None = None        # if set, requests must send it (Authorization: Bearer <token>)
     dev_b_id: str = "onprem-workspace"
     dev_uuid: str = "00000000-0000-0000-0000-000000000001"
@@ -72,6 +72,22 @@ class Settings(BaseSettings):
     sso_login_redirect_url: str = "https://bharatai.gov.in/auth"  # where unauthenticated users go
     sso_request_timeout_s: float = 10.0
     sso_verify_ssl: bool = True              # False for self-signed platform endpoints
+    # --- OIDC (AUTH_MODE=oidc): authorization code + PKCE against any IdP ---
+    oidc_issuer: str | None = None           # e.g. https://idp.gov.in/realms/vaarta
+    oidc_discovery_url: str | None = None    # default: {issuer}/.well-known/openid-configuration
+    oidc_client_id: str | None = None
+    oidc_client_secret: str | None = None    # omit for a public client (PKCE only)
+    oidc_redirect_url: str | None = None     # must match the IdP client config exactly
+    oidc_scopes: str = "openid profile email"
+    oidc_claim_uuid: str = "sub"             # claim -> our uuid
+    oidc_claim_username: str = "email"       # claim -> username + oid
+    oidc_claim_name: str = "name"            # claim -> display name
+    oidc_post_logout_redirect: str | None = None
+    oidc_verify_ssl: bool = True
+    oidc_ca_bundle: str | None = None        # PEM path for a private/gov CA
+    oidc_tx_cookie_name: str = "scribe_oidc_tx"
+    oidc_tx_ttl_seconds: int = 600           # login round-trip window
+    oidc_request_timeout_s: float = 10.0
     upload_url_signing_secret: str = "change-me"  # signs tokenized upload URLs (attachAuth: false path)
 
     # --- Models: STT (decision #14: Sarvam cloud default, local optional) ---

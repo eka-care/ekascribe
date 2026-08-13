@@ -297,6 +297,9 @@ class CookieAuthMiddleware(BaseHTTPMiddleware):
 
     EXEMPT_PREFIXES = DevAuthMiddleware.EXEMPT_PREFIXES + (
         "/connect-auth/v1/auth-mode",
+        "/connect-auth/v1/oidc/login",
+        "/connect-auth/v1/oidc/callback",
+        "/connect-auth/v1/oidc/logout",
         "/connect-auth/v1/login",
         "/connect-auth/v1/signup",
         "/connect-auth/v1/logout",
@@ -519,5 +522,36 @@ class SSOAuthMiddleware(CookieAuthMiddleware):
             return RedirectResponse(s.sso_login_redirect_url, status_code=302)
         return JSONResponse(
             {"detail": "sso_login_required", "login_url": s.sso_login_redirect_url},
+            status_code=403,
+        )
+
+
+class OIDCAuthMiddleware(CookieAuthMiddleware):
+    """AUTH_MODE=oidc: same session machinery, but an unauthenticated browser
+    is sent through the IdP instead of a password form.
+
+    Browser navigations 302 to /connect-auth/v1/oidc/login (carrying ?next= so
+    deep links survive); XHR/SSE calls get 403 with the login_url so the
+    frontend can redirect. Once the callback drops our cookies, every request
+    after that is ordinary CookieAuthMiddleware behaviour.
+    """
+
+    LOGIN_PATH = "/connect-auth/v1/oidc/login"
+
+    async def _on_browser_auth_failure(self, request: Request, call_next):
+        from starlette.responses import JSONResponse, RedirectResponse
+
+        accepts_html = "text/html" in (request.headers.get("accept") or "")
+        if request.method == "GET" and accepts_html:
+            target = request.url.path
+            if request.url.query:
+                target = f"{target}?{request.url.query}"
+            from urllib.parse import quote
+
+            return RedirectResponse(
+                f"{self.LOGIN_PATH}?next={quote(target, safe='')}", status_code=302
+            )
+        return JSONResponse(
+            {"detail": "oidc_login_required", "login_url": self.LOGIN_PATH},
             status_code=403,
         )

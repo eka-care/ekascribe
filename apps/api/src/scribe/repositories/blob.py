@@ -29,8 +29,6 @@ logger = get_logger(__name__)
 # ---------------------------------------------------------------------------
 # File-level helpers (JSON/text blobs, folder listings)
 # ---------------------------------------------------------------------------
-
-
 class BlobFileRepo:
     """File reads/writes and listings on the configured blob backend."""
 
