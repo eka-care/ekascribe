@@ -38,8 +38,9 @@ const forceUserLogout = () => {
 const handleUserRedirectAfterLogout = () => {
   if (getHost() === 'desktop') {
     // Tell the host to clear its OIDC session and show the native login.
-    // Never redirect to login.eka.care on desktop.
-    getAuthTokens()?.logout().catch(() => {});
+    getAuthTokens()
+      ?.logout()
+      .catch(() => {});
     return;
   }
 

@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
 import { Button } from '@ui/src';
-import { DOWNLOAD_URLS } from '../constants';
 import { useDesktopOS } from '../hooks/use-desktop-os';
 import { WindowsIcon } from './windows-icon';
 
@@ -16,31 +15,26 @@ export function PlatformDownloadCta() {
   return (
     <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start sm:gap-4">
       <div className="flex flex-col items-center gap-2">
-        <Button asChild className="h-10 min-w-20 gap-1 rounded-lg px-3">
-          <a href={isWindows ? DOWNLOAD_URLS.windows : DOWNLOAD_URLS.mac}>
-            <span className="px-1 text-sm font-medium leading-6">
-              {isWindows ? 'Download for Windows' : 'Download for MacOS'}
+        <Button disabled className="h-10 min-w-20 gap-1 rounded-lg px-3">
+          <span className="px-1 text-sm font-medium leading-6">
+            {isWindows ? 'Download for Windows' : 'Download for MacOS'}
+          </span>
+          {isWindows ? (
+            <WindowsIcon className="size-4" />
+          ) : (
+            // 16px icon box; the Apple mark itself is 12 x 14.05 inside it, per Figma.
+            <span className="relative block size-4">
+              <img
+                src="/assets/download/apple.svg"
+                alt=""
+                className="absolute left-[12.5%] top-[4.17%] h-[87.8%] w-[75%]"
+              />
             </span>
-            {isWindows ? (
-              <WindowsIcon className="size-4" />
-            ) : (
-              // 16px icon box; the Apple mark itself is 12 x 14.05 inside it, per Figma.
-              <span className="relative block size-4">
-                <img
-                  src="/assets/download/apple.svg"
-                  alt=""
-                  className="absolute left-[12.5%] top-[4.17%] h-[87.8%] w-[75%]"
-                />
-              </span>
-            )}
-          </a>
+          )}
         </Button>
-        <a
-          href={isWindows ? DOWNLOAD_URLS.mac : DOWNLOAD_URLS.windows}
-          className="text-center text-xs leading-4 text-muted-foreground hover:underline"
-        >
+        <span className="text-center text-xs leading-4 text-muted-foreground">
           {isWindows ? 'Download for MacOS instead' : 'Download for Windows instead'}
-        </a>
+        </span>
       </div>
 
       <Button

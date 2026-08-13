@@ -100,7 +100,6 @@ export function TranscriptTabContent({ sessionId }: TranscriptTabContentProps) {
     return (
       <div className="flex flex-col items-center justify-center h-full">
         <div className="flex flex-col items-center gap-4">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/assets/mic-recording.svg" alt="" width={100} height={100} />
           <div className="flex flex-col items-center gap-2 text-center">
             <p className="text-2xl font-medium leading-none tracking-[-0.6px] text-foreground w-82.5">
@@ -119,7 +118,6 @@ export function TranscriptTabContent({ sessionId }: TranscriptTabContentProps) {
     return (
       <div className="flex flex-col items-center justify-center h-full">
         <div className="flex flex-col items-center gap-4">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/assets/mic-paused.svg" alt="" width={100} height={100} />
           <div className="flex flex-col items-center gap-2 text-center">
             <p className="text-2xl font-medium leading-none tracking-[-0.6px] text-foreground w-82.5">

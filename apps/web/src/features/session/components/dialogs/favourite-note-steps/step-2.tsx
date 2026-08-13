@@ -1,6 +1,5 @@
 const FavouriteStepTwo = () => {
   return (
-    /* eslint-disable-next-line @next/next/no-img-element */
     <img
       src="/assets/favourite-notes/step-2.png"
       alt=""

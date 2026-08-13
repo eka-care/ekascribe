@@ -3,11 +3,6 @@
 import { Button } from '@ui/src';
 import { ShieldCheck } from 'lucide-react';
 
-const DOWNLOAD_URLS = {
-  mac: 'https://updates.eka.care/ekascribe/latest/EkaScribe.dmg',
-  windows: 'https://updates.eka.care/ekascribe/latest/EkaScribe%20Setup.exe',
-};
-
 function EkaScribeAppIcon() {
   return (
     <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -42,7 +37,6 @@ function WindowsIcon() {
 const isMac = typeof window !== 'undefined' && /Macintosh/.test(window.navigator.userAgent);
 
 const DownloadDesktopApp = () => {
-  const platform = isMac ? 'mac' : 'windows';
   const platformLabel = isMac ? 'macOS' : 'Windows';
   const note = isMac ? 'Optimized for macOS 12 and above' : 'Optimized for Windows 10 and above';
 
@@ -62,8 +56,8 @@ const DownloadDesktopApp = () => {
 
         <div className="flex flex-col justify-items-center gap-1 w-full">
           <Button
-            className="w-full inline-flex items-center gap-2 py-4 px-7 text-white border-none rounded-[10px] text-[0.9rem] font-semibold no-underline cursor-pointer transition-all duration-200 relative overflow-hidden shadow-[0_2px_8px_rgba(33,95,255,0.25)] hover:bg-[#1a4fd6] hover:-translate-y-px hover:shadow-[0_4px_16px_rgba(33,95,255,0.3)]"
-            onClick={() => window.open(DOWNLOAD_URLS[platform], '_blank')}
+            disabled
+            className="w-full inline-flex items-center gap-2 py-4 px-7 text-white border-none rounded-[10px] text-[0.9rem] font-semibold no-underline transition-all duration-200 relative overflow-hidden shadow-[0_2px_8px_rgba(33,95,255,0.25)]"
           >
             {isMac ? <AppleIcon /> : <WindowsIcon />}
             Download for {platformLabel}
