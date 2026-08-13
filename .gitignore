@@ -40,6 +40,7 @@ apps/desktop/mac/build/
 apps/desktop/certs/
 apps/desktop/*.log
 apps/desktop/electron.env
-
+deploy/secret.yaml
 deploy/.DS_Store
 .DS_Store
+artifacts/

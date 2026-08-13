@@ -31,6 +31,9 @@ spec:
         - ip: "10.185.27.77"
           hostnames:
             - "bharatai.gov.in"
+        - ip: "100.78.1.101"
+          hostnames:
+            - "cdacchndstvals3arc.ipstorage.tatacommunications.com"
         # - ip: "100.78.69.4"
         #   hostnames:
         #     - "vaarta.bharatai.gov.in"                     
@@ -80,7 +83,7 @@ spec:
         # Container name is `api` -- deploy/push.sh prints
         # `kubectl set image deploy/ekascribe-api api=...` to pin a tag.
         - name: api
-          image: ekacare/ekascribe:api-latest
+          image: ekacare/ekascribe:api-v1.1.5
           imagePullPolicy: Always
           ports:
             - name: http

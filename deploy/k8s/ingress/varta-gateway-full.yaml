@@ -15,7 +15,7 @@ spec:
       number: 80
       protocol: HTTP
     tls:
-      httpsRedirect: false
+      httpsRedirect: true
   - hosts:
     - vaarta.bharatai.gov.in
     port:
