@@ -1,0 +1,90 @@
+/* Hover choreography for the four feature cards. Anything that loops is declared
+   here already paused, then resumed on hover — removing the animation instead
+   would snap the element back to 0% the moment the pointer leaves. Simple A-to-B
+   moves are plain Tailwind transitions on the elements themselves. */
+
+/* -50% is one of the two duplicated copies; the extra 2px is half the 4px gap
+   that sits between them, which -50% alone would not account for. */
+@keyframes fc-marquee-left {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(calc(-50% - 2px));
+  }
+}
+
+@keyframes fc-marquee-right {
+  from {
+    transform: translateX(calc(-50% - 2px));
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes fc-orbit {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes fc-type {
+  from {
+    width: 0;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+@keyframes fc-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Multilingual — the chip rows flow continuously in alternating directions.
+     animation-duration comes from the element's inline style. */
+  .fc-marquee {
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+    animation-play-state: paused;
+  }
+  .fc-marquee-left {
+    animation-name: fc-marquee-left;
+  }
+  .fc-marquee-right {
+    animation-name: fc-marquee-right;
+  }
+  .fc-card:hover .fc-marquee {
+    animation-play-state: running;
+  }
+
+  /* Data privacy — a dot travels the dashed orbit baked into the illustration.
+     Paused at rest, so it parks on the ring rather than jumping home. */
+  .fc-orbit {
+    animation: fc-orbit 7s linear infinite;
+    animation-play-state: paused;
+  }
+  .fc-card:hover .fc-orbit {
+    animation-play-state: running;
+  }
+
+  /* Add context — the note types itself out, then the attachment lands. */
+  .fc-card:hover .fc-typed {
+    animation: fc-type 0.9s steps(44) both;
+  }
+  .fc-card:hover .fc-attachment {
+    animation: fc-pop-in 0.45s ease-out 0.85s both;
+  }
+}

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { DownloadNav } from '@/features/download/components/download-nav';
 import { DownloadHero } from '@/features/download/components/download-hero';
+import { DemoVideo } from '@/features/download/components/demo-video';
 import { FeatureCards } from '@/features/download/components/feature-cards';
 import { DownloadFooter } from '@/features/download/components/download-footer';
 
@@ -39,6 +40,7 @@ const DownloadPage = () => {
       <div className="relative flex flex-1 flex-col">
         <DownloadNav />
         <DownloadHero />
+        <DemoVideo />
         <FeatureCards />
         {/* mt-auto keeps the footer on the bottom edge when the content is shorter than the viewport */}
         <div className="mt-auto">
