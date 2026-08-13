@@ -133,7 +133,18 @@ def auth_mode():
             "mode": s.auth_mode,
             "allow_password_login": s.auth_allow_password_login,
             "allow_signup": s.auth_allow_signup and s.auth_allow_password_login,
-            "login_url": s.sso_login_redirect_url if s.auth_mode == "sso" else "/auth/login",
+            "login_url": (
+                "/connect-auth/v1/oidc/login"
+                if s.auth_mode == "oidc"
+                else s.sso_login_redirect_url
+                if s.auth_mode == "sso"
+                else "/auth/login"
+            ),
+            # oidc: log out at the IdP too, else its live session silently
+            # re-authenticates the user on the next request
+            "logout_url": (
+                "/connect-auth/v1/oidc/logout" if s.auth_mode == "oidc" else None
+            ),
         },
         200,
     )

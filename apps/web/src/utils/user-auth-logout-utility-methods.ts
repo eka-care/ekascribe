@@ -46,6 +46,19 @@ const handleUserRedirectAfterLogout = () => {
 
   const redirectURL = process.env.NEXT_PUBLIC_ENV === 'PROD' ? LOGOUT_PROD_URL : LOGOUT_DEV_URL;
 
+  // OIDC deployments: the backend tells us to finish logout at the IdP.
+  // Fire-and-forget so a slow/unreachable IdP can't strand the user here.
+  try {
+    const info = sessionStorage.getItem('scribe-auth-mode');
+    const logoutUrl = info ? JSON.parse(info)?.logout_url : null;
+    if (logoutUrl) {
+      window.location.replace(logoutUrl);
+      return;
+    }
+  } catch (_) {
+    // no-op: fall through to the normal login redirect
+  }
+
   // Already on the login page (or another /auth screen) — nothing to redirect.
   if (window.location.pathname.startsWith('/auth')) {
     logoutInFlight = false; // allow a future logout cycle from the app
