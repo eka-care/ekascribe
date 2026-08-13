@@ -113,7 +113,7 @@ interface TiptapEditorProps {
   showToolbar?: boolean;
   editable?: boolean;
   /** When provided, the toolbar shows the "Add to favourite notes" button. */
-  favouriteNote?: { documentId: string; documentName: string };
+  favouriteNote?: { documentId: string; documentName: string; save?: () => Promise<unknown> | void };
 }
 
 const TiptapWysiwygEditor = forwardRef<TiptapEditorHandle, TiptapEditorProps>(

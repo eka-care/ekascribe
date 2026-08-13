@@ -22,11 +22,14 @@ import { AddFavouriteNoteDialog } from '../dialogs/add-favourite-note-dialog';
 interface FavouriteNoteButtonProps {
   documentId: string;
   documentName: string;
+  /** Flushes pending editor edits — favourites are re-fetched from the server, so it must be current. */
+  save?: () => Promise<unknown> | void;
 }
 
 const FavouriteNoteButton = memo(function FavouriteNoteButton({
   documentId,
   documentName,
+  save,
 }: FavouriteNoteButtonProps) {
   const { notes, isNoteSaved, saveNote, removeNote } = useSavedNotes();
   const { showNewChip, showTutorial, markFeatureUsed, recordTutorialAttempt } =
@@ -54,6 +57,7 @@ const FavouriteNoteButton = memo(function FavouriteNoteButton({
 
   const handleAdd = useCallback(
     async (name: string) => {
+      await save?.();
       const success = await saveNote(documentId, name);
       if (success) {
         markFeatureUsed();
@@ -63,7 +67,7 @@ const FavouriteNoteButton = memo(function FavouriteNoteButton({
       }
       return success;
     },
-    [saveNote, documentId, markFeatureUsed]
+    [save, saveNote, documentId, markFeatureUsed]
   );
 
   const label = isFavourite ? 'Remove from favourite notes' : 'Add to favourite notes';

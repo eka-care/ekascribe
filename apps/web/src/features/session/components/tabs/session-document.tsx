@@ -108,9 +108,9 @@ const StreamingDocument = forwardRef<SessionDocumentHandle, StreamingProps>(
     const favouriteNote = useMemo(
       () =>
         state.document_id
-          ? { documentId: state.document_id, documentName: documentName || 'Note' }
+          ? { documentId: state.document_id, documentName: documentName || 'Note', save: saveDocument }
           : undefined,
-      [state.document_id, documentName]
+      [state.document_id, documentName, saveDocument]
     );
 
     const hasSections = state.sections.length > 0;
@@ -253,8 +253,8 @@ const DocumentView = forwardRef<SessionDocumentHandle, DocumentProps>(function D
   );
 
   const favouriteNote = useMemo(
-    () => ({ documentId, documentName: doc?.document_name || 'Note' }),
-    [documentId, doc?.document_name]
+    () => ({ documentId, documentName: doc?.document_name || 'Note', save: saveDocument }),
+    [documentId, doc?.document_name, saveDocument]
   );
 
   // Auto-stream in-progress custom docs when triggered by end-recording flow

@@ -30,7 +30,7 @@ interface EditorToolbarProps {
   onExecCommand: ExecCommand;
   activeHeadingLevel: 1 | 2 | 3 | null;
   /** When provided, shows the "Add to favourite notes" button on the right end. */
-  favouriteNote?: { documentId: string; documentName: string };
+  favouriteNote?: { documentId: string; documentName: string; save?: () => Promise<unknown> | void };
 }
 
 type ToolbarAction = {
@@ -217,6 +217,7 @@ const EditorToolbar = memo(function EditorToolbar({
         <FavouriteNoteButton
           documentId={favouriteNote.documentId}
           documentName={favouriteNote.documentName}
+          save={favouriteNote.save}
         />
       )}
     </div>
