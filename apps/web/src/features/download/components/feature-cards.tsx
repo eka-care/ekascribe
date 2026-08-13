@@ -93,8 +93,10 @@ function MultilingualCard() {
         body="Capture conversations in English or 15+ Indian languages, even when speakers switch mid-sentence."
       />
       <div className="absolute left-[-1px] top-[186px] h-[100px] w-[310px]">
+        {/* Every label is distinct, and each row's last chip differs from its first — the
+            marquee butts those two together at the wrap. */}
         <MarqueeRow position="left-[-71px] top-0 h-7" direction="left" duration="20s">
-          <LanguageChip label="English" />
+          <LanguageChip label="भोजपुरी" />
           <LanguageChip label="English" />
           <LanguageChipImage src="/assets/download/lang-1.svg" width={57.605} />
           <LanguageChipImage src="/assets/download/lang-2.svg" width={59.338} />

@@ -2,11 +2,7 @@
 
 import { Button } from '@ui/src';
 import { ShieldCheck } from 'lucide-react';
-
-const DOWNLOAD_URLS = {
-  mac: 'https://updates.eka.care/ekascribe/latest/EkaScribe.dmg',
-  windows: 'https://updates.eka.care/ekascribe/latest/EkaScribe%20Setup.exe',
-};
+import { DOWNLOAD_URLS } from '@/constants/constant';
 
 function EkaScribeAppIcon() {
   return (

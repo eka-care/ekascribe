@@ -20,6 +20,7 @@ import { tracker, setSessionContext } from '@/analytics';
 import { ERROR_CODE } from '@eka-care/ekascribe-ts-sdk';
 import { getSDK } from '../services/sdk-provider';
 import { discardAndCleanup } from '../utils/discard-session';
+import { handleUserLogout } from '@/utils/user-auth-logout-utility-methods';
 
 function teardownSessionMixing() {
   getPlatform().audioCapture?.teardownSessionMixing?.();
@@ -127,10 +128,10 @@ export function useSessionLifecycle() {
 
           if (!response.success || !response.data) {
             if (!response.success) {
-              // 403 → session expired, redirect to login
+              // 403 → session expired; log out to our own login page (native logout on desktop)
               if (response.error.httpStatus === 403) {
-                getPlatform().system?.openExternal('https://dr.eka.care/app/login');
                 store.clearSessionV2Content(sessionId);
+                void handleUserLogout();
                 return null;
               }
 

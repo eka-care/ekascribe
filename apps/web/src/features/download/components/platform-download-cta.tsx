@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
 import { Button } from '@ui/src';
-import { DOWNLOAD_URLS } from '../constants';
+import { DOWNLOAD_URLS } from '@/constants/constant';
 import { useDesktopOS } from '../hooks/use-desktop-os';
 import { WindowsIcon } from './windows-icon';
 
