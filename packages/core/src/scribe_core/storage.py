@@ -172,21 +172,43 @@ class LocalFSBlobStore(BlobStore):
         return self._url("PUT", bucket, key, expires_in)
 
     def presigned_post(self, bucket, key_prefix, metadata=None, expires_in=10800):
-        key_prefix = key_prefix.rstrip("/")
-        expires_at = int(time.time()) + expires_in
-        token = make_blob_token("POST", bucket, key_prefix, expires_at)
-        fields: Dict[str, Any] = {
-            "key": f"{key_prefix}/${{filename}}",
-            "x-scribe-prefix": key_prefix,
-            "x-scribe-expires": str(expires_at),
-            "x-scribe-token": token,
-        }
-        for mk, mv in (metadata or {}).items():
-            fields[f"x-amz-meta-{mk}"] = mv
-        return {
-            "url": f"{self.self_url}/voice/v1/blob-upload/{bucket}",
-            "fields": fields,
-        }
+        return _api_presigned_post(
+            self.self_url, bucket, key_prefix, metadata, expires_in
+        )
+
+
+# --- API-hosted blob URLs (shared by LocalFS and S3-via-API) -------------------
+
+
+def _api_get_url(self_url: str, bucket: str, key: str, expires_in: int = 3600) -> str:
+    """Download URL served by the API's blob router (HMAC-token guarded)."""
+    expires_at = int(time.time()) + expires_in
+    token = make_blob_token("GET", bucket, key, expires_at)
+    q = f"expires={expires_at}&token={token}"
+    return f"{self_url.rstrip('/')}/voice/v1/blob/{bucket}/{quote(key)}?{q}"
+
+
+def _api_presigned_post(
+    self_url: str,
+    bucket: str,
+    key_prefix: str,
+    metadata=None,
+    expires_in: int = 10800,
+) -> Dict[str, Any]:
+    """S3-POST-shaped dict that targets the API's blob-upload endpoint, so the
+    browser uploads to the backend and the backend writes to the object store."""
+    key_prefix = key_prefix.rstrip("/")
+    expires_at = int(time.time()) + expires_in
+    token = make_blob_token("POST", bucket, key_prefix, expires_at)
+    fields: Dict[str, Any] = {
+        "key": f"{key_prefix}/${{filename}}",
+        "x-scribe-prefix": key_prefix,
+        "x-scribe-expires": str(expires_at),
+        "x-scribe-token": token,
+    }
+    for mk, mv in (metadata or {}).items():
+        fields[f"x-amz-meta-{mk}"] = mv
+    return {"url": f"{self_url.rstrip('/')}/voice/v1/blob-upload/{bucket}", "fields": fields}
 
 
 # --- S3 backend ---------------------------------------------------------------
@@ -195,6 +217,11 @@ class LocalFSBlobStore(BlobStore):
 class S3BlobStore(BlobStore):
     def __init__(self, client=None):
         s = get_settings()
+        # BLOB_VIA_API: hand out API-hosted upload/download URLs instead of
+        # direct-to-bucket presigned ones. The bytes still land in S3/MinIO —
+        # the API just proxies them (blob_router writes through this store).
+        self.via_api = s.blob_via_api
+        self.self_url = s.self_url.rstrip("/")
         if client is None:
             import boto3
 
@@ -234,6 +261,8 @@ class S3BlobStore(BlobStore):
         return keys
 
     def presigned_get_url(self, bucket, key, expires_in=3600):
+        if self.via_api:
+            return _api_get_url(self.self_url, bucket, key, expires_in)
         try:
             return self.client.generate_presigned_url(
                 "get_object", Params={"Bucket": bucket, "Key": key}, ExpiresIn=expires_in
@@ -253,6 +282,10 @@ class S3BlobStore(BlobStore):
 
     def presigned_post(self, bucket, key_prefix, metadata=None, expires_in=10800):
         key_prefix = key_prefix.rstrip("/")
+        if self.via_api:
+            return _api_presigned_post(
+                self.self_url, bucket, key_prefix, metadata, expires_in
+            )
         fields = {f"x-amz-meta-{k}": v for k, v in (metadata or {}).items()}
         conditions: List[Any] = [
             ["starts-with", "$key", key_prefix],

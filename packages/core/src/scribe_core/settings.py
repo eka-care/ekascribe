@@ -38,6 +38,10 @@ class Settings(BaseSettings):
     storage_root: str = "./storage"          # STORAGE_BACKEND=local
     s3_bucket: str | None = None             # STORAGE_BACKEND=s3
     s3_endpoint_url: str | None = None       # real AWS if None; LocalStack/MinIO otherwise
+    # Route browser uploads/downloads through the API even on S3/MinIO
+    # (browser -> backend -> object store). Required when the bucket is not
+    # reachable from users' browsers (internal MinIO, no bucket CORS).
+    blob_via_api: bool = False
     aws_region: str = "ap-south-1"
 
     # --- Database -----------------------------------------------------------
