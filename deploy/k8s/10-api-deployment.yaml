@@ -8,7 +8,7 @@ metadata:
     app.kubernetes.io/part-of: ekascribe
 spec:
 
-  replicas: 2
+  replicas: 3
 
   strategy:
     type: RollingUpdate
@@ -50,13 +50,24 @@ spec:
       # The trade: no node-failure protection. That node takes both replicas
       # and the volume down with it. Node HA needs RWX storage or
       # STORAGE_BACKEND=s3, not scheduling changes.
+
+      # affinity:
+      #   podAffinity:
+      #     requiredDuringSchedulingIgnoredDuringExecution:
+      #       - topologyKey: kubernetes.io/hostname
+      #         labelSelector:
+      #           matchLabels:
+      #             app.kubernetes.io/name: ekascribe-api
       affinity:
-        podAffinity:
+        nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
-            - topologyKey: kubernetes.io/hostname
-              labelSelector:
-                matchLabels:
-                  app.kubernetes.io/name: ekascribe-api
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values:
+                      - chncdocopwapp01w3-rvz6t-qwqvs
+                      - chncdocopwapp01w3-rvz6t-z2qff
       # The api opens its psycopg pool at import time, so a pod that starts
       # before Postgres is accepting connections crashloops instead of
       # retrying. Matters most on a whole-node restart, where `strategy:
@@ -83,7 +94,7 @@ spec:
         # Container name is `api` -- deploy/push.sh prints
         # `kubectl set image deploy/ekascribe-api api=...` to pin a tag.
         - name: api
-          image: ekacare/ekascribe:api-v1.1.5
+          image: ekacare/ekascribe:api-latest
           imagePullPolicy: Always
           ports:
             - name: http
@@ -132,7 +143,8 @@ spec:
               memory: 6656Mi
       volumes:
         - name: storage
-          persistentVolumeClaim:
-            claimName: ekascribe-api-storage
+          #persistentVolumeClaim:
+          #  claimName: ekascribe-api-storage
+          emptyDir: {}
         - name: logs
           emptyDir: {}

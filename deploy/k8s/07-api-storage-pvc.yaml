@@ -1,45 +1,45 @@
-# Recording storage for the api tier's STORAGE_ROOT (/data/storage).
-# STORAGE_BACKEND=local, so this holds the actual audio chunks and artifacts --
-# not scratch. It replaces the `storage` emptyDir in 10-api-deployment.yaml,
-# which dropped everything on each restart.
-#
-# Dynamically provisioned, same mechanism as the Postgres volume in
-# 05-postgres-statefulset.yaml: no PersistentVolume is declared here -- the
-# pv-provisioner-5k-iops StorageClass's provisioner creates and binds one when
-# the claim is applied.
-#
-# The backend is OpenStack Cinder (cinder.csi.openstack.org) -- block storage.
-# Verified live on 2026-08-11: the class ACCEPTS ReadWriteMany and binds, but
-# the Cinder volume type has multiattach disabled, so the second node's attach
-# is refused by Nova ("Invalid volume: ... already attached to instances").
-# The RWX below is therefore cosmetic; the volume behaves as single-node
-# attach, and it is the affinity rule in 10-api-deployment.yaml keeping every
-# api pod on one node that makes this deployable at replicas > 1. Left as RWX
-# only because accessModes are immutable on a bound claim -- treat it as RWO.
-#
-# Still unverified (RBAC blocks reading the class): reclaimPolicy. If it is
-# the usual Delete, `kubectl delete pvc` on this claim deletes the underlying
-# Cinder volume and every recording on it. Confirm with TCL.
-#
-# Numbered 07 so it sorts after the migrate Job (06) and before the api
-# Deployment (10) -- `kubectl apply -f deploy/k8s/` applies in filename order,
-# and the claim must exist before the pod that mounts it.
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: ekascribe-api-storage
-  namespace: eka-care
-  labels:
-    app.kubernetes.io/name: ekascribe-api
-    app.kubernetes.io/part-of: ekascribe
-spec:
-  # Cosmetic -- see header. Single-node attach in reality; immutable now that
-  # the claim is bound, so it cannot be corrected to ReadWriteOnce in place.
-  accessModes:
-    - ReadWriteOnce
-  storageClassName: pv-provisioner-5k-iops
-  resources:
-    requests:
-      # A PVC cannot be shrunk, and expansion needs allowVolumeExpansion on the
-      # StorageClass plus a driver that supports it -- so pick this now.
-      storage: 1Ti
+# # Recording storage for the api tier's STORAGE_ROOT (/data/storage).
+# # STORAGE_BACKEND=local, so this holds the actual audio chunks and artifacts --
+# # not scratch. It replaces the `storage` emptyDir in 10-api-deployment.yaml,
+# # which dropped everything on each restart.
+# #
+# # Dynamically provisioned, same mechanism as the Postgres volume in
+# # 05-postgres-statefulset.yaml: no PersistentVolume is declared here -- the
+# # pv-provisioner-5k-iops StorageClass's provisioner creates and binds one when
+# # the claim is applied.
+# #
+# # The backend is OpenStack Cinder (cinder.csi.openstack.org) -- block storage.
+# # Verified live on 2026-08-11: the class ACCEPTS ReadWriteMany and binds, but
+# # the Cinder volume type has multiattach disabled, so the second node's attach
+# # is refused by Nova ("Invalid volume: ... already attached to instances").
+# # The RWX below is therefore cosmetic; the volume behaves as single-node
+# # attach, and it is the affinity rule in 10-api-deployment.yaml keeping every
+# # api pod on one node that makes this deployable at replicas > 1. Left as RWX
+# # only because accessModes are immutable on a bound claim -- treat it as RWO.
+# #
+# # Still unverified (RBAC blocks reading the class): reclaimPolicy. If it is
+# # the usual Delete, `kubectl delete pvc` on this claim deletes the underlying
+# # Cinder volume and every recording on it. Confirm with TCL.
+# #
+# # Numbered 07 so it sorts after the migrate Job (06) and before the api
+# # Deployment (10) -- `kubectl apply -f deploy/k8s/` applies in filename order,
+# # and the claim must exist before the pod that mounts it.
+# apiVersion: v1
+# kind: PersistentVolumeClaim
+# metadata:
+#   name: ekascribe-api-storage
+#   namespace: eka-care
+#   labels:
+#     app.kubernetes.io/name: ekascribe-api
+#     app.kubernetes.io/part-of: ekascribe
+# spec:
+#   # Cosmetic -- see header. Single-node attach in reality; immutable now that
+#   # the claim is bound, so it cannot be corrected to ReadWriteOnce in place.
+#   accessModes:
+#     - ReadWriteOnce
+#   storageClassName: pv-provisioner-5k-iops
+#   resources:
+#     requests:
+#       # A PVC cannot be shrunk, and expansion needs allowVolumeExpansion on the
+#       # StorageClass plus a driver that supports it -- so pick this now.
+#       storage: 1Ti
