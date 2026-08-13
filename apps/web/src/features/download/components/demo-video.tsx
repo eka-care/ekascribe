@@ -1,4 +1,4 @@
-import { DEMO_VIDEO_POSTER, DEMO_VIDEO_SRC } from '../constants';
+import { DEMO_VIDEO_SRC } from '../constants';
 
 // The Figma frame is 1311 x 819 — a 16:10 box spanning the 1312px content column.
 export function DemoVideo() {
@@ -7,7 +7,6 @@ export function DemoVideo() {
       <div className="aspect-[1311/819] w-full overflow-hidden rounded-3xl border border-border bg-background">
         <video
           className="size-full object-cover"
-          poster={DEMO_VIDEO_POSTER}
           autoPlay
           muted
           loop

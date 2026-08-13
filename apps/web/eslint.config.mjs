@@ -17,7 +17,8 @@ const eslintConfig = [
       ...reactHooks.configs.recommended.rules,
       "@typescript-eslint/no-explicit-any": "warn",
       "@typescript-eslint/no-unused-vars": ["error"],
-      "no-console": "warn"
+      "no-console": "warn",
+      "@next/next/no-img-element": "off"
     },
   },
 ];
