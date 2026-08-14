@@ -151,6 +151,37 @@ def session_chunk_stats(txn_id: str) -> Dict[str, int]:
     return stats
 
 
+def claimable_chunks(txn_id: str, filenames: List[str]) -> List[str]:
+    """Subset of `filenames` a worker could actually claim right now: no row
+    yet, pending, failed, or a processing claim that has gone stale.
+
+    Chunks a live worker still holds are excluded. Re-dispatching those only
+    queues jobs that immediately no-op on claim_chunk, and process_session
+    polls every 5s — so including them turns a slow session into a growing
+    backlog of pointless jobs competing for the same thread pool.
+    """
+    rows = {
+        r.get("filename"): r
+        for r in get_table(TABLE).find([("txn_id", "eq", txn_id)])
+    }
+    now = _now()
+    out: List[str] = []
+    for filename in filenames:
+        row = rows.get(filename)
+        if row is None:
+            out.append(filename)
+            continue
+        status = row.get("status")
+        if status in (STATUS_PENDING, STATUS_FAILED):
+            out.append(filename)
+        elif (
+            status == STATUS_PROCESSING
+            and now - int(row.get("claimed_at") or 0) > CLAIM_TTL_SECONDS
+        ):
+            out.append(filename)
+    return out
+
+
 def not_done_chunks(txn_id: str, filenames: List[str]) -> List[str]:
     """Subset of `filenames` whose rows are not done yet (missing rows count
     as not done)."""

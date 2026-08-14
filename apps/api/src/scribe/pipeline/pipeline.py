@@ -282,7 +282,9 @@ def process_session(message: Dict[str, Any]) -> None:
     remaining = chunk_state.not_done_chunks(txn_id, filenames)
     stats = chunk_state.session_chunk_stats(txn_id)
     if remaining and attempt < MAX_CHUNK_WAIT_ATTEMPTS:
-        for filename in remaining:
+        # Only chunks nobody is actively working on — see claimable_chunks.
+        redispatch = chunk_state.claimable_chunks(txn_id, remaining)
+        for filename in redispatch:
             dispatch(
                 "transcribe_chunk",
                 {
@@ -297,9 +299,10 @@ def process_session(message: Dict[str, Any]) -> None:
         follow_up["attempt"] = attempt + 1
         dispatch("process_session", {"message": follow_up}, delay_seconds=5)
         logger.info(
-            "process_session waiting on chunk jobs (re-dispatched claimable ones)",
+            "process_session waiting on chunk jobs",
             txn_id=txn_id,
             remaining=remaining,
+            re_dispatched=redispatch,
             chunk_states=stats,
             attempt=attempt,
             max_attempts=MAX_CHUNK_WAIT_ATTEMPTS,
