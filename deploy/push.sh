@@ -3,10 +3,14 @@
 # Build and push ekascribe images to Docker Hub, and publish the Vaarta
 # desktop app (S3 -> api PVC) served at /static/varta-app/.
 #
-#   ./deploy/push.sh v1.2.3                build + push the api image, then publish the app
+#   ./deploy/push.sh v1.2.3                build the api image locally -- NO push
+#   ./deploy/push.sh v1.2.3 --update-image build + push, backup /data/storage to
+#                                          local, roll the deployment to api-v1.2.3,
+#                                          restore the backup into the new pod(s),
+#                                          then print the backup path to clean up
 #   ./deploy/push.sh --app-only            no docker; latest S3 release -> PVC + promote
 #   ./deploy/push.sh --app-only v1.0.0     same, pinned to one tag (also = rollback)
-#   PUSH=false ./deploy/push.sh v1.2.3     build locally, don't push
+#   PUSH=true ./deploy/push.sh v1.2.3      push to Docker Hub without touching the cluster
 #   LATEST=false ./deploy/push.sh v1.2.3   skip the :api-latest tag
 #
 # The app tag defaults to the newest version under s3://<bucket>/varta-app/
@@ -27,10 +31,20 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 DOCKERHUB_REPO="${DOCKERHUB_REPO:-ekacare/ekascribe}"
-PUSH="${PUSH:-true}"
+# Build-only by default; the registry push happens with --update-image (which
+# needs the image pullable before the rollout) or an explicit PUSH=true.
+PUSH="${PUSH:-false}"
 LATEST="${LATEST:-true}"
 PLATFORMS="${PLATFORMS:-linux/amd64}"
 BUILDER_NAME="${BUILDER_NAME:-ekascribe-builder}"
+
+# --update-image: /data/storage rides an emptyDir (the Cinder PVC is commented
+# out in deploy/k8s/10-api-deployment.yaml -- single-attach, see that file), so
+# a rollout destroys it. The flag snapshots it locally first, rolls the
+# deployment to the freshly pushed tag, then restores the snapshot.
+UPDATE_IMAGE="${UPDATE_IMAGE:-false}"
+BACKUP_DIR="${BACKUP_DIR:-$REPO_ROOT/deploy/backups}"
+ROLLOUT_TIMEOUT="${ROLLOUT_TIMEOUT:-10m}"
 
 # Vaarta desktop-app publish (S3 -> PVC via kubectl cp)
 APP="${APP:-true}"
@@ -48,17 +62,25 @@ die()  { printf 'error: %s\n' "$*" >&2; exit 1; }
 
 usage() {
   cat <<'EOF'
-usage: ./deploy/push.sh <tag> | --app-only [tag]
+usage: ./deploy/push.sh <tag> [--update-image] | --app-only [tag]
 
-  <tag>        image tag, e.g. v1.2.3 or 1a2b3c4. Builds the api image
-               (API + static web UI): ekacare/ekascribe:api-<tag>
-  --app-only   skip docker entirely; only publish the Vaarta desktop app:
-               s3://<bucket>/varta-app/<channel>/<tag>/ -> api PVC, then
-               re-point <channel>/latest. Without [tag], the newest version
-               in S3 is used (pass an older tag to roll back).
+  <tag>           image tag, e.g. v1.2.3 or 1a2b3c4. Builds the api image
+                  (API + static web UI): ekacare/ekascribe:api-<tag>.
+                  Build only by default -- nothing is pushed or deployed.
+  --update-image  full pipeline: build + push, then backup /data/storage from
+                  the running pod to deploy/backups/ locally, `kubectl set
+                  image` the deployment to api-<tag>, wait for the rollout,
+                  restore the backup into the new pod(s), and print the local
+                  backup path for cleanup. The backup/restore exists because
+                  the storage volume is an emptyDir -- a rollout wipes it.
+  --app-only      skip docker entirely; only publish the Vaarta desktop app:
+                  s3://<bucket>/varta-app/<channel>/<tag>/ -> api PVC, then
+                  re-point <channel>/latest. Without [tag], the newest version
+                  in S3 is used (pass an older tag to roll back).
 
 env overrides:
-  PUSH=false            build only, don't push
+  PUSH=true             push to Docker Hub without --update-image (default:
+                        build only; --update-image always pushes)
   LATEST=false          don't also tag :api-latest
   PLATFORMS=...         default linux/amd64; a comma-separated list uses buildx
   DOCKERHUB_REPO=...    default ekacare/ekascribe
@@ -68,6 +90,8 @@ env overrides:
   CHANNEL=...           default main
   NAMESPACE=...         default eka-care
   FORCE=true            re-copy even if the tag is already on the PVC
+  BACKUP_DIR=...        default deploy/backups (--update-image snapshots)
+  ROLLOUT_TIMEOUT=...   default 10m (--update-image rollout wait)
 EOF
 }
 
@@ -147,6 +171,65 @@ build_component() {
   PUSHED_TAGS+=("${tags[@]}")
 }
 
+# Names of the Running api pods, one per line (empty if none / no cluster).
+api_pods() {
+  kubectl -n "$NAMESPACE" get pod -l app.kubernetes.io/name=ekascribe-api \
+    --field-selector=status.phase=Running \
+    -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null || true
+}
+
+# Snapshot /data/storage to a local tarball before the rollout destroys the
+# emptyDir. Sets BACKUP_FILE for update_image/restore_storage.
+backup_storage() {
+  command -v kubectl >/dev/null 2>&1 || die "kubectl not found on PATH"
+
+  local pod
+  pod="$(api_pods | head -1)"
+  [[ -n "$pod" ]] || die "no running ekascribe-api pod in ns '$NAMESPACE' (is the Fortinet tunnel up?)"
+
+  mkdir -p "$BACKUP_DIR"
+  BACKUP_FILE="${BACKUP_DIR}/storage-$(date +%Y%m%d-%H%M%S)-${pod}.tar.gz"
+
+  # One gzipped tar stream over exec -- kubectl cp round-trips per-file and is
+  # far slower over the tunnel for many small recordings.
+  info "backup ${pod}:/data/storage -> ${BACKUP_FILE}"
+  kubectl -n "$NAMESPACE" exec "$pod" -- tar -czf - -C /data/storage . > "$BACKUP_FILE" \
+    || die "backup failed -- aborting before the rollout touches the pod"
+
+  # A stream truncated by a dropped tunnel can still land as a plausible file;
+  # prove the archive is whole before letting the rollout destroy the source.
+  tar -tzf "$BACKUP_FILE" >/dev/null \
+    || die "backup archive is corrupt ($BACKUP_FILE) -- aborting before the rollout"
+  info "backup ok ($(du -h "$BACKUP_FILE" | awk '{print $1}'))"
+}
+
+update_image() {
+  local image="${DOCKERHUB_REPO}:api-${TAG}"
+  info "set image deploy/ekascribe-api api=${image}"
+  kubectl -n "$NAMESPACE" set image deploy/ekascribe-api "api=${image}"
+  info "waiting for rollout (timeout ${ROLLOUT_TIMEOUT})"
+  kubectl -n "$NAMESPACE" rollout status deploy/ekascribe-api --timeout="$ROLLOUT_TIMEOUT" \
+    || die "rollout did not complete -- storage NOT restored; backup kept at $BACKUP_FILE"
+}
+
+# Copy the snapshot back into every Running pod -- emptyDir is per-pod, so
+# with >1 replica each needs its own copy.
+restore_storage() {
+  local pods pod count=0
+  pods="$(api_pods)"
+  [[ -n "$pods" ]] || die "no running api pod after rollout -- backup kept at $BACKUP_FILE; restore by hand:
+  kubectl -n $NAMESPACE exec -i <pod> -- tar -xzf - -C /data/storage < $BACKUP_FILE"
+
+  while IFS= read -r pod; do
+    info "restore ${BACKUP_FILE} -> ${pod}:/data/storage"
+    kubectl -n "$NAMESPACE" exec -i "$pod" -- tar -xzf - -C /data/storage < "$BACKUP_FILE" \
+      || die "restore to $pod failed -- backup kept at $BACKUP_FILE; retry with:
+  kubectl -n $NAMESPACE exec -i $pod -- tar -xzf - -C /data/storage < $BACKUP_FILE"
+    count=$((count + 1))
+  done <<< "$pods"
+  info "restored /data/storage on $count pod(s)"
+}
+
 # Publish the Vaarta desktop app: S3 tag dir -> PVC, then promote latest.
 # $1 = "die" | "warn": what to do when the S3 tag dir is empty (die for
 # --app-only, warn for the after-image-push run where APP_TAG may not exist).
@@ -174,10 +257,8 @@ publish_app() {
   local dest="${APP_DEST}/${CHANNEL}/${APP_TAG}"
 
   local pod
-  pod="$(kubectl -n "$NAMESPACE" get pod -l app.kubernetes.io/name=ekascribe-api \
-    --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)" \
-    || true
-  [[ -n "${pod:-}" ]] || die "no running ekascribe-api pod in ns '$NAMESPACE' (is the Fortinet tunnel up?)"
+  pod="$(api_pods | head -1)"
+  [[ -n "$pod" ]] || die "no running ekascribe-api pod in ns '$NAMESPACE' (is the Fortinet tunnel up?)"
 
   if [[ "$FORCE" != "true" ]] && kubectl -n "$NAMESPACE" exec "$pod" -- test -d "$dest" >/dev/null 2>&1; then
     info "app ${CHANNEL}/${APP_TAG} already on the PVC -- skipping copy (FORCE=true to re-copy)"
@@ -228,12 +309,26 @@ main() {
     return
   fi
 
+  local parsed=() a
+  for a in "$@"; do
+    case "$a" in
+      --update-image) UPDATE_IMAGE=true ;;
+      -*)             usage >&2; exit 2 ;;
+      *)              parsed+=("$a") ;;
+    esac
+  done
+  set -- ${parsed[@]+"${parsed[@]}"}
+
   if [[ $# -ne 1 ]]; then
     usage >&2
     exit 2
   fi
 
   TAG="$1"
+
+  # The rollout pulls api-<tag> from the registry, so the push is not optional
+  # here -- it overrides both the build-only default and an explicit PUSH=false.
+  [[ "$UPDATE_IMAGE" == "true" ]] && PUSH=true
 
   # The old form selected components positionally. A bare `./push.sh api` is
   # now indistinguishable from a tag named "api" -- reject it rather than
@@ -255,7 +350,7 @@ main() {
   preflight
 
   info "repo: $DOCKERHUB_REPO   tag: $TAG   components: ${ALL_COMPONENTS[*]}"
-  [[ "$PUSH" == "true" ]] || info "PUSH=false -- building only, nothing will be pushed"
+  [[ "$PUSH" == "true" ]] || info "build only (default) -- use --update-image to deploy, or PUSH=true to just push"
 
   for c in "${ALL_COMPONENTS[@]}"; do
     build_component "$c"
@@ -266,7 +361,17 @@ main() {
   local t
   for t in "${PUSHED_TAGS[@]}"; do printf '     %s\n' "$t"; done
 
-  if [[ "$PUSH" == "true" ]]; then
+  if [[ "$UPDATE_IMAGE" == "true" ]]; then
+    # Backup as late as possible (after the slow build/push) so recordings
+    # written in the meantime still make the snapshot.
+    echo
+    backup_storage
+    update_image
+    restore_storage
+    echo
+    info "local backup kept at: $BACKUP_FILE"
+    info "verify the app, then clean up with: rm '$BACKUP_FILE'"
+  elif [[ "$PUSH" == "true" ]]; then
     echo
     info "roll out the immutable tags with:"
     for c in "${ALL_COMPONENTS[@]}"; do
