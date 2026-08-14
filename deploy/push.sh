@@ -8,6 +8,8 @@
 #                                          local, roll the deployment to api-v1.2.3,
 #                                          restore the backup into the new pod(s),
 #                                          then print the backup path to clean up
+#   ./deploy/push.sh v1.2.3 --update-image --context openweb
+#                                          same, with kubectl pinned to the openweb context
 #   ./deploy/push.sh --app-only            no docker; latest S3 release -> PVC + promote
 #   ./deploy/push.sh --app-only v1.0.0     same, pinned to one tag (also = rollback)
 #   PUSH=true ./deploy/push.sh v1.2.3      push to Docker Hub without touching the cluster
@@ -51,6 +53,9 @@ APP="${APP:-true}"
 S3_BUCKET="${S3_BUCKET:-eka-updates}"
 CHANNEL="${CHANNEL:-main}"
 NAMESPACE="${NAMESPACE:-eka-care}"
+# --context <name> / KUBE_CONTEXT: kubectl context for every cluster call
+# (backup/restore, set image, app publish). Empty = current context.
+KUBE_CONTEXT="${KUBE_CONTEXT:-}"
 APP_DEST="/data/storage/varta-app"
 FORCE="${FORCE:-false}"
 
@@ -62,7 +67,8 @@ die()  { printf 'error: %s\n' "$*" >&2; exit 1; }
 
 usage() {
   cat <<'EOF'
-usage: ./deploy/push.sh <tag> [--update-image] | --app-only [tag]
+usage: ./deploy/push.sh <tag> [--update-image] [--context <name>]
+       ./deploy/push.sh --app-only [tag] [--context <name>]
 
   <tag>           image tag, e.g. v1.2.3 or 1a2b3c4. Builds the api image
                   (API + static web UI): ekacare/ekascribe:api-<tag>.
@@ -77,6 +83,13 @@ usage: ./deploy/push.sh <tag> [--update-image] | --app-only [tag]
                   s3://<bucket>/varta-app/<channel>/<tag>/ -> api PVC, then
                   re-point <channel>/latest. Without [tag], the newest version
                   in S3 is used (pass an older tag to roll back).
+  --context <name>
+                  kubectl context for every cluster call (backup, set image,
+                  restore, app publish), e.g. --context openweb.
+                  Default: the kubeconfig's current context. If the name (or
+                  the current context) doesn't exist, the available contexts
+                  are listed and you're prompted to pick one; connectivity to
+                  the cluster + ns access is verified before anything runs.
 
 env overrides:
   PUSH=true             push to Docker Hub without --update-image (default:
@@ -89,6 +102,7 @@ env overrides:
   S3_BUCKET=...         default eka-updates
   CHANNEL=...           default main
   NAMESPACE=...         default eka-care
+  KUBE_CONTEXT=...      same as --context (the flag wins)
   FORCE=true            re-copy even if the tag is already on the PVC
   BACKUP_DIR=...        default deploy/backups (--update-image snapshots)
   ROLLOUT_TIMEOUT=...   default 10m (--update-image rollout wait)
@@ -171,9 +185,65 @@ build_component() {
   PUSHED_TAGS+=("${tags[@]}")
 }
 
+# Every kubectl call goes through this so --context applies uniformly.
+kctl() {
+  kubectl ${KUBE_CONTEXT:+--context "$KUBE_CONTEXT"} "$@"
+}
+
+# List available contexts and prompt until a valid one is chosen. Prompts on
+# stderr so it works inside $( ); non-interactive runs die with the list.
+pick_context() {
+  local contexts="$1" choice
+  [[ -t 0 ]] || die "not a tty -- pass a valid --context; available:
+$contexts"
+  printf 'available contexts:\n%s\n' "$contexts" >&2
+  while :; do
+    printf 'context to use: ' >&2
+    IFS= read -r choice || die "no context chosen"
+    [[ -z "$choice" ]] && continue
+    if printf '%s\n' "$contexts" | grep -qx "$choice"; then
+      printf '%s\n' "$choice"
+      return 0
+    fi
+    printf "'%s' is not in the list, try again\n" "$choice" >&2
+  done
+}
+
+# Resolve the kubectl context and prove the cluster is usable, once per run.
+# --context wins; otherwise the kubeconfig's current context. An unknown
+# context (or no current one) lists what exists and prompts for a choice.
+# The probe lists pods in $NAMESPACE -- the one permission every flow here
+# needs -- so it catches a down tunnel AND missing RBAC in one shot.
+CLUSTER_CHECKED=false
+ensure_cluster() {
+  [[ "$CLUSTER_CHECKED" == "true" ]] && return 0
+  command -v kubectl >/dev/null 2>&1 || die "kubectl not found on PATH"
+
+  local contexts
+  contexts="$(kubectl config get-contexts -o name 2>/dev/null)"
+  [[ -n "$contexts" ]] || die "no contexts in your kubeconfig -- is KUBECONFIG pointing at the right file?"
+
+  if [[ -n "$KUBE_CONTEXT" ]]; then
+    if ! printf '%s\n' "$contexts" | grep -qx "$KUBE_CONTEXT"; then
+      warn "context '$KUBE_CONTEXT' not found in kubeconfig"
+      KUBE_CONTEXT="$(pick_context "$contexts")"
+    fi
+  elif ! kubectl config current-context >/dev/null 2>&1; then
+    warn "no --context given and no current context in kubeconfig"
+    KUBE_CONTEXT="$(pick_context "$contexts")"
+  fi
+
+  local label="${KUBE_CONTEXT:-$(kubectl config current-context)}"
+  info "kubectl context: $label"
+  kctl -n "$NAMESPACE" get pods -o name --request-timeout=10s >/dev/null 2>&1 \
+    || die "cannot list pods in ns '$NAMESPACE' on context '$label' -- tunnel/Tailscale down, or RBAC?"
+  info "cluster reachable, ns '$NAMESPACE' accessible"
+  CLUSTER_CHECKED=true
+}
+
 # Names of the Running api pods, one per line (empty if none / no cluster).
 api_pods() {
-  kubectl -n "$NAMESPACE" get pod -l app.kubernetes.io/name=ekascribe-api \
+  kctl -n "$NAMESPACE" get pod -l app.kubernetes.io/name=ekascribe-api \
     --field-selector=status.phase=Running \
     -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null || true
 }
@@ -181,8 +251,6 @@ api_pods() {
 # Snapshot /data/storage to a local tarball before the rollout destroys the
 # emptyDir. Sets BACKUP_FILE for update_image/restore_storage.
 backup_storage() {
-  command -v kubectl >/dev/null 2>&1 || die "kubectl not found on PATH"
-
   local pod
   pod="$(api_pods | head -1)"
   [[ -n "$pod" ]] || die "no running ekascribe-api pod in ns '$NAMESPACE' (is the Fortinet tunnel up?)"
@@ -193,7 +261,7 @@ backup_storage() {
   # One gzipped tar stream over exec -- kubectl cp round-trips per-file and is
   # far slower over the tunnel for many small recordings.
   info "backup ${pod}:/data/storage -> ${BACKUP_FILE}"
-  kubectl -n "$NAMESPACE" exec "$pod" -- tar -czf - -C /data/storage . > "$BACKUP_FILE" \
+  kctl -n "$NAMESPACE" exec "$pod" -- tar -czf - -C /data/storage . > "$BACKUP_FILE" \
     || die "backup failed -- aborting before the rollout touches the pod"
 
   # A stream truncated by a dropped tunnel can still land as a plausible file;
@@ -206,9 +274,9 @@ backup_storage() {
 update_image() {
   local image="${DOCKERHUB_REPO}:api-${TAG}"
   info "set image deploy/ekascribe-api api=${image}"
-  kubectl -n "$NAMESPACE" set image deploy/ekascribe-api "api=${image}"
+  kctl -n "$NAMESPACE" set image deploy/ekascribe-api "api=${image}"
   info "waiting for rollout (timeout ${ROLLOUT_TIMEOUT})"
-  kubectl -n "$NAMESPACE" rollout status deploy/ekascribe-api --timeout="$ROLLOUT_TIMEOUT" \
+  kctl -n "$NAMESPACE" rollout status deploy/ekascribe-api --timeout="$ROLLOUT_TIMEOUT" \
     || die "rollout did not complete -- storage NOT restored; backup kept at $BACKUP_FILE"
 }
 
@@ -216,15 +284,16 @@ update_image() {
 # with >1 replica each needs its own copy.
 restore_storage() {
   local pods pod count=0
+  local kh="kubectl${KUBE_CONTEXT:+ --context $KUBE_CONTEXT}"
   pods="$(api_pods)"
   [[ -n "$pods" ]] || die "no running api pod after rollout -- backup kept at $BACKUP_FILE; restore by hand:
-  kubectl -n $NAMESPACE exec -i <pod> -- tar -xzf - -C /data/storage < $BACKUP_FILE"
+  $kh -n $NAMESPACE exec -i <pod> -- tar -xzf - -C /data/storage < $BACKUP_FILE"
 
   while IFS= read -r pod; do
     info "restore ${BACKUP_FILE} -> ${pod}:/data/storage"
-    kubectl -n "$NAMESPACE" exec -i "$pod" -- tar -xzf - -C /data/storage < "$BACKUP_FILE" \
+    kctl -n "$NAMESPACE" exec -i "$pod" -- tar -xzf - -C /data/storage < "$BACKUP_FILE" \
       || die "restore to $pod failed -- backup kept at $BACKUP_FILE; retry with:
-  kubectl -n $NAMESPACE exec -i $pod -- tar -xzf - -C /data/storage < $BACKUP_FILE"
+  $kh -n $NAMESPACE exec -i $pod -- tar -xzf - -C /data/storage < $BACKUP_FILE"
     count=$((count + 1))
   done <<< "$pods"
   info "restored /data/storage on $count pod(s)"
@@ -237,7 +306,7 @@ publish_app() {
   local on_missing="$1"
 
   command -v aws >/dev/null 2>&1 || die "aws cli not found on PATH"
-  command -v kubectl >/dev/null 2>&1 || die "kubectl not found on PATH"
+  ensure_cluster
 
   local base="s3://${S3_BUCKET}/varta-app/${CHANNEL}"
   if [[ -z "${APP_TAG:-}" ]]; then
@@ -260,7 +329,7 @@ publish_app() {
   pod="$(api_pods | head -1)"
   [[ -n "$pod" ]] || die "no running ekascribe-api pod in ns '$NAMESPACE' (is the Fortinet tunnel up?)"
 
-  if [[ "$FORCE" != "true" ]] && kubectl -n "$NAMESPACE" exec "$pod" -- test -d "$dest" >/dev/null 2>&1; then
+  if [[ "$FORCE" != "true" ]] && kctl -n "$NAMESPACE" exec "$pod" -- test -d "$dest" >/dev/null 2>&1; then
     info "app ${CHANNEL}/${APP_TAG} already on the PVC -- skipping copy (FORCE=true to re-copy)"
   else
     if ! aws s3 ls "$s3_src" 2>/dev/null | grep -q .; then
@@ -279,13 +348,13 @@ publish_app() {
     # Stage under .partial and swap in, so an interrupted kubectl cp (~600MB
     # over the tunnel) never leaves a half-copied dir that later runs skip.
     info "copy -> $pod:$dest (shared PVC; takes a while over the tunnel)"
-    kubectl -n "$NAMESPACE" exec "$pod" -- sh -c "rm -rf '${dest}.partial' && mkdir -p '${APP_DEST}/${CHANNEL}'"
-    kubectl -n "$NAMESPACE" cp "$stage" "${pod}:${dest}.partial"
-    kubectl -n "$NAMESPACE" exec "$pod" -- sh -c "rm -rf '$dest' && mv '${dest}.partial' '$dest'"
+    kctl -n "$NAMESPACE" exec "$pod" -- sh -c "rm -rf '${dest}.partial' && mkdir -p '${APP_DEST}/${CHANNEL}'"
+    kctl -n "$NAMESPACE" cp "$stage" "${pod}:${dest}.partial"
+    kctl -n "$NAMESPACE" exec "$pod" -- sh -c "rm -rf '$dest' && mv '${dest}.partial' '$dest'"
   fi
 
   info "promote ${CHANNEL}/latest -> ${APP_TAG}"
-  kubectl -n "$NAMESPACE" exec "$pod" -- ln -sfn "$APP_TAG" "${APP_DEST}/${CHANNEL}/latest"
+  kctl -n "$NAMESPACE" exec "$pod" -- ln -sfn "$APP_TAG" "${APP_DEST}/${CHANNEL}/latest"
 
   echo
   info "verify:"
@@ -293,13 +362,25 @@ publish_app() {
 }
 
 main() {
-  if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
-    usage
-    exit 0
-  fi
-
-  if [[ "${1:-}" == "--app-only" ]]; then
+  local parsed=() app_only=false
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      -h|--help)      usage; exit 0 ;;
+      --app-only)     app_only=true ;;
+      --update-image) UPDATE_IMAGE=true ;;
+      --context)      [[ $# -ge 2 ]] || die "--context needs a value, e.g. --context openweb"
+                      KUBE_CONTEXT="$2"; shift ;;
+      --context=*)    KUBE_CONTEXT="${1#--context=}" ;;
+      -*)             usage >&2; exit 2 ;;
+      *)              parsed+=("$1") ;;
+    esac
     shift
+  done
+  set -- ${parsed[@]+"${parsed[@]}"}
+
+  if [[ "$app_only" == "true" ]]; then
+    # --app-only never builds, so there is no fresh image to roll out.
+    [[ "$UPDATE_IMAGE" == "true" ]] && die "--app-only and --update-image are mutually exclusive"
     if [[ $# -gt 1 ]]; then
       usage >&2
       exit 2
@@ -308,16 +389,6 @@ main() {
     publish_app die
     return
   fi
-
-  local parsed=() a
-  for a in "$@"; do
-    case "$a" in
-      --update-image) UPDATE_IMAGE=true ;;
-      -*)             usage >&2; exit 2 ;;
-      *)              parsed+=("$a") ;;
-    esac
-  done
-  set -- ${parsed[@]+"${parsed[@]}"}
 
   if [[ $# -ne 1 ]]; then
     usage >&2
@@ -348,6 +419,9 @@ main() {
   PUSHED_TAGS=()
 
   preflight
+  # Resolve the context and prove the cluster is usable BEFORE the slow
+  # build/push, not 10 minutes into it.
+  [[ "$UPDATE_IMAGE" == "true" ]] && ensure_cluster
 
   info "repo: $DOCKERHUB_REPO   tag: $TAG   components: ${ALL_COMPONENTS[*]}"
   [[ "$PUSH" == "true" ]] || info "build only (default) -- use --update-image to deploy, or PUSH=true to just push"
@@ -375,7 +449,8 @@ main() {
     echo
     info "roll out the immutable tags with:"
     for c in "${ALL_COMPONENTS[@]}"; do
-      printf '     kubectl -n eka-care set image deploy/ekascribe-%s %s=%s:%s-%s\n' \
+      printf '     kubectl%s -n %s set image deploy/ekascribe-%s %s=%s:%s-%s\n' \
+        "${KUBE_CONTEXT:+ --context $KUBE_CONTEXT}" "$NAMESPACE" \
         "$c" "$c" "$DOCKERHUB_REPO" "$c" "$TAG"
     done
   fi
