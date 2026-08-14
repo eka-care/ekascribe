@@ -1,10 +1,19 @@
 #!/usr/bin/env bash
 #
-# Build and push ekascribe images to Docker Hub.
+# Build and push ekascribe images to Docker Hub, and publish the Vaarta
+# desktop app (S3 -> api PVC) served at /static/varta-app/.
 #
-#   ./deploy/push.sh v1.2.3                build + push the api image (API + web UI)
+#   ./deploy/push.sh v1.2.3                build + push the api image, then publish the app
+#   ./deploy/push.sh --app-only            no docker; latest S3 release -> PVC + promote
+#   ./deploy/push.sh --app-only v1.0.0     same, pinned to one tag (also = rollback)
 #   PUSH=false ./deploy/push.sh v1.2.3     build locally, don't push
 #   LATEST=false ./deploy/push.sh v1.2.3   skip the :api-latest tag
+#
+# The app tag defaults to the newest version under s3://<bucket>/varta-app/
+# <channel>/, so a plain run always converges the cluster on the latest CI
+# release. App publish needs aws creds (S3 read) and a kubeconfig that reaches
+# the TCL cluster (Fortinet). Already-copied tags are skipped (FORCE=true to
+# re-copy); the <channel>/latest symlink is re-pointed every run.
 #
 # Everything lands in ONE repo with component-prefixed tags, e.g.
 #   ekacare/ekascribe:api-1a2b3c4   ekacare/ekascribe:api-latest
@@ -23,6 +32,14 @@ LATEST="${LATEST:-true}"
 PLATFORMS="${PLATFORMS:-linux/amd64}"
 BUILDER_NAME="${BUILDER_NAME:-ekascribe-builder}"
 
+# Vaarta desktop-app publish (S3 -> PVC via kubectl cp)
+APP="${APP:-true}"
+S3_BUCKET="${S3_BUCKET:-eka-updates}"
+CHANNEL="${CHANNEL:-main}"
+NAMESPACE="${NAMESPACE:-eka-care}"
+APP_DEST="/data/storage/varta-app"
+FORCE="${FORCE:-false}"
+
 ALL_COMPONENTS=(api)
 
 info() { printf '>> %s\n' "$*"; }
@@ -31,16 +48,26 @@ die()  { printf 'error: %s\n' "$*" >&2; exit 1; }
 
 usage() {
   cat <<'EOF'
-usage: ./deploy/push.sh <tag>
+usage: ./deploy/push.sh <tag> | --app-only [tag]
 
-  <tag>   image tag, e.g. v1.2.3 or 1a2b3c4. Builds the api image
-          (API + static web UI): ekacare/ekascribe:api-<tag>
+  <tag>        image tag, e.g. v1.2.3 or 1a2b3c4. Builds the api image
+               (API + static web UI): ekacare/ekascribe:api-<tag>
+  --app-only   skip docker entirely; only publish the Vaarta desktop app:
+               s3://<bucket>/varta-app/<channel>/<tag>/ -> api PVC, then
+               re-point <channel>/latest. Without [tag], the newest version
+               in S3 is used (pass an older tag to roll back).
 
 env overrides:
   PUSH=false            build only, don't push
   LATEST=false          don't also tag :api-latest
   PLATFORMS=...         default linux/amd64; a comma-separated list uses buildx
   DOCKERHUB_REPO=...    default ekacare/ekascribe
+  APP=false             skip the desktop-app publish after the image push
+  APP_TAG=...           pin the desktop-app tag (default: newest in S3)
+  S3_BUCKET=...         default eka-updates
+  CHANNEL=...           default main
+  NAMESPACE=...         default eka-care
+  FORCE=true            re-copy even if the tag is already on the PVC
 EOF
 }
 
@@ -120,10 +147,85 @@ build_component() {
   PUSHED_TAGS+=("${tags[@]}")
 }
 
+# Publish the Vaarta desktop app: S3 tag dir -> PVC, then promote latest.
+# $1 = "die" | "warn": what to do when the S3 tag dir is empty (die for
+# --app-only, warn for the after-image-push run where APP_TAG may not exist).
+publish_app() {
+  local on_missing="$1"
+
+  command -v aws >/dev/null 2>&1 || die "aws cli not found on PATH"
+  command -v kubectl >/dev/null 2>&1 || die "kubectl not found on PATH"
+
+  local base="s3://${S3_BUCKET}/varta-app/${CHANNEL}"
+  if [[ -z "${APP_TAG:-}" ]]; then
+    APP_TAG="$(aws s3 ls "${base}/" 2>/dev/null \
+      | awk '$1 == "PRE" {sub("/", "", $2); print $2}' | sort -V | tail -1)"
+    if [[ -z "$APP_TAG" ]]; then
+      if [[ "$on_missing" == "warn" ]]; then
+        warn "no app releases under ${base}/ -- skipping app publish (APP=false to silence)"
+        return 0
+      fi
+      die "no app releases under ${base}/ -- has CI uploaded any tag yet?"
+    fi
+    info "newest app release in S3: ${APP_TAG}"
+  fi
+
+  local s3_src="${base}/${APP_TAG}/"
+  local dest="${APP_DEST}/${CHANNEL}/${APP_TAG}"
+
+  local pod
+  pod="$(kubectl -n "$NAMESPACE" get pod -l app.kubernetes.io/name=ekascribe-api \
+    --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)" \
+    || true
+  [[ -n "${pod:-}" ]] || die "no running ekascribe-api pod in ns '$NAMESPACE' (is the Fortinet tunnel up?)"
+
+  if [[ "$FORCE" != "true" ]] && kubectl -n "$NAMESPACE" exec "$pod" -- test -d "$dest" >/dev/null 2>&1; then
+    info "app ${CHANNEL}/${APP_TAG} already on the PVC -- skipping copy (FORCE=true to re-copy)"
+  else
+    if ! aws s3 ls "$s3_src" 2>/dev/null | grep -q .; then
+      if [[ "$on_missing" == "warn" ]]; then
+        warn "nothing at $s3_src -- skipping app publish (set APP_TAG=<tag> or APP=false to silence)"
+        return 0
+      fi
+      die "nothing at $s3_src -- did CI upload this tag?"
+    fi
+
+    local stage
+    stage="$(mktemp -d)/${APP_TAG}"
+    info "sync $s3_src -> $stage"
+    aws s3 sync "$s3_src" "$stage" --only-show-errors
+
+    # Stage under .partial and swap in, so an interrupted kubectl cp (~600MB
+    # over the tunnel) never leaves a half-copied dir that later runs skip.
+    info "copy -> $pod:$dest (shared PVC; takes a while over the tunnel)"
+    kubectl -n "$NAMESPACE" exec "$pod" -- sh -c "rm -rf '${dest}.partial' && mkdir -p '${APP_DEST}/${CHANNEL}'"
+    kubectl -n "$NAMESPACE" cp "$stage" "${pod}:${dest}.partial"
+    kubectl -n "$NAMESPACE" exec "$pod" -- sh -c "rm -rf '$dest' && mv '${dest}.partial' '$dest'"
+  fi
+
+  info "promote ${CHANNEL}/latest -> ${APP_TAG}"
+  kubectl -n "$NAMESPACE" exec "$pod" -- ln -sfn "$APP_TAG" "${APP_DEST}/${CHANNEL}/latest"
+
+  echo
+  info "verify:"
+  printf '     curl -sI https://vaarta.bharatai.gov.in/static/varta-app/%s/latest/latest.yml\n' "$CHANNEL"
+}
+
 main() {
   if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
     usage
     exit 0
+  fi
+
+  if [[ "${1:-}" == "--app-only" ]]; then
+    shift
+    if [[ $# -gt 1 ]]; then
+      usage >&2
+      exit 2
+    fi
+    [[ $# -eq 1 ]] && APP_TAG="$1"
+    publish_app die
+    return
   fi
 
   if [[ $# -ne 1 ]]; then
@@ -171,6 +273,11 @@ main() {
       printf '     kubectl -n eka-care set image deploy/ekascribe-%s %s=%s:%s-%s\n' \
         "$c" "$c" "$DOCKERHUB_REPO" "$c" "$TAG"
     done
+  fi
+
+  if [[ "$APP" == "true" ]]; then
+    echo
+    publish_app warn
   fi
 }
 
