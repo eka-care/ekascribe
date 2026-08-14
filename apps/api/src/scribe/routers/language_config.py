@@ -37,9 +37,29 @@ non_vaded_bucket = os.getenv("S3_NON_VADED_BUCKET_NAME", "voice-records-batch")
 header_footer_bucket = os.getenv("S3_HEADER_FOOTER_BUCKET_NAME", "")
 header_footer_cdn_base = os.getenv("S3_HEADER_FOOTER_CDN_BASE_URL", "")
 
+def _supported_models() -> list[dict]:
+    """Structuring models the UI may offer, from STRUCTURING_MODELS."""
+    from scribe_core.settings import get_settings
+    s = get_settings()
+    ids = [m.strip() for m in (s.structuring_models or "").split(",") if m.strip()]
+    return [{"id": m, "name": m} for m in ids]
+
+
+def _default_structuring_model() -> str:
+    """Which entry the picker should start on: the env default when it is one
+    of the offered models, otherwise the first offered one."""
+    ids = [m["id"] for m in _supported_models()]
+    env_model = os.getenv("ECHO_DEFAULT_LLM_MODEL") or os.getenv("ECHO_LLM_MODEL") or ""
+    if env_model and env_model in ids:
+        return env_model
+    return ids[0] if ids else ""
+
+
 SUPPORTED_CONFIG_DATA = {
     "data": {
         "supported_languages": SUPPORTED_LANGUAGES,
+        "supported_models": _supported_models(),
+        "default_model": _default_structuring_model(),
         "supported_output_formats": [],
         "consultation_modes": [
             {

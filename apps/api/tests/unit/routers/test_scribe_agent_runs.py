@@ -592,3 +592,133 @@ def test_router_mounted_under_voice_v1_scribe_agent(client, stub_auth):
     # If the prefix were missing, we'd get something different (FastAPI's
     # 404 structure or no route at all — same status, different body).
     assert response.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+#  Per-run structuring model (?model=)
+# ---------------------------------------------------------------------------
+
+
+def _capture_llm_config(captured: dict):
+    """Run service that records the llm_config the endpoint handed it."""
+
+    class _Svc(AgUiRunService):
+        def __init__(self):
+            pass
+
+        async def stream(self, run_input, inputs):
+            captured["llm_config"] = inputs.llm_config
+            yield _stub_run_finished()
+
+    return _Svc()
+
+
+def _install_model_test_doubles(captured: dict, resolver_model: str = "env-default"):
+    from scribe.services.agent_config import LLMAgentConfig
+
+    async def fake_resolver(template_id, session_id, b_id, jwt_uuid):
+        cfg = LLMAgentConfig(provider="openai_compatible", model=resolver_model)
+        return _make_inputs(
+            template_id=template_id,
+            txn_id=session_id,
+            b_id=b_id,
+            llm_config=cfg.to_llm_config(),
+        )
+
+    scribe_agent_runs_module.set_run_input_resolver(fake_resolver)
+    scribe_agent_runs_module.set_run_service(_capture_llm_config(captured))
+
+
+def test_model_query_param_overrides_the_env_default(client, stub_auth, monkeypatch):
+    monkeypatch.setattr(
+        scribe_agent_runs_module,
+        "_allowed_structuring_models",
+        lambda: ["sov-105b-h200", "qwen3-27b", "gemma-31b"],
+    )
+    captured: dict = {}
+    _install_model_test_doubles(captured)
+
+    response = client.post(
+        f"{ENDPOINT}?model=qwen3-27b",
+        json=_valid_body(),
+        headers={"accept": "text/event-stream"},
+    )
+
+    assert response.status_code == 200
+    assert captured["llm_config"].model == "qwen3-27b"
+
+
+def test_no_model_query_param_keeps_the_env_default(client, stub_auth, monkeypatch):
+    monkeypatch.setattr(
+        scribe_agent_runs_module,
+        "_allowed_structuring_models",
+        lambda: ["sov-105b-h200", "qwen3-27b"],
+    )
+    captured: dict = {}
+    _install_model_test_doubles(captured)
+
+    response = client.post(
+        ENDPOINT, json=_valid_body(), headers={"accept": "text/event-stream"}
+    )
+
+    assert response.status_code == 200
+    assert captured["llm_config"].model == "env-default"
+
+
+def test_unknown_model_is_rejected(client, stub_auth, monkeypatch):
+    monkeypatch.setattr(
+        scribe_agent_runs_module,
+        "_allowed_structuring_models",
+        lambda: ["sov-105b-h200", "qwen3-27b"],
+    )
+    captured: dict = {}
+    _install_model_test_doubles(captured)
+
+    response = client.post(
+        f"{ENDPOINT}?model=gpt-4o", json=_valid_body(), headers={"accept": "text/event-stream"}
+    )
+
+    assert response.status_code == 400
+    assert "unsupported model" in response.text
+    assert "llm_config" not in captured  # the run never started
+
+
+def test_empty_allow_list_accepts_any_model(client, stub_auth, monkeypatch):
+    """STRUCTURING_MODELS unset == no restriction, not 'reject everything'."""
+    monkeypatch.setattr(
+        scribe_agent_runs_module, "_allowed_structuring_models", lambda: []
+    )
+    captured: dict = {}
+    _install_model_test_doubles(captured)
+
+    response = client.post(
+        f"{ENDPOINT}?model=some-local-model",
+        json=_valid_body(),
+        headers={"accept": "text/event-stream"},
+    )
+
+    assert response.status_code == 200
+    assert captured["llm_config"].model == "some-local-model"
+
+
+def test_model_override_only_swaps_the_model(client, stub_auth, monkeypatch):
+    """Provider/temperature/keys still come from the environment."""
+    monkeypatch.setattr(
+        scribe_agent_runs_module, "_allowed_structuring_models", lambda: ["gemma-31b"]
+    )
+    monkeypatch.setenv("ECHO_DEFAULT_LLM_PROVIDER", "openai_compatible")
+    monkeypatch.setenv("ECHO_DEFAULT_LLM_TEMPERATURE", "0.4")
+    captured: dict = {}
+    _install_model_test_doubles(captured)
+
+    response = client.post(
+        f"{ENDPOINT}?model=gemma-31b",
+        json=_valid_body(),
+        headers={"accept": "text/event-stream"},
+    )
+
+    assert response.status_code == 200
+    cfg = captured["llm_config"]
+    assert cfg.model == "gemma-31b"
+    assert cfg.provider == "openai_compatible"
+    assert cfg.temperature == 0.4

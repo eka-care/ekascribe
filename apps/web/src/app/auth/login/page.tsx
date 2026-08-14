@@ -57,9 +57,11 @@ export default function LoginPage() {
           !target ||
           target === window.location.pathname ||
           target.startsWith(window.location.pathname + '?');
-        // Straight to the provider only when this page has nothing to offer;
-        // with password login enabled we render the form + the SSO button.
-        if (info?.allow_password_login === false && !selfReferential) {
+        // Straight to the provider only when this page has nothing to offer:
+        // no password form AND no SSO button to click.
+        const hasOnPageOption =
+          info?.allow_password_login !== false || Boolean(info?.oidc_enabled);
+        if (!hasOnPageOption && !selfReferential) {
           window.location.replace(target as string);
           return;
         }
@@ -68,7 +70,8 @@ export default function LoginPage() {
       .catch(() => setAuthInfo(null)); // offline/unknown: keep the password form
   }, []);
 
-  const signupAllowed = authInfo?.allow_signup !== false;
+  const passwordAllowed = authInfo?.allow_password_login !== false;
+  const signupAllowed = passwordAllowed && authInfo?.allow_signup !== false;
   const oidcUrl = authInfo?.oidc_enabled ? authInfo.oidc_login_url : null;
   const oidcName = authInfo?.oidc_display_name || 'Single sign-on';
 
@@ -113,11 +116,16 @@ export default function LoginPage() {
         <div className="mb-6 flex flex-col items-center gap-2 text-center">
           <VaartaLogoLottie />
           <p className="text-sm text-muted-foreground">
-            {mode === 'login' ? 'Sign in to continue' : 'Create your account'}
+            {!passwordAllowed
+              ? 'Sign in to continue'
+              : mode === 'login'
+                ? 'Sign in to continue'
+                : 'Create your account'}
           </p>
         </div>
 
-        <form onSubmit={submit} className="flex flex-col gap-3">
+        {passwordAllowed && (
+          <form onSubmit={submit} className="flex flex-col gap-3">
           {mode === 'signup' && (
             <input
               className={FIELD_CLS}
@@ -167,15 +175,20 @@ export default function LoginPage() {
           >
             {submitting ? 'Please wait…' : mode === 'login' ? 'Sign in' : 'Create account'}
           </Button>
-        </form>
+          </form>
+        )}
 
         {oidcUrl && (
           <>
-            <div className="my-5 flex items-center gap-3">
-              <span className="h-px flex-1 bg-border" />
-              <span className="text-xs uppercase tracking-wide text-muted-foreground">or</span>
-              <span className="h-px flex-1 bg-border" />
-            </div>
+            {passwordAllowed && (
+              <div className="my-5 flex items-center gap-3">
+                <span className="h-px flex-1 bg-border" />
+                <span className="text-xs uppercase tracking-wide text-muted-foreground">
+                  or
+                </span>
+                <span className="h-px flex-1 bg-border" />
+              </div>
+            )}
             <Button
               type="button"
               variant="outline"

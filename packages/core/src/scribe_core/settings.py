@@ -97,6 +97,10 @@ class Settings(BaseSettings):
     deepgram_api_key: str | None = None
 
     # --- Models: LLM (decision #15: any OpenAI-compatible endpoint) ---------
+    # Structuring models offered in the UI (comma-separated ids as the serving
+    # stack exposes them). The per-run choice wins; ECHO_DEFAULT_LLM_MODEL
+    # remains the fallback when the client sends none.
+    structuring_models: str = "sov-105b-h200,qwen3-27b,gemma-31b"
     echo_default_llm_provider: str = "openai_compatible"
     echo_llm_base_url: str = "http://localhost:11434/v1"  # vLLM/Ollama; or api.openai.com/v1
     echo_llm_api_key: str | None = None

@@ -28,6 +28,7 @@ export const useSettings = () => {
     setRefreshLoggedInUserDetailsPromise,
     userSelectedTemplatesList,
     setUserSelectedTemplatesList,
+    setStructuringModel,
   } = useVoice2RxStore();
 
   const {
@@ -78,6 +79,7 @@ export const useSettings = () => {
   const setDefaultAppConfig = () => {
     setAppConfig({
       supported_languages: SUPPORTED_LANGUAGES,
+      supported_models: [],
       output_template_formats: SUPPORTED_OUTPUT_FORMATS,
       consultation_modes: CONSULTATION_MODES,
       max_selection: {
@@ -116,9 +118,25 @@ export const useSettings = () => {
         consultation_modes: 1,
       };
       let output_template_formats: TPreferenceItem[] = [];
+      let supported_models: TPreferenceItem[] = [];
 
       if (cachedConfigData) {
         supported_languages = cachedConfigData.supported_languages;
+        supported_models = cachedConfigData.supported_models ?? [];
+
+        // Preselect the deployment default (env) the first time, and re-point
+        // the picker if the previously chosen model is no longer offered.
+        if (supported_models.length) {
+          const validIds = new Set(supported_models.map((m) => m.id));
+          const current = useVoice2RxStore.getState().structuringModel;
+          if (!current || !validIds.has(current)) {
+            setStructuringModel(
+              cachedConfigData.default_model && validIds.has(cachedConfigData.default_model)
+                ? cachedConfigData.default_model
+                : supported_models[0].id
+            );
+          }
+        }
         consultation_modes = cachedConfigData.consultation_modes;
         max_selection = cachedConfigData.max_selection;
 
@@ -150,6 +168,7 @@ export const useSettings = () => {
 
         const available_preferences = {
           supported_languages,
+          supported_models,
           consultation_modes,
           max_selection,
           output_template_formats,
