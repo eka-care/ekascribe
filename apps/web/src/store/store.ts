@@ -96,6 +96,7 @@ const userInitialState = {
   workspaceID: '',
   appConfig: {
     supported_languages: [],
+    supported_models: [],
     output_template_formats: [],
     consultation_modes: [],
     max_selection: {
@@ -110,6 +111,8 @@ const userInitialState = {
   userSelectedTemplatesList: [] as TStore['userSelectedTemplatesList'],
   templateNameById: {} as TStore['templateNameById'],
   selectedMicrophone: null,
+  // null == let the backend fall back to its env default model
+  structuringModel: null as string | null,
   playAudioCues: false,
   // Stale closures over the previous user's components — must not outlive a logout.
   refreshPastSessionsCallback: null,
@@ -135,6 +138,7 @@ const PERSISTED_KEYS = [
   'userSelectedTemplatesList',
   'templateNameById',
   'selectedMicrophone',
+  'structuringModel',
   'sessionV2Ongoing',
   'newSessionId',
   'sessionV2ContentById',
@@ -198,6 +202,7 @@ const useVoice2RxStore = create<TStore>()(
       setUserRegion: (region) => set({ userRegion: region }),
 
       setSelectedMicrophone: (microphone) => set({ selectedMicrophone: microphone }),
+      setStructuringModel: (model: string | null) => set({ structuringModel: model }),
 
       setRefreshPastSessionsCallback: (refreshFn) =>
         set({ refreshPastSessionsCallback: refreshFn }),

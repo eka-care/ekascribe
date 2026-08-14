@@ -148,7 +148,7 @@ def build_scribe_run_components(
         "txn_id": inputs.txn_id,
         "b_id": inputs.b_id,
     }
-    _dump_final_prompt_for_debug(echo_config, tools, inputs)
+    # _dump_final_prompt_for_debug(echo_config, tools, inputs)
 
     return agent, ctx, state
 

@@ -83,6 +83,9 @@ type TStore = {
     label: string;
   } | null;
   setSelectedMicrophone: (microphone: { deviceId: string; label: string } | null) => void;
+  // Per-run structuring model chosen in the convert popover; null = backend default.
+  structuringModel: string | null;
+  setStructuringModel: (model: string | null) => void;
 
   refreshPastSessionsCallback: (() => Promise<void>) | null;
   setRefreshPastSessionsCallback: (refreshFn: (() => Promise<void>) | null) => void;

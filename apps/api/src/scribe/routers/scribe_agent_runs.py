@@ -55,11 +55,7 @@ _context_service: ContextResolutionService = ContextResolutionService()
 
 @functools.lru_cache(maxsize=1)
 def _require_identity(request: Request) -> tuple[str, str]:
-    """b_id + uuid from the verified jwt-payload header (injected by the auth
-    middleware in every mode). 401 when absent/invalid — the AG-UI endpoints
-    are session-scoped and must know their caller."""
     from scribe.core.http.request_handler import RequestHandler
-
     try:
         b_id = RequestHandler.extract_business_id_from_request(request)
     except Exception as e:  # noqa: BLE001
@@ -73,6 +69,35 @@ def _require_identity(request: Request) -> tuple[str, str]:
 
 def _get_default_llm_config():
     return LLMAgentConfig.from_env().to_llm_config()
+
+
+def _allowed_structuring_models() -> list[str]:
+    from scribe_core.settings import get_settings
+    raw = get_settings().structuring_models or ""
+    return [m.strip() for m in raw.split(",") if m.strip()]
+
+
+def _llm_config_for_model(model: str):
+    cfg = LLMAgentConfig.from_env()
+    cfg.model = model
+    return cfg.to_llm_config()
+
+
+def _resolve_model_override(model: Optional[str]) -> Optional[str]:
+    if not model:
+        return None
+    model = model.strip()
+    if not model:
+        return None
+    allowed = _allowed_structuring_models()
+    if allowed and model not in allowed:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"unsupported model '{model}'; allowed: {', '.join(allowed)}"
+            ),
+        )
+    return model
 
 RunInputResolver = Callable[..., Awaitable[ResolvedRunInputs]]
 
@@ -345,9 +370,13 @@ def build_run_stream_response(
 
 @scribe_agent_router.post("/runs/{template_id}")
 async def start_run(
-    template_id: str, request: Request, document_id: Optional[str] = None
+    template_id: str,
+    request: Request,
+    document_id: Optional[str] = None,
+    model: Optional[str] = None,
 ):
     b_id, jwt_uuid = _require_identity(request)
+    model_override = _resolve_model_override(model)
 
     try:
         body = await request.json()
@@ -419,11 +448,23 @@ async def start_run(
             status_code=500, detail=f"failed to resolve run inputs: {e}"
         )
 
+    if model_override:
+        inputs.llm_config = _llm_config_for_model(model_override)
+        logger.info(
+            "structuring model override",
+            template_id=template_id,
+            session_id=session_id,
+            model=model_override,
+        )
+
     return build_run_stream_response(run_input, inputs, encoder)
 
 @scribe_agent_router.post("/runs/{template_id}/resume")
-async def resume_run(template_id: str, request: Request):
+async def resume_run(
+    template_id: str, request: Request, model: Optional[str] = None
+):
     b_id, jwt_uuid = _require_identity(request)
+    model_override = _resolve_model_override(model)
 
     try:
         body = await request.json()
@@ -454,6 +495,9 @@ async def resume_run(template_id: str, request: Request):
         raise HTTPException(
             status_code=500, detail=f"failed to resolve run inputs: {e}"
         )
+
+    if model_override:
+        inputs.llm_config = _llm_config_for_model(model_override)
 
     accept = request.headers.get("accept", "text/event-stream")
     encoder = EventEncoder(accept=accept)

@@ -72,6 +72,8 @@ export type StartRunOptions = {
   input: RunAgentInput;
   signal?: AbortSignal;
   documentId?: string;
+  /** Structuring model id. Omitted => the backend uses its env default. */
+  model?: string;
 };
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -183,13 +185,17 @@ export async function* streamAgUiRun({
   input,
   signal,
   documentId,
+  model,
 }: StartRunOptions): AsyncGenerator<AgUiEvent, void, void> {
   // TODO: change this URL after gateway changes
   let url = `${GET_EKA_HOST()}${RUN_URL_PATH}/${encodeURIComponent(templateId)}`;
 
-  if (documentId) {
-    url += `?document_id=${encodeURIComponent(documentId)}`;
-  }
+  const params = new URLSearchParams();
+  if (documentId) params.set('document_id', documentId);
+  if (model) params.set('model', model);
+  const query = params.toString();
+  if (query) url += `?${query}`;
+
   yield* streamSseEvents(url, input, signal, 'AG-UI run failed');
 }
 

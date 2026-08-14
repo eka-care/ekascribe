@@ -14,6 +14,7 @@ import { streamAgUiRun, type AgUiEvent } from '../ag-ui-client';
 import { applyPatch, applySnapshot, EMPTY_SCRIBE_STATE } from '../state-reducer';
 import type { ScribeState, StreamMessage, StreamPhase, StreamToolCall } from '../types';
 import { tracker } from '@/analytics';
+import useVoice2RxStore from '@/store/store';
 
 type Args = {
   sessionId: string;
@@ -101,6 +102,13 @@ export function useAgentRun({
   // contend with — stale runs just no-op when they resolve.
   const genRef = useRef(0);
 
+  // Model chosen in the convert popover. Read through a ref so `start` stays
+  // referentially stable (it's in effect deps) while still seeing the latest
+  // pick at the moment the run actually opens.
+  const structuringModel = useVoice2RxStore((s) => s.structuringModel);
+  const modelRef = useRef(structuringModel);
+  modelRef.current = structuringModel;
+
   const abort = useCallback(() => {
     abortRef.current?.abort();
     abortRef.current = null;
@@ -151,6 +159,7 @@ export function useAgentRun({
           },
           signal: controller.signal,
           documentId,
+          model: modelRef.current ?? undefined,
         });
 
         for await (const ev of events as AsyncGenerator<AgUiEvent>) {

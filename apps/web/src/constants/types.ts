@@ -52,6 +52,9 @@ export type TPrintConfigSection =
 
 export type TAppConfig = {
   supported_languages: TPreferenceItem[];
+  // Structuring models the deployment exposes (STRUCTURING_MODELS on the API).
+  // Empty == the backend decides from env; no picker is shown.
+  supported_models: TPreferenceItem[];
   output_template_formats: TPreferenceItem[];
   consultation_modes: TPreferenceItem[];
   max_selection: {
