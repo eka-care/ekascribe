@@ -44,6 +44,19 @@ async def lifespan(_app: FastAPI):
 
         get_background_runner().start(asyncio.get_running_loop())
         logger.info("in-process background job runner enabled")
+
+    # Uploads that bypass the API can't trigger per-chunk STT while the session
+    # is live (the hook lives in the blob-upload route), so say so loudly once
+    # rather than leaving it to be rediscovered from timings.
+    if s.storage_backend == "s3" and not s.blob_via_api:
+        logger.warning(
+            "live per-chunk transcription is DISABLED: STORAGE_BACKEND=s3 with "
+            "BLOB_VIA_API unset means the browser uploads straight to the "
+            "bucket, so the API never sees a chunk land. Sessions still work — "
+            "all transcription happens at commit. Set BLOB_VIA_API=true to "
+            "route uploads through the API and transcribe chunks as they arrive.",
+            severity="medium",
+        )
     yield
     if get_settings().execution_mode == "inprocess":
         from scribe.pipeline.runner import get_background_runner

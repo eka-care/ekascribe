@@ -162,6 +162,12 @@ def _session_language(message: Dict[str, Any]) -> Optional[str]:
 
 
 # --- pipeline jobs (queue-agnostic) ------------------------------------------
+def session_language(txn_id: str, b_id: str = "") -> Optional[str]:
+    """Public form of :func:`_session_language` for callers outside the
+    pipeline (the blob upload hook) that only have ids in hand."""
+    return _session_language({"txn_id": txn_id, "b_id": b_id})
+
+
 def transcribe_chunk(
     txn_id: str, b_id: str, s3_url: str, filename: str, language: Optional[str] = None
 ) -> None:
