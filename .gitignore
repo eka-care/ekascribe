@@ -41,6 +41,8 @@ apps/desktop/certs/
 apps/desktop/*.log
 apps/desktop/electron.env
 deploy/secret.yaml
+# /data/storage snapshots taken by `deploy/push.sh --update-image`
+deploy/backups/
 deploy/.DS_Store
 .DS_Store
 artifacts/
