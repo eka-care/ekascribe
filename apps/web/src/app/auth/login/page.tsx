@@ -16,10 +16,14 @@ import { VaartaLogoLottie } from '@/shared-components/vaarta-logo-lottie';
 type Mode = 'login' | 'signup';
 
 type AuthModeInfo = {
-  mode: 'dev' | 'jwt' | 'sso';
+  mode: 'dev' | 'jwt' | 'sso' | 'oidc';
   allow_password_login: boolean;
   allow_signup: boolean;
   login_url: string;
+  logout_url?: string | null;
+  oidc_enabled?: boolean;
+  oidc_login_url?: string | null;
+  oidc_display_name?: string;
 };
 
 const FIELD_CLS =
@@ -36,13 +40,27 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [authInfo, setAuthInfo] = useState<AuthModeInfo | null>(null);
 
-  // SSO deployments never show this page — bounce to the platform login.
   useEffect(() => {
     fetch('/connect-auth/v1/auth-mode')
       .then((r) => r.json())
       .then((info: AuthModeInfo) => {
-        if (info?.mode === 'sso' || info?.allow_password_login === false) {
-          window.location.replace(info.login_url || '/');
+        try {
+          // the logout flow reads this to finish sign-out at the IdP
+          sessionStorage.setItem('scribe-auth-mode', JSON.stringify(info));
+        } catch (_) {
+          // storage unavailable — logout falls back to the login page
+        }
+        const target = info?.login_url;
+        // Never bounce to ourselves: a backend still reporting the password
+        // login_url would otherwise reload this page forever.
+        const selfReferential =
+          !target ||
+          target === window.location.pathname ||
+          target.startsWith(window.location.pathname + '?');
+        // Straight to the provider only when this page has nothing to offer;
+        // with password login enabled we render the form + the SSO button.
+        if (info?.allow_password_login === false && !selfReferential) {
+          window.location.replace(target as string);
           return;
         }
         setAuthInfo(info);
@@ -51,6 +69,8 @@ export default function LoginPage() {
   }, []);
 
   const signupAllowed = authInfo?.allow_signup !== false;
+  const oidcUrl = authInfo?.oidc_enabled ? authInfo.oidc_login_url : null;
+  const oidcName = authInfo?.oidc_display_name || 'Single sign-on';
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -148,6 +168,28 @@ export default function LoginPage() {
             {submitting ? 'Please wait…' : mode === 'login' ? 'Sign in' : 'Create account'}
           </Button>
         </form>
+
+        {oidcUrl && (
+          <>
+            <div className="my-5 flex items-center gap-3">
+              <span className="h-px flex-1 bg-border" />
+              <span className="text-xs uppercase tracking-wide text-muted-foreground">or</span>
+              <span className="h-px flex-1 bg-border" />
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={() => {
+                // full navigation (not fetch): the IdP round-trip is a
+                // top-level redirect and must set cookies on the way back
+                window.location.href = oidcUrl;
+              }}
+            >
+              Login with {oidcName}
+            </Button>
+          </>
+        )}
 
         <p className="mt-5 text-center text-sm text-muted-foreground">
           {mode === 'login' && !signupAllowed ? null : mode === 'login' ? (

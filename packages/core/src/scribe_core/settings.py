@@ -82,6 +82,7 @@ class Settings(BaseSettings):
     oidc_claim_uuid: str = "sub"             # claim -> our uuid
     oidc_claim_username: str = "email"       # claim -> username + oid
     oidc_claim_name: str = "name"            # claim -> display name
+    oidc_display_name: str = "Single sign-on"  # button label: "Login with <name>"
     oidc_post_logout_redirect: str | None = None
     oidc_verify_ssl: bool = True
     oidc_ca_bundle: str | None = None        # PEM path for a private/gov CA

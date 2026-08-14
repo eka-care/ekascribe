@@ -128,10 +128,18 @@ def _login_response(user: dict) -> Response:
 def auth_mode():
     """Public: how this deployment authenticates — the login page adapts."""
     s = get_settings()
+    oidc_enabled = bool(
+        (s.oidc_issuer or s.oidc_discovery_url) and s.oidc_client_id
+    )
     return ResponseFormatter.json_response(
         {
             "mode": s.auth_mode,
             "allow_password_login": s.auth_allow_password_login,
+            # OIDC as an additional login button (works in any auth_mode —
+            # the /oidc/* routes are always mounted)
+            "oidc_enabled": oidc_enabled,
+            "oidc_login_url": "/connect-auth/v1/oidc/login" if oidc_enabled else None,
+            "oidc_display_name": s.oidc_display_name,
             "allow_signup": s.auth_allow_signup and s.auth_allow_password_login,
             "login_url": (
                 "/connect-auth/v1/oidc/login"
