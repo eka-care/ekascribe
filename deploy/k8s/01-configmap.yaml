@@ -53,7 +53,6 @@ data:
   # conversion_pipeline.py) -- setting S3_BUCKET alone is not enough.
   S3_VADED_BUCKET_NAME: "voice-records"
   AWS_REGION: "ap-south-1"
-  AUTH_MODE: "jwt"
 
   # --- optional (defaults shown) ---
   AUTH_ACCESS_TTL_SECONDS: "3600"        # access JWT life (15 min) — middleware auto-renews it
@@ -61,14 +60,11 @@ data:
   AUTH_COOKIE_NAME: "scribe_session"
   AUTH_REFRESH_COOKIE_NAME: "scribe_refresh"
 
-  # --- Auth (v1: dev-token mode) ------------------------------------------
-  DEV_B_ID: "onprem-workspace"
-  DEV_UUID: "00000000-0000-0000-0000-000000000001"
-  DEV_OID: "onprem-doctor-oid"
+  # --- Auth -----------------------------------------------------------------
+  WORKSPACE_ID: "onprem-workspace"   # all users share this workspace (data partition)
   AUTH_ISSUER: "scribe.local"
   # OIDC_ISSUER / OIDC_AUTHORIZE_URL / OIDC_TOKEN_URL also fall back to
-  # SELF_URL (discovery.py). They are inert under AUTH_MODE=dev; set them
-  # explicitly if you ever switch to AUTH_MODE=jwt.
+  # SELF_URL (discovery.py).
 
   # --- Models: STT — self-hosted transcribe service -----------------------
   ECHO_DEFAULT_TRANSCRIBER_PROVIDER: "model_api"

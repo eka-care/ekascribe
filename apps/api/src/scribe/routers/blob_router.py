@@ -9,7 +9,7 @@ These are the targets of the tokenized URLs produced by LocalFSBlobStore:
   requests arrive with attachAuth: false, so no bearer header)
 
 Auth is the HMAC token minted by scribe_core.storage — NOT the session bearer
-token; the whole prefix is exempted in DevAuthMiddleware.
+token; the whole prefix is exempted in the auth middleware.
 
 The POST target is also where live audio chunks land: the web app gets a
 presigned POST from create-session (compute_upload_url -> presigned, for

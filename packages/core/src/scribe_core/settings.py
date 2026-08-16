@@ -22,7 +22,9 @@ class Settings(BaseSettings):
 
     # --- Deployment ---------------------------------------------------------
     env: Literal["local", "dev", "prod"] = "local"
-    self_url: str = "http://localhost:8000"  # public base URL of the API (discovery doc, upload URLs)
+    self_url: str = (
+        "http://localhost:8000"  # public base URL of the API (discovery doc, upload URLs)
+    )
     # Exported web bundle (apps/web out/) served by the api at /. None = API only
     # (native dev runs `next dev` instead); the Docker image sets /app/web-static.
     web_dist_dir: str | None = None
@@ -35,9 +37,9 @@ class Settings(BaseSettings):
     execution_mode: Literal["worker", "inprocess"] = "inprocess"
 
     # --- Storage ------------------------------------------------------------
-    storage_root: str = "./storage"          # STORAGE_BACKEND=local
-    s3_bucket: str | None = None             # STORAGE_BACKEND=s3
-    s3_endpoint_url: str | None = None       # real AWS if None; LocalStack/MinIO otherwise
+    storage_root: str = "./storage"  # STORAGE_BACKEND=local
+    s3_bucket: str | None = None  # STORAGE_BACKEND=s3
+    s3_endpoint_url: str | None = None  # real AWS if None; LocalStack/MinIO otherwise
     # Route browser uploads/downloads through the API even on S3/MinIO
     # (browser -> backend -> object store). Required when the bucket is not
     # reachable from users' browsers (internal MinIO, no bucket CORS).
@@ -47,49 +49,56 @@ class Settings(BaseSettings):
     # --- Database -----------------------------------------------------------
     database_url: str = "postgresql://scribe:scribe@localhost:5432/scribe"
 
-    # --- Auth (decision #17: dev-token only for v1) -------------------------
-    auth_mode: Literal["dev", "jwt", "sso", "oidc"] = "dev"
-    dev_auth_token: str | None = None        # if set, requests must send it (Authorization: Bearer <token>)
-    dev_b_id: str = "onprem-workspace"
-    dev_uuid: str = "00000000-0000-0000-0000-000000000001"
-    dev_oid: str = "onprem-doctor-oid"
-    dev_client_id: str | None = None         # machine-client id (optional)
+    # --- Auth: ONE mode — real cookie/JWT login everywhere (no AUTH_MODE) --
+    # All users of a deployment share one workspace; this id partitions their
+    # data. (Reads legacy DEV_B_ID too so existing deployments keep their data.)
+    workspace_id: str = Field(
+        default="onprem-workspace",
+        validation_alias=AliasChoices("WORKSPACE_ID", "DEV_B_ID"),
+    )
     auth_issuer: str = "scribe.local"
-    # --- Session auth (AUTH_MODE=jwt): username/password login + cookie JWT --
-    auth_jwt_secret: str | None = None       # REQUIRED in jwt mode (HS256 signing key)
-    auth_access_ttl_seconds: int = 900       # access JWT lifetime (15 min)
+    auth_jwt_secret: str | None = None  # REQUIRED (HS256 session signing key)
+    auth_access_ttl_seconds: int = 900  # access JWT lifetime (15 min)
     auth_refresh_ttl_seconds: int = 2592000  # refresh token + cookie lifetime (30 d)
     auth_cookie_name: str = "scribe_session"
     auth_refresh_cookie_name: str = "scribe_refresh"
-    auth_cookie_secure: bool = False         # True behind HTTPS (prod)
-    auth_cookie_domain: str | None = None    # e.g. .dev.eka.care to span FE/BE subdomains
-    auth_allow_signup: bool = True           # open registration; set False to lock down
-    auth_allow_password_login: bool = True   # False on SSO deployments: /login + /signup return 403
-    # --- SSO (AUTH_MODE=sso): trust the platform's `token` cookie, exchange it
-    # --- for our session via the platform's userinfo API (Open WebUI /api/v1/auths/)
-    sso_userinfo_url: str | None = None      # e.g. http://indiaai-portal:8080/api/v1/auths/
-    sso_token_cookie: str = "bharatai_token"          # platform cookie carrying the user's JWT
-    sso_login_redirect_url: str = "https://bharatai.gov.in/auth"  # where unauthenticated users go
-    sso_request_timeout_s: float = 10.0
-    sso_verify_ssl: bool = True              # False for self-signed platform endpoints
-    # --- OIDC (AUTH_MODE=oidc): authorization code + PKCE against any IdP ---
-    oidc_issuer: str | None = None           # e.g. https://idp.gov.in/realms/vaarta
-    oidc_discovery_url: str | None = None    # default: {issuer}/.well-known/openid-configuration
+    auth_cookie_secure: bool = False  # True behind HTTPS (prod)
+    auth_cookie_domain: str | None = None  # e.g. .dev.eka.care to span FE/BE subdomains
+    # Self-registration is OFF by default. Exception: while the users table
+    # is empty, signup is always allowed so a fresh install can create its
+    # first account (the door closes again the moment one user exists).
+    auth_allow_signup: bool = False
+    # --- External identity providers (OIDC + plain OAuth2) ------------------
+    # JSON list of provider objects — see scribe_core/providers.py for the
+    # schema. Each provider gets its own root-level URLs:
+    #   /{oidc|oauth}/{id}/{login,callback,logout}
+    # (/oauth/ serves providers with type "oauth2" — short URL, precise type)
+    auth_providers: str | None = None
+    auth_default_provider: str | None = None  # id used for "the" login button
+    # --- Legacy single-provider OIDC_* config -------------------------------
+    # Used only when AUTH_PROVIDERS is unset: mapped onto provider id
+    # "default" (callback: /oidc/default/callback).
+    oidc_issuer: str | None = None  # e.g. https://idp.gov.in/realms/vaarta
+    oidc_discovery_url: str | None = (
+        None  # default: {issuer}/.well-known/openid-configuration
+    )
     oidc_client_id: str | None = None
-    oidc_client_secret: str | None = None    # omit for a public client (PKCE only)
-    oidc_redirect_url: str | None = None     # must match the IdP client config exactly
+    oidc_client_secret: str | None = None  # omit for a public client (PKCE only)
+    oidc_redirect_url: str | None = None  # must match the IdP client config exactly
     oidc_scopes: str = "openid profile email"
-    oidc_claim_uuid: str = "sub"             # claim -> our uuid
-    oidc_claim_username: str = "email"       # claim -> username + oid
-    oidc_claim_name: str = "name"            # claim -> display name
+    oidc_claim_uuid: str = "sub"  # claim -> our uuid
+    oidc_claim_username: str = "email"  # claim -> username + oid
+    oidc_claim_name: str = "name"  # claim -> display name
     oidc_display_name: str = "Single sign-on"  # button label: "Login with <name>"
     oidc_post_logout_redirect: str | None = None
     oidc_verify_ssl: bool = True
-    oidc_ca_bundle: str | None = None        # PEM path for a private/gov CA
+    oidc_ca_bundle: str | None = None  # PEM path for a private/gov CA
     oidc_tx_cookie_name: str = "scribe_oidc_tx"
-    oidc_tx_ttl_seconds: int = 600           # login round-trip window
+    oidc_tx_ttl_seconds: int = 600  # login round-trip window
     oidc_request_timeout_s: float = 10.0
-    upload_url_signing_secret: str = "change-me"  # signs tokenized upload URLs (attachAuth: false path)
+    upload_url_signing_secret: str = (
+        "change-me"  # signs tokenized upload URLs (attachAuth: false path)
+    )
 
     # --- Models: STT (decision #14: Sarvam cloud default, local optional) ---
     echo_default_transcriber_provider: str = "sarvam"
@@ -102,7 +111,9 @@ class Settings(BaseSettings):
     # remains the fallback when the client sends none.
     structuring_models: str = "sov-105b-h200,qwen3-27b,gemma-31b"
     echo_default_llm_provider: str = "openai_compatible"
-    echo_llm_base_url: str = "http://localhost:11434/v1"  # vLLM/Ollama; or api.openai.com/v1
+    echo_llm_base_url: str = (
+        "http://localhost:11434/v1"  # vLLM/Ollama; or api.openai.com/v1
+    )
     echo_llm_api_key: str | None = None
     echo_llm_model: str = Field(
         default="qwen3:14b",
@@ -118,7 +129,9 @@ class Settings(BaseSettings):
     # --- Discovery doc ------------------------------------------------------
     discovery_support_email: str = "admin@example.com"
 
-    queue_dsn: str | None = Field(default=None, description="Override procrastinate DSN; defaults to database_url")
+    queue_dsn: str | None = Field(
+        default=None, description="Override procrastinate DSN; defaults to database_url"
+    )
 
     @property
     def procrastinate_dsn(self) -> str:

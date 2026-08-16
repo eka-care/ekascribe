@@ -4,7 +4,7 @@
     uv run python scripts/setup.py [options]
 
 Steps (each skippable):
-  1. .env generation (secrets + dev-auth identity)          [--no-env]
+  1. .env generation (secrets)          [--no-env]
   2. DB connectivity check
   3. Storage read/write/delete probe
   4. Migrations: app schema + procrastinate queue schema
@@ -67,10 +67,11 @@ def step_env(non_interactive: bool) -> bool:
         f"UPLOAD_URL_SIGNING_SECRET={pysecrets.token_urlsafe(32)}",
     )
     content = content.replace(
-        "# DEV_AUTH_TOKEN=", f"DEV_AUTH_TOKEN={pysecrets.token_urlsafe(24)}"
+        "AUTH_JWT_SECRET=change-me",
+        f"AUTH_JWT_SECRET={pysecrets.token_hex(32)}",
     )
     env_path.write_text(content)
-    print(f"{OK} wrote .env (signing secret + dev token generated)")
+    print(f"{OK} wrote .env (signing + session secrets generated)")
     if not non_interactive:
         print("       edit it to set SARVAM_API_KEY / ECHO_LLM_BASE_URL, then re-run")
     return True
@@ -215,7 +216,7 @@ def step_seed() -> bool:
         # No default template selection — users pick from the directory.
         config_db = DocStore("ekascribe_config")
         config_db.upsert_item(
-            key_dict={"b_id": s.dev_b_id, "user_uuid": "_"},
+            key_dict={"b_id": s.workspace_id, "user_uuid": "_"},
             update_dict={"model_type": "pro"},
         )
         archived_note = (
@@ -224,7 +225,7 @@ def step_seed() -> bool:
         print(
             f"{OK} seeded {len(data.get('sections', []))} sections, "
             f"{len(data.get('templates', []))} templates ({seed_mode} mode{archived_note}), "
-            f"config for b_id={s.dev_b_id}"
+            f"config for b_id={s.workspace_id}"
         )
         return True
     except Exception as e:
@@ -372,9 +373,21 @@ def step_smoke() -> bool:
 
     s = get_settings()
     base = f"{s.self_url.rstrip('/')}/voice/v1"
-    headers = {}
-    if s.dev_auth_token:
-        headers["Authorization"] = f"Bearer {s.dev_auth_token}"
+    # smoke hits protected routes: mint a short-lived session token, exactly
+    # like a real login would (no fake identities, no special mode).
+    from scribe_core.auth import Principal, mint_session_token
+
+    if not s.auth_jwt_secret:
+        print(f"{FAIL} smoke: AUTH_JWT_SECRET is not set (run setup.py to generate .env)")
+        return False
+    principal = Principal(
+        b_id=s.workspace_id, uuid="setup-smoke", oid="setup-smoke",
+        client_id="setup-smoke", is_paid=True, issuer=s.auth_issuer,
+    )
+    token = mint_session_token(
+        principal, sub="setup-smoke", secret=s.auth_jwt_secret, ttl_seconds=600
+    )
+    headers = {"Authorization": f"Bearer {token}"}
     try:
         r = httpx.post(
             f"{base}/sessions",

@@ -2,7 +2,7 @@
 
 Differences from upstream:
 - settings come from scribe_core (no JSON-blob env loader, no Secrets Manager)
-- DevAuthMiddleware reproduces the API-Gateway `jwt-payload` header contract
+- CookieAuthMiddleware reproduces the API-Gateway `jwt-payload` header contract
 - removed: telephony, s3-token, usage metering, New Relic, streaming, FHIR,
   publish/webhooks/consent/metrics/testimonials/integrations, agents
 """
@@ -17,12 +17,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import ValidationError
 
-from scribe_core.auth import (
-    CookieAuthMiddleware,
-    DevAuthMiddleware,
-    OIDCAuthMiddleware,
-    SSOAuthMiddleware,
-)
+from scribe_core.auth import CookieAuthMiddleware
 from scribe_core.settings import get_settings
 
 from scribe.core.custom_logger import get_logger
@@ -76,14 +71,8 @@ def create_app() -> FastAPI:
     app.add_exception_handler(RequestValidationError, validation_exception_handler)
     app.add_exception_handler(ValidationError, pydantic_validation_exception_handler)
 
-    if s.auth_mode == "oidc":
-        app.add_middleware(OIDCAuthMiddleware)
-    elif s.auth_mode == "sso":
-        app.add_middleware(SSOAuthMiddleware)
-    elif s.auth_mode == "jwt":
-        app.add_middleware(CookieAuthMiddleware)
-    else:
-        app.add_middleware(DevAuthMiddleware)
+    # One auth path everywhere — no AUTH_MODE switch, no fake identities.
+    app.add_middleware(CookieAuthMiddleware)
     # app://ekascribe = the Electron desktop app's custom-protocol origin
     allowed_regex = (
         r"^(https?://.*|app://ekascribe)$"
@@ -140,7 +129,10 @@ def create_app() -> FastAPI:
 
     app.include_router(account_router, tags=["account"])
     app.include_router(auth_router, prefix="/connect-auth/v1", tags=["auth"])
-    app.include_router(oidc_router, prefix="/connect-auth/v1", tags=["auth"])
+    # SSO routes live at the app root — /{oidc|oauth}/{provider}/… — so the
+    # callback URLs registered at each IdP stay short and conventional.
+    # Registered before the web-static catch-all, so they take precedence.
+    app.include_router(oidc_router, tags=["auth"])
 
     from scribe.routers.device_auth_routes import device_auth_router
 

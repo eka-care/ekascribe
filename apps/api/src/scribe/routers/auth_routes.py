@@ -1,4 +1,4 @@
-"""Username/password session auth (AUTH_MODE=jwt).
+"""Username/password session auth.
 
 POST /connect-auth/v1/signup  — create a user (guarded by AUTH_ALLOW_SIGNUP)
 POST /connect-auth/v1/login   — verify password, set the session cookie
@@ -124,58 +124,58 @@ def _login_response(user: dict) -> Response:
     return _session_response(user, refresh_raw)
 
 
+def _signup_open() -> bool:
+    """Signup is open when AUTH_ALLOW_SIGNUP=true, or while no user exists
+    yet — a fresh deployment must be able to create its first account. The
+    moment one user exists, the default-off flag applies again."""
+    if get_settings().auth_allow_signup:
+        return True
+    try:
+        return get_table("users").count() == 0
+    except Exception:  # noqa: BLE001 — fail closed
+        return False
+
+
 @auth_router.get("/auth-mode")
 def auth_mode():
     """Public: how this deployment authenticates — the login page adapts."""
+    from scribe_core.providers import default_provider, get_providers
+
     s = get_settings()
-    oidc_enabled = bool(
-        (s.oidc_issuer or s.oidc_discovery_url) and s.oidc_client_id
-    )
+    try:
+        providers = get_providers()
+    except Exception as exc:  # noqa: BLE001 — malformed AUTH_PROVIDERS
+        logger.error("provider registry invalid", error=str(exc), severity="high")
+        providers = {}
+    dp = default_provider() if providers else None
     return ResponseFormatter.json_response(
         {
-            "mode": s.auth_mode,
-            "allow_password_login": s.auth_allow_password_login,
-            # OIDC as an additional login button (works in any auth_mode —
-            # the /oidc/* routes are always mounted)
-            "oidc_enabled": oidc_enabled,
-            "oidc_login_url": "/connect-auth/v1/oidc/login" if oidc_enabled else None,
-            "oidc_display_name": s.oidc_display_name,
-            "allow_signup": s.auth_allow_signup and s.auth_allow_password_login,
-            "login_url": (
-                "/connect-auth/v1/oidc/login"
-                if s.auth_mode == "oidc"
-                else s.sso_login_redirect_url
-                if s.auth_mode == "sso"
-                else "/auth/login"
-            ),
-            # oidc: log out at the IdP too, else its live session silently
-            # re-authenticates the user on the next request
-            "logout_url": (
-                "/connect-auth/v1/oidc/logout" if s.auth_mode == "oidc" else None
-            ),
+            # SSO login button(s): the /{oidc|oauth}/{provider}/* routes are
+            # always mounted. oidc_* keys describe the DEFAULT provider
+            # (existing frontend contract); `providers` lists all of them.
+            "oidc_enabled": bool(dp),
+            "oidc_login_url": dp.login_path if dp else None,
+            "oidc_display_name": dp.display_name if dp else "Single sign-on",
+            "providers": [
+                {
+                    "id": p.id,
+                    "type": p.type,
+                    "display_name": p.display_name,
+                    "login_url": p.login_path,
+                }
+                for p in providers.values()
+            ],
+            "allow_signup": _signup_open(),
+            "login_url": "/auth/login",
         },
         200,
-    )
-
-
-def _password_flow_disabled():
-    s = get_settings()
-    if s.auth_allow_password_login:
-        return None
-    return ResponseFormatter.error(
-        code="password_login_disabled",
-        message="Username/password login is disabled on this deployment",
-        status_code=403,
     )
 
 
 @auth_router.post("/signup")
 def signup(body: SignupRequest):
     s = get_settings()
-    disabled = _password_flow_disabled()
-    if disabled is not None:
-        return disabled
-    if not s.auth_allow_signup:
+    if not _signup_open():
         return ResponseFormatter.error(
             code="signup_disabled",
             message="Signup is disabled on this deployment",
@@ -201,7 +201,7 @@ def signup(body: SignupRequest):
         "display_name": (body.display_name or username).strip(),
         "uuid": str(uuidlib.uuid4()),
         "oid": f"oid-{uuidlib.uuid4().hex[:20]}",
-        "b_id": s.dev_b_id,  # shared deployment workspace
+        "b_id": s.workspace_id,  # shared deployment workspace
         "is_active": True,
         "created_at": int(time.time()),
     }
@@ -221,9 +221,6 @@ def signup(body: SignupRequest):
 def login(body: LoginRequest):
     from argon2.exceptions import VerifyMismatchError
 
-    disabled = _password_flow_disabled()
-    if disabled is not None:
-        return disabled
 
     username = body.username.strip().lower()
     user = get_table("users").get_item({"username": username}) or {}

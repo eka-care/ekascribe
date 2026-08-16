@@ -1,10 +1,14 @@
-"""Auth for the on-prem stack (A5: reproduce the `jwt-payload` header contract).
+"""Auth for the on-prem stack: ONE mode — real cookie/JWT login, everywhere.
 
 voice2rx-be has no auth code — AWS API Gateway used to inject a pre-verified
-``jwt-payload`` JSON header. On-prem, ``DevAuthMiddleware`` constructs that header
-from settings on every request (decision #17: dev-token only for v1), so all forked
-handlers keep working unchanged. ``Principal`` is the ONE typed dependency that
-replaces the three inconsistent header-parsing paths during the port.
+``jwt-payload`` JSON header. On-prem, ``CookieAuthMiddleware`` verifies the
+session (cookie or Bearer) and injects that header itself, so all forked
+handlers keep working unchanged. ``Principal`` is the ONE typed dependency
+that replaces the three inconsistent header-parsing paths during the port.
+
+There is deliberately no AUTH_MODE switch: local dev, tests-in-a-browser and
+production all go through the same username/password (or SSO provider) login,
+so nothing behaves differently on a laptop than in a deployment.
 """
 
 from __future__ import annotations
@@ -56,73 +60,6 @@ class Principal:
         return payload
 
 
-def dev_principal() -> Principal:
-    s = get_settings()
-    return Principal(
-        b_id=s.dev_b_id,
-        uuid=s.dev_uuid,
-        oid=s.dev_oid,
-        client_id=s.dev_client_id,
-        is_paid=True,  # cc.esc == 1 → skip transaction limits
-        issuer=s.auth_issuer,
-    )
-
-
-class DevAuthMiddleware(BaseHTTPMiddleware):
-    """Injects the ``jwt-payload`` header the forked handlers expect.
-    If ``DEV_AUTH_TOKEN`` is set, requests must present it as a Bearer token
-    (except on the exempt paths below); if unset, every request is authenticated
-    as the configured dev identity — suitable only for single-box pilots.
-    """
-
-    EXEMPT_PREFIXES = (
-        "/voice/ping",
-        # discovery MUST be publicly accessible (alliance SDK validates against it)
-        "/.well-known",
-        "/voice/v1/.well-known",
-        "/docs",
-        "/openapi.json",
-        "/healthz",
-        # blob endpoints authenticate with their own HMAC URL tokens
-        # (the alliance SDK sends storage requests with attachAuth: false)
-        "/voice/v1/blob",
-    )
-
-    # everything the API owns lives under these prefixes; any other path is a
-    # static web-UI asset (HTML shells, JS chunks — no data) and needs no token.
-    API_PREFIXES = ("/voice", "/connect-auth")
-    async def dispatch(self, request: Request, call_next):
-        s = get_settings()
-        path = request.url.path
-        exempt = path.startswith(self.EXEMPT_PREFIXES) or not path.startswith(
-            self.API_PREFIXES
-        )
-
-        if s.dev_auth_token and not exempt:
-            auth = request.headers.get("authorization", "")
-            token = auth.removeprefix("Bearer ").strip()
-            # Tokenized upload/download URLs use ?token= because the alliance SDK
-            # sends storage requests with attachAuth: false (plan A4).
-            if not token:
-                token = request.query_params.get("token", "")
-            if token != s.dev_auth_token:
-                from starlette.responses import JSONResponse
-
-                return JSONResponse({"detail": "unauthorized"}, status_code=401)
-
-        # inject the pre-verified jwt-payload header (replaces API Gateway).
-        # a caller-supplied jwt-payload is respected — dev mode trusts the
-        # header (tests and multi-identity dev flows rely on this; production
-        # auth replaces this middleware entirely).
-        if not request.headers.get(JWT_PAYLOAD_HEADER):
-            payload = json.dumps(dev_principal().to_jwt_payload())
-            headers = request.headers.mutablecopy()
-            headers[JWT_PAYLOAD_HEADER] = payload
-            request.scope["headers"] = headers.raw
-
-        return await call_next(request)
-
-
 def get_principal(request: Request) -> Principal:
     """FastAPI dependency — the single replacement for all header-parsing paths."""
     raw = request.headers.get(JWT_PAYLOAD_HEADER)
@@ -134,7 +71,7 @@ def get_principal(request: Request) -> Principal:
         raise HTTPException(status_code=401, detail="invalid identity") from exc
 
 
-# --- Session auth (AUTH_MODE=jwt): cookie/Bearer JWT --------------------------
+# --- Session tokens: cookie/Bearer JWT ----------------------------------------
 SESSION_ALGO = "HS256"
 def mint_session_token(principal: Principal, sub: str, secret: str, ttl_seconds: int) -> str:
     """Sign the app's identity claims (b-id/uuid/oid/...) into a session JWT."""
@@ -169,10 +106,10 @@ def cookie_domain() -> str | None:
 def principal_from_user(user: dict) -> Principal:
     s = get_settings()
     return Principal(
-        b_id=user.get("b_id") or s.dev_b_id,
+        b_id=user.get("b_id") or s.workspace_id,
         uuid=user.get("uuid", ""),
         oid=user.get("oid", ""),
-        client_id=s.dev_client_id,
+        client_id=None,
         is_paid=True,
         issuer=s.auth_issuer,
     )
@@ -285,7 +222,7 @@ def consume_refresh_token(raw: str, rotate: bool = True):
 
 
 class CookieAuthMiddleware(BaseHTTPMiddleware):
-    """Production auth (AUTH_MODE=jwt): replaces DevAuthMiddleware.
+    """The auth middleware — the same in dev, test and production.
 
     Verifies the session JWT from the auth cookie (or an ``Authorization:
     Bearer`` header for programmatic clients), then injects the verified
@@ -295,11 +232,24 @@ class CookieAuthMiddleware(BaseHTTPMiddleware):
     header — trusting it would be an auth bypass).
     """
 
-    EXEMPT_PREFIXES = DevAuthMiddleware.EXEMPT_PREFIXES + (
+    EXEMPT_PREFIXES = (
+        "/voice/ping",
+        # discovery MUST be publicly accessible (alliance SDK validates against it)
+        "/.well-known",
+        "/voice/v1/.well-known",
+        "/docs",
+        "/openapi.json",
+        "/healthz",
+        # blob endpoints authenticate with their own HMAC URL tokens
+        # (the alliance SDK sends storage requests with attachAuth: false)
+        "/voice/v1/blob",
         "/connect-auth/v1/auth-mode",
-        "/connect-auth/v1/oidc/login",
-        "/connect-auth/v1/oidc/callback",
-        "/connect-auth/v1/oidc/logout",
+        # provider-scoped SSO flows (/{oidc|oauth}/{provider}/…) are mounted
+        # at the app root, OUTSIDE API_PREFIXES, so they are exempt by
+        # construction; listed here anyway so the exemption survives if
+        # API_PREFIXES ever grows.
+        "/oidc/",
+        "/oauth/",
         "/connect-auth/v1/login",
         "/connect-auth/v1/signup",
         "/connect-auth/v1/logout",
@@ -312,7 +262,9 @@ class CookieAuthMiddleware(BaseHTTPMiddleware):
         "/connect-auth/v1/device/code",
         "/connect-auth/v1/device/token",
     )
-    API_PREFIXES = DevAuthMiddleware.API_PREFIXES
+    # everything the API owns lives under these prefixes; any other path is a
+    # static web-UI asset (HTML shells, JS chunks — no data) and needs no token.
+    API_PREFIXES = ("/voice", "/connect-auth")
     async def dispatch(self, request: Request, call_next):
         # never trust an externally supplied identity header
         if request.headers.get(JWT_PAYLOAD_HEADER):
@@ -401,157 +353,19 @@ class CookieAuthMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
     async def _on_browser_auth_failure(self, request: Request, call_next):
-        """Hook: SSO mode recovers the session from the platform token here.
-        None = fall through to the normal 403."""
-        return None
+        """A browser navigating without a session goes to the login page
+        (?next= so deep links survive); XHR/SSE fall through to the JSON 403
+        and the frontend redirects itself."""
+        from urllib.parse import quote
 
-
-# --- SSO (AUTH_MODE=sso): trusted platform-cookie exchange ---------------------
-async def exchange_sso_token(raw_token: str):
-    """Validate the platform's token against its userinfo API and upsert the
-    user. Returns the users-table row, or None if the token is no good.
-
-    Mapping: platform ``id`` -> uuid (stable across exchanges), ``email`` ->
-    username + oid, ``name`` -> display_name, b_id = the deployment workspace.
-    SSO rows carry NO password hash — password login for them fails closed."""
-    import time
-
-    from scribe_core.db import ConditionalCheckFailed, get_table
-
-    s = get_settings()
-    if not raw_token or not s.sso_userinfo_url:
-        return None
-
-    import httpx
-
-    try:
-        async with httpx.AsyncClient(
-            timeout=s.sso_request_timeout_s, verify=s.sso_verify_ssl
-        ) as client:
-            resp = await client.get(
-                s.sso_userinfo_url,
-                headers={
-                    "Authorization": f"Bearer {raw_token}",
-                    "Cookie": f"{s.sso_token_cookie}={raw_token}",
-                },
-            )
-    except Exception as exc:  # noqa: BLE001 — network failure = not authenticated
-        import logging
-
-        logging.getLogger(__name__).warning("SSO userinfo call failed: %s", exc)
-        return None
-    if resp.status_code != 200:
-        return None
-    try:
-        data = resp.json()
-    except Exception:
-        return None
-
-    email = (data.get("email") or "").strip().lower()
-    platform_id = str(data.get("id") or "").strip()
-    if not email or not platform_id:
-        return None
-
-    users = get_table("users")
-    row = users.get_item({"username": email})
-    if row:
-        return row
-    user = {
-        "username": email,
-        "display_name": (data.get("name") or email).strip(),
-        "uuid": platform_id,
-        "oid": email,
-        "b_id": s.dev_b_id,
-        "is_active": True,
-        "sso": True,
-        "created_at": int(time.time()),
-    }
-    try:
-        users.put_item(user, if_not_exists=True)
-    except ConditionalCheckFailed:
-        return users.get_item({"username": email})
-    return user
-
-
-class SSOAuthMiddleware(CookieAuthMiddleware):
-    """AUTH_MODE=sso: CookieAuthMiddleware plus silent session bootstrap.
-
-    When our session is missing / expired-beyond-refresh / invalid but the
-    platform's token cookie is present, exchange it on the spot: the request
-    proceeds and the response carries fresh session+refresh cookies. Without a
-    platform token, browser navigations 302 to SSO_LOGIN_REDIRECT_URL and API
-    calls get 403 sso_login_required carrying the login_url."""
-
-    async def _on_browser_auth_failure(self, request: Request, call_next):
-        from starlette.responses import JSONResponse, RedirectResponse
-
-        s = get_settings()
-        raw = request.cookies.get(s.sso_token_cookie, "")
-        user = await exchange_sso_token(raw) if raw else None
-        if user:
-            principal = principal_from_user(user)
-            access = mint_session_token(
-                principal,
-                sub=user["username"],
-                secret=s.auth_jwt_secret or "",
-                ttl_seconds=s.auth_access_ttl_seconds,
-            )
-            claims = verify_session_token(access, s.auth_jwt_secret or "")
-            new_refresh = issue_refresh_token(user["username"], user.get("uuid", ""))
-            headers = request.headers.mutablecopy()
-            headers[JWT_PAYLOAD_HEADER] = json.dumps(claims)
-            request.scope["headers"] = headers.raw
-            response = await call_next(request)
-            cookie_kwargs = dict(
-                max_age=s.auth_refresh_ttl_seconds,
-                httponly=True,
-                secure=s.auth_cookie_secure,
-                samesite="lax",
-                domain=cookie_domain(),
-                path="/",
-            )
-            response.set_cookie(s.auth_cookie_name, access, **cookie_kwargs)
-            response.set_cookie(
-                s.auth_refresh_cookie_name, new_refresh, **cookie_kwargs
-            )
-            return response
-
-        # No usable platform token: send the user to the platform login.
-        accepts_html = "text/html" in (request.headers.get("accept") or "")
-        if request.method == "GET" and accepts_html:
-            return RedirectResponse(s.sso_login_redirect_url, status_code=302)
-        return JSONResponse(
-            {"detail": "sso_login_required", "login_url": s.sso_login_redirect_url},
-            status_code=403,
-        )
-
-
-class OIDCAuthMiddleware(CookieAuthMiddleware):
-    """AUTH_MODE=oidc: same session machinery, but an unauthenticated browser
-    is sent through the IdP instead of a password form.
-
-    Browser navigations 302 to /connect-auth/v1/oidc/login (carrying ?next= so
-    deep links survive); XHR/SSE calls get 403 with the login_url so the
-    frontend can redirect. Once the callback drops our cookies, every request
-    after that is ordinary CookieAuthMiddleware behaviour.
-    """
-
-    LOGIN_PATH = "/connect-auth/v1/oidc/login"
-
-    async def _on_browser_auth_failure(self, request: Request, call_next):
-        from starlette.responses import JSONResponse, RedirectResponse
+        from starlette.responses import RedirectResponse
 
         accepts_html = "text/html" in (request.headers.get("accept") or "")
         if request.method == "GET" and accepts_html:
             target = request.url.path
             if request.url.query:
                 target = f"{target}?{request.url.query}"
-            from urllib.parse import quote
-
             return RedirectResponse(
-                f"{self.LOGIN_PATH}?next={quote(target, safe='')}", status_code=302
+                f"/auth/login?next={quote(target, safe='')}", status_code=302
             )
-        return JSONResponse(
-            {"detail": "oidc_login_required", "login_url": self.LOGIN_PATH},
-            status_code=403,
-        )
+        return None
