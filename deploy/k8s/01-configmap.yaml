@@ -57,6 +57,7 @@ data:
   # --- optional (defaults shown) ---
   AUTH_ACCESS_TTL_SECONDS: "3600"        # access JWT life (15 min) — middleware auto-renews it
   AUTH_REFRESH_TTL_SECONDS: "2592000"     # refresh + BOTH cookies' life (30 d) = max idle time
+  AUTH_COOKIE_SECURE: "true"          # prod is behind HTTPS
   AUTH_COOKIE_NAME: "scribe_session"
   AUTH_REFRESH_COOKIE_NAME: "scribe_refresh"
 
