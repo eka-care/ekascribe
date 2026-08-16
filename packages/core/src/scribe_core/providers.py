@@ -207,8 +207,13 @@ def get_providers() -> Dict[str, ProviderConfig]:
 
     providers: Dict[str, ProviderConfig] = {}
     if raw:
+        # Some .env loaders deliver the value still wrapped in the dotenv
+        # line's own quotes (AUTH_PROVIDERS='[...]') — unwrap before parsing.
+        raw_json = raw.strip()
+        if len(raw_json) >= 2 and raw_json[0] == raw_json[-1] and raw_json[0] in "'\"":
+            raw_json = raw_json[1:-1]
         try:
-            entries = json.loads(raw)
+            entries = json.loads(raw_json)
         except json.JSONDecodeError as exc:
             raise ProviderError(f"AUTH_PROVIDERS is not valid JSON: {exc}") from exc
         if not isinstance(entries, list):

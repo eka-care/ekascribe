@@ -230,6 +230,10 @@ async def exchange_code(
     kwargs: Dict[str, Any] = {}
     if p.use_pkce and code_verifier:
         kwargs["code_verifier"] = code_verifier
+    logger.info(
+        "[%s] token exchange -> POST %s (auth=%s, pkce=%s)",
+        p.id, endpoint, p.effective_token_auth_method(), bool(code_verifier),
+    )
     try:
         async with _client(p) as client:
             token = await client.fetch_token(
@@ -239,8 +243,21 @@ async def exchange_code(
                 **kwargs,
             )
     except Exception as exc:  # noqa: BLE001
+        logger.error("[%s] token exchange FAILED: %s", p.id, exc)
         raise OIDCError(f"token exchange failed: {exc}") from exc
-    return dict(token)
+    tokens = dict(token)
+    logger.info(
+        "[%s] token response: keys=%s token_type=%r expires_in=%r scope=%r "
+        "access_token=%s… id_token=%s",
+        p.id,
+        sorted(tokens.keys()),
+        tokens.get("token_type"),
+        tokens.get("expires_in"),
+        tokens.get("scope"),
+        str(tokens.get("access_token", ""))[:8],
+        "yes" if tokens.get("id_token") else "no",
+    )
+    return tokens
 
 
 async def validate_id_token(
@@ -306,6 +323,7 @@ async def userinfo(
             if required:
                 raise OIDCError(f"provider '{p.id}' has no userinfo_endpoint")
             return {}
+        logger.info("[%s] userinfo -> GET %s", p.id, endpoint)
         async with _client(p) as client:
             resp = await client.request(
                 "GET",
@@ -313,6 +331,10 @@ async def userinfo(
                 headers={"Authorization": f"Bearer {access_token}"},
                 withhold_token=True,  # we set the header ourselves
             )
+        logger.info(
+            "[%s] userinfo response: status=%s body=%s",
+            p.id, resp.status_code, resp.text[:2000],
+        )
         if resp.status_code != 200:
             if required:
                 raise OIDCError(
@@ -322,6 +344,10 @@ async def userinfo(
         data = resp.json()
         if not isinstance(data, dict):
             raise OIDCError("userinfo response is not a JSON object")
+        logger.info(
+            "[%s] userinfo claims available: %s (mapped: uuid<-%r username<-%r name<-%r)",
+            p.id, sorted(data.keys()), p.claim_uuid, p.claim_username, p.claim_name,
+        )
         return data
     except OIDCError:
         raise

@@ -124,6 +124,18 @@ def _login_response(user: dict) -> Response:
     return _session_response(user, refresh_raw)
 
 
+def _signup_open() -> bool:
+    """Signup is open when AUTH_ALLOW_SIGNUP=true, or while no user exists
+    yet — a fresh deployment must be able to create its first account. The
+    moment one user exists, the default-off flag applies again."""
+    if get_settings().auth_allow_signup:
+        return True
+    try:
+        return get_table("users").count() == 0
+    except Exception:  # noqa: BLE001 — fail closed
+        return False
+
+
 @auth_router.get("/auth-mode")
 def auth_mode():
     """Public: how this deployment authenticates — the login page adapts."""
@@ -153,7 +165,7 @@ def auth_mode():
                 }
                 for p in providers.values()
             ],
-            "allow_signup": s.auth_allow_signup,
+            "allow_signup": _signup_open(),
             "login_url": "/auth/login",
         },
         200,
@@ -163,7 +175,7 @@ def auth_mode():
 @auth_router.post("/signup")
 def signup(body: SignupRequest):
     s = get_settings()
-    if not s.auth_allow_signup:
+    if not _signup_open():
         return ResponseFormatter.error(
             code="signup_disabled",
             message="Signup is disabled on this deployment",
