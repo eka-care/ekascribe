@@ -87,6 +87,12 @@ class ProviderConfig(BaseModel):
         Literal["client_secret_post", "client_secret_basic", "none"]
     ] = None
     use_pkce: bool = True
+    # Parichay-style deviations from standard OAuth2 (per NIC integration doc):
+    #   token_request_format "json" -> token request body is JSON, not form-encoded
+    #   userinfo_auth_style "raw"   -> Authorization header carries the bare
+    #                                  access token (no "Bearer " prefix)
+    token_request_format: Literal["form", "json"] = "form"
+    userinfo_auth_style: Literal["bearer", "raw"] = "bearer"
 
     # --- Claim mapping: provider claims -> our users row ---
     claim_uuid: str = "sub"

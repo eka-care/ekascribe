@@ -231,17 +231,46 @@ async def exchange_code(
     if p.use_pkce and code_verifier:
         kwargs["code_verifier"] = code_verifier
     logger.info(
-        "[%s] token exchange -> POST %s (auth=%s, pkce=%s)",
+        "[%s] token exchange -> POST %s (auth=%s, pkce=%s, format=%s)",
         p.id, endpoint, p.effective_token_auth_method(), bool(code_verifier),
+        p.token_request_format,
     )
     try:
-        async with _client(p) as client:
-            token = await client.fetch_token(
-                endpoint,
-                grant_type="authorization_code",
-                code=code,
-                **kwargs,
-            )
+        if p.token_request_format == "json":
+            # Parichay: token request is a JSON body, not form-encoded
+            import httpx
+
+            payload = {
+                "client_id": p.client_id,
+                "client_secret": p.client_secret or "",
+                "grant_type": "authorization_code",
+                "code": code,
+                "redirect_uri": p.effective_redirect_url(),
+            }
+            if p.use_pkce and code_verifier:
+                payload["code_verifier"] = code_verifier
+            async with httpx.AsyncClient(
+                verify=_http_verify(p), timeout=p.request_timeout_s
+            ) as client:
+                resp = await client.post(endpoint, json=payload)
+            if resp.status_code != 200:
+                raise OIDCError(
+                    f"token endpoint returned {resp.status_code}: {resp.text[:300]}"
+                )
+            token = resp.json()
+            if not isinstance(token, dict):
+                raise OIDCError("token response is not a JSON object")
+        else:
+            async with _client(p) as client:
+                token = await client.fetch_token(
+                    endpoint,
+                    grant_type="authorization_code",
+                    code=code,
+                    **kwargs,
+                )
+    except OIDCError as exc:
+        logger.error("[%s] token exchange FAILED: %s", p.id, exc)
+        raise
     except Exception as exc:  # noqa: BLE001
         logger.error("[%s] token exchange FAILED: %s", p.id, exc)
         raise OIDCError(f"token exchange failed: {exc}") from exc
@@ -323,12 +352,20 @@ async def userinfo(
             if required:
                 raise OIDCError(f"provider '{p.id}' has no userinfo_endpoint")
             return {}
-        logger.info("[%s] userinfo -> GET %s", p.id, endpoint)
+        auth_value = (
+            access_token
+            if p.userinfo_auth_style == "raw"
+            else f"Bearer {access_token}"
+        )
+        logger.info(
+            "[%s] userinfo -> GET %s (auth_style=%s)",
+            p.id, endpoint, p.userinfo_auth_style,
+        )
         async with _client(p) as client:
             resp = await client.request(
                 "GET",
                 endpoint,
-                headers={"Authorization": f"Bearer {access_token}"},
+                headers={"Authorization": auth_value},
                 withhold_token=True,  # we set the header ourselves
             )
         logger.info(
