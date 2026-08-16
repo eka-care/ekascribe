@@ -15,6 +15,13 @@ import { VaartaLogoLottie } from '@/shared-components/vaarta-logo-lottie';
 
 type Mode = 'login' | 'signup';
 
+type SsoProvider = {
+  id: string;
+  type: 'oidc' | 'oauth2';
+  display_name: string;
+  login_url: string;
+};
+
 type AuthModeInfo = {
   mode: 'dev' | 'jwt' | 'sso' | 'oidc';
   allow_password_login: boolean;
@@ -24,6 +31,8 @@ type AuthModeInfo = {
   oidc_enabled?: boolean;
   oidc_login_url?: string | null;
   oidc_display_name?: string;
+  // one button per configured provider (AUTH_PROVIDERS)
+  providers?: SsoProvider[];
 };
 
 const FIELD_CLS =
@@ -72,8 +81,22 @@ export default function LoginPage() {
 
   const passwordAllowed = authInfo?.allow_password_login !== false;
   const signupAllowed = passwordAllowed && authInfo?.allow_signup !== false;
-  const oidcUrl = authInfo?.oidc_enabled ? authInfo.oidc_login_url : null;
-  const oidcName = authInfo?.oidc_display_name || 'Single sign-on';
+  // Every configured provider gets a button (number of AUTH_PROVIDERS entries
+  // == number of buttons). Older backends without `providers` fall back to
+  // the single default-provider fields.
+  const ssoProviders: SsoProvider[] =
+    authInfo?.providers && authInfo.providers.length > 0
+      ? authInfo.providers
+      : authInfo?.oidc_enabled && authInfo.oidc_login_url
+        ? [
+            {
+              id: 'default',
+              type: 'oidc',
+              display_name: authInfo.oidc_display_name || 'Single sign-on',
+              login_url: authInfo.oidc_login_url,
+            },
+          ]
+        : [];
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -178,7 +201,7 @@ export default function LoginPage() {
           </form>
         )}
 
-        {oidcUrl && (
+        {ssoProviders.length > 0 && (
           <>
             {passwordAllowed && (
               <div className="my-5 flex items-center gap-3">
@@ -189,18 +212,23 @@ export default function LoginPage() {
                 <span className="h-px flex-1 bg-border" />
               </div>
             )}
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              onClick={() => {
-                // full navigation (not fetch): the IdP round-trip is a
-                // top-level redirect and must set cookies on the way back
-                window.location.href = oidcUrl;
-              }}
-            >
-              Login with {oidcName}
-            </Button>
+            <div className="flex flex-col gap-2">
+              {ssoProviders.map((p) => (
+                <Button
+                  key={p.id}
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => {
+                    // full navigation (not fetch): the IdP round-trip is a
+                    // top-level redirect and must set cookies on the way back
+                    window.location.href = p.login_url;
+                  }}
+                >
+                  Login with {p.display_name}
+                </Button>
+              ))}
+            </div>
           </>
         )}
 

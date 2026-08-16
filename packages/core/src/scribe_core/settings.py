@@ -47,16 +47,15 @@ class Settings(BaseSettings):
     # --- Database -----------------------------------------------------------
     database_url: str = "postgresql://scribe:scribe@localhost:5432/scribe"
 
-    # --- Auth (decision #17: dev-token only for v1) -------------------------
-    auth_mode: Literal["dev", "jwt", "sso", "oidc"] = "dev"
-    dev_auth_token: str | None = None        # if set, requests must send it (Authorization: Bearer <token>)
-    dev_b_id: str = "onprem-workspace"
-    dev_uuid: str = "00000000-0000-0000-0000-000000000001"
-    dev_oid: str = "onprem-doctor-oid"
-    dev_client_id: str | None = None         # machine-client id (optional)
+    # --- Auth: ONE mode — real cookie/JWT login everywhere (no AUTH_MODE) --
+    # All users of a deployment share one workspace; this id partitions their
+    # data. (Reads legacy DEV_B_ID too so existing deployments keep their data.)
+    workspace_id: str = Field(
+        default="onprem-workspace",
+        validation_alias=AliasChoices("WORKSPACE_ID", "DEV_B_ID"),
+    )
     auth_issuer: str = "scribe.local"
-    # --- Session auth (AUTH_MODE=jwt): username/password login + cookie JWT --
-    auth_jwt_secret: str | None = None       # REQUIRED in jwt mode (HS256 signing key)
+    auth_jwt_secret: str | None = None       # REQUIRED (HS256 session signing key)
     auth_access_ttl_seconds: int = 900       # access JWT lifetime (15 min)
     auth_refresh_ttl_seconds: int = 2592000  # refresh token + cookie lifetime (30 d)
     auth_cookie_name: str = "scribe_session"
@@ -64,15 +63,16 @@ class Settings(BaseSettings):
     auth_cookie_secure: bool = False         # True behind HTTPS (prod)
     auth_cookie_domain: str | None = None    # e.g. .dev.eka.care to span FE/BE subdomains
     auth_allow_signup: bool = True           # open registration; set False to lock down
-    auth_allow_password_login: bool = True   # False on SSO deployments: /login + /signup return 403
-    # --- SSO (AUTH_MODE=sso): trust the platform's `token` cookie, exchange it
-    # --- for our session via the platform's userinfo API (Open WebUI /api/v1/auths/)
-    sso_userinfo_url: str | None = None      # e.g. http://indiaai-portal:8080/api/v1/auths/
-    sso_token_cookie: str = "bharatai_token"          # platform cookie carrying the user's JWT
-    sso_login_redirect_url: str = "https://bharatai.gov.in/auth"  # where unauthenticated users go
-    sso_request_timeout_s: float = 10.0
-    sso_verify_ssl: bool = True              # False for self-signed platform endpoints
-    # --- OIDC (AUTH_MODE=oidc): authorization code + PKCE against any IdP ---
+    # --- External identity providers (OIDC + plain OAuth2) ------------------
+    # JSON list of provider objects — see scribe_core/providers.py for the
+    # schema. Each provider gets its own root-level URLs:
+    #   /{oidc|oauth}/{id}/{login,callback,logout}
+    # (/oauth/ serves providers with type "oauth2" — short URL, precise type)
+    auth_providers: str | None = None
+    auth_default_provider: str | None = None  # id used for "the" login button
+    # --- Legacy single-provider OIDC_* config -------------------------------
+    # Used only when AUTH_PROVIDERS is unset: mapped onto provider id
+    # "default" (callback: /oidc/default/callback).
     oidc_issuer: str | None = None           # e.g. https://idp.gov.in/realms/vaarta
     oidc_discovery_url: str | None = None    # default: {issuer}/.well-known/openid-configuration
     oidc_client_id: str | None = None

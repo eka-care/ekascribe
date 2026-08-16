@@ -33,7 +33,7 @@ FROM python:3.11-slim
 # bind9-dnsutils/inetutils-telnet are the real packages; the familiar
 # dnsutils/telnet names are bookworm transitional shims that go away in trixie,
 # so naming the real ones survives a base-image rebase.
-RUN apt-get update && apt upgrade && apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
     ffmpeg git \
     procps htop lsof less vim jq curl wget \
     iproute2 net-tools bind9-dnsutils iputils-ping netcat-openbsd inetutils-telnet \

@@ -31,11 +31,10 @@ Flags
   --base-url    Override http://127.0.0.1:8000.
   --dry-run     Print what would happen and exit.
 
-NOTE on auth: in AUTH_MODE=jwt/sso/oidc the middleware STRIPS any caller-supplied
-`jwt-payload` header (trusting it would be an auth bypass), so this script mints
-a short-lived session JWT with AUTH_JWT_SECRET and sends it as a Bearer token —
-the middleware then injects the jwt-payload itself. In AUTH_MODE=dev the header
-is honoured directly, so it sends that instead.
+NOTE on auth: the middleware STRIPS any caller-supplied `jwt-payload` header
+(trusting it would be an auth bypass), so this script mints a short-lived
+session JWT with AUTH_JWT_SECRET and sends it as a Bearer token — the
+middleware then injects the jwt-payload itself.
 """
 
 from __future__ import annotations
@@ -73,31 +72,25 @@ def principal_for(session: dict):
 
     s = get_settings()
     return Principal(
-        b_id=session.get("b_id") or s.dev_b_id,
-        uuid=session.get("uuid") or s.dev_uuid,
-        oid=session.get("oid") or s.dev_oid,
-        client_id=s.dev_client_id,
+        b_id=session.get("b_id") or s.workspace_id,
+        uuid=session.get("uuid") or "pipeline-rerun",
+        oid=session.get("oid") or "pipeline-rerun",
+        client_id="pipeline-rerun",
         is_paid=True,  # cc.esc == 1 -> skip transaction limits
         issuer=s.auth_issuer,
     )
 
 
 def auth_headers(principal) -> dict:
-    """Bearer token in real auth modes; jwt-payload in dev mode."""
+    """Short-lived Bearer session token minted with the pod's AUTH_JWT_SECRET."""
     from scribe_core.auth import mint_session_token
     from scribe_core.settings import get_settings
 
     s = get_settings()
     headers = {"content-type": "application/json", "client-id": "pipeline-rerun"}
 
-    if s.auth_mode == "dev":
-        headers["jwt-payload"] = json.dumps(principal.to_jwt_payload())
-        if s.dev_auth_token:
-            headers["authorization"] = f"Bearer {s.dev_auth_token}"
-        return headers
-
     if not s.auth_jwt_secret:
-        _die(f"AUTH_MODE={s.auth_mode} but AUTH_JWT_SECRET is not set in this pod")
+        _die("AUTH_JWT_SECRET is not set in this pod")
     token = mint_session_token(
         principal,
         sub=principal.uuid or "pipeline-rerun",
@@ -213,7 +206,7 @@ def main() -> int:
     print(f"s3_url         : {session.get('s3_url')}")
     print(f"user_status    : {session.get('user_status')}")
     print(f"transcript/proc: {session.get('transcript_status')} / {session.get('processing_status')}")
-    print(f"auth_mode      : {s.auth_mode}   execution_mode: {s.execution_mode}")
+    print(f"execution_mode : {s.execution_mode}")
 
     try:
         from scribe.pipeline import chunk_state

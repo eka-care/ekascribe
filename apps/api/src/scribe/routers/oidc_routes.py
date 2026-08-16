@@ -1,12 +1,23 @@
-"""OIDC login endpoints (AUTH_MODE=oidc).
+"""Provider-scoped SSO login endpoints (OIDC + plain OAuth2), mounted at the
+app root.
 
-GET /connect-auth/v1/oidc/login     -> 302 to the IdP (state+nonce+PKCE in a
-                                       signed, short-lived cookie)
-GET /connect-auth/v1/oidc/callback  -> validate, provision, drop our session
-                                       cookies, 302 back into the app
+GET /oidc/{provider}/login      -> 302 to the IdP
+GET /oidc/{provider}/callback   -> validate id_token, provision, set session
+GET /oidc/{provider}/logout     -> revoke + IdP end_session hop
+GET /oauth/{provider}/login     -> 302 to the provider
+GET /oauth/{provider}/callback  -> exchange code, identity via userinfo,
+                                   set session
+GET /oauth/{provider}/logout    -> revoke + clear cookies
 
-Both are exempt from the auth middleware; everything after the callback runs
-on the ordinary vaarta session.
+The provider id in the path selects a provider from AUTH_PROVIDERS (see
+scribe_core/providers.py); the /oidc/ vs /oauth/ URL family must match the
+provider's configured type (/oauth/ serves type "oauth2" — the URL uses the
+conventional short segment, the config keeps the protocol's real name).
+State, nonce, the PKCE verifier and the provider id travel in a signed,
+short-lived cookie, so any pod can serve the callback.
+
+All routes sit outside the auth middleware's guarded prefixes; everything
+after the callback runs on the ordinary vaarta session.
 """
 
 from __future__ import annotations
@@ -28,10 +39,12 @@ from scribe_core.oidc import (
     authorization_redirect_url,
     end_session_url,
     exchange_code,
+    identity_claims,
     safe_next_path,
-    upsert_oidc_user,
-    validate_id_token,
+    upsert_provider_user,
+    verify_tx_token,
 )
+from scribe_core.providers import ProviderConfig, UnknownProvider, get_provider
 from scribe_core.settings import get_settings
 
 from scribe.core.custom_logger import get_logger
@@ -66,43 +79,77 @@ def _session_cookie_kwargs() -> dict:
     )
 
 
-@oidc_router.get("/oidc/login")
-async def oidc_login(request: Request, next: Optional[str] = None):
-    """Start the authorization-code flow."""
+def _resolve(provider_id: str, family: str) -> ProviderConfig:
+    """Path -> provider, or raise UnknownProvider (handled as 404)."""
+    return get_provider(provider_id, family=family)
+
+
+def _unknown_provider(provider_id: str, family: str):
+    return ResponseFormatter.error(
+        code="unknown_provider",
+        message=f"no {family} provider named '{provider_id}' is configured",
+        status_code=404,
+    )
+
+
+# --- shared handlers ----------------------------------------------------------
+
+
+async def _login(family: str, provider_id: str, next_path: Optional[str]):
+    """Start the authorization-code flow for one provider."""
     s = get_settings()
     try:
-        url, tx_token = await authorization_redirect_url(safe_next_path(next))
+        p = _resolve(provider_id, family)
+    except UnknownProvider:
+        return _unknown_provider(provider_id, family)
+    try:
+        url, tx_token = await authorization_redirect_url(p, safe_next_path(next_path))
     except OIDCError as e:
-        logger.error("OIDC login could not start", error=str(e), severity="high")
+        logger.error(
+            "SSO login could not start",
+            provider=provider_id,
+            error=str(e),
+            severity="high",
+        )
         return ResponseFormatter.error(
-            code="oidc_misconfigured", message=str(e), status_code=500
+            code="sso_misconfigured", message=str(e), status_code=500
         )
     response = RedirectResponse(url, status_code=302)
     response.set_cookie(s.oidc_tx_cookie_name, tx_token, **_tx_cookie_kwargs())
     return response
 
 
-@oidc_router.get("/oidc/callback")
-async def oidc_callback(
+async def _callback(
+    family: str,
+    provider_id: str,
     request: Request,
-    code: Optional[str] = None,
-    state: Optional[str] = None,
-    error: Optional[str] = None,
-    error_description: Optional[str] = None,
+    code: Optional[str],
+    state: Optional[str],
+    error: Optional[str],
+    error_description: Optional[str],
 ):
     """Finish the flow: validate, provision, and drop our session cookies."""
-    from scribe_core.oidc import verify_tx_token
     s = get_settings()
+    try:
+        p = _resolve(provider_id, family)
+    except UnknownProvider:
+        return _unknown_provider(provider_id, family)
+
     if error:
-        logger.warning("IdP returned an error", error=error, detail=error_description)
+        logger.warning(
+            "provider returned an error",
+            provider=provider_id,
+            error=error,
+            detail=error_description,
+        )
         return ResponseFormatter.error(
-            code="oidc_error",
+            code="sso_error",
             message=error_description or error,
             status_code=401,
         )
     if not code or not state:
         return ResponseFormatter.error(
-            code="oidc_bad_callback",
+            code="sso_bad_callback",
             message="authorization code or state missing",
             status_code=400,
         )
@@ -110,22 +157,21 @@ async def oidc_callback(
     raw_tx = request.cookies.get(s.oidc_tx_cookie_name, "")
     if not raw_tx:
         # cookie lost/expired — restart cleanly rather than erroring at the user
-        return RedirectResponse("/connect-auth/v1/oidc/login", status_code=302)
+        return RedirectResponse(p.login_path, status_code=302)
 
     try:
-        tx = verify_tx_token(raw_tx)
+        tx = verify_tx_token(raw_tx, p.id)
         if state != tx.get("state"):
             raise OIDCError("state mismatch (CSRF?)")
-        tokens = await exchange_code(code, tx.get("cv", ""))
-        id_token = tokens.get("id_token")
-        if not id_token:
-            raise OIDCError("token response has no id_token")
-        claims = await validate_id_token(id_token, tx.get("nonce", ""))
-        user = upsert_oidc_user(claims)
+        tokens = await exchange_code(p, code, tx.get("cv", ""))
+        claims = await identity_claims(p, tokens, tx.get("nonce", ""))
+        user = upsert_provider_user(p, claims)
     except OIDCError as e:
-        logger.error("OIDC callback failed", error=str(e), severity="high")
+        logger.error(
+            "SSO callback failed", provider=provider_id, error=str(e), severity="high"
+        )
         return ResponseFormatter.error(
-            code="oidc_login_failed", message=str(e), status_code=401
+            code="sso_login_failed", message=str(e), status_code=401
         )
 
     if not s.auth_jwt_secret:
@@ -144,7 +190,8 @@ async def oidc_callback(
     refresh = issue_refresh_token(user["username"], user.get("uuid", ""))
 
     logger.info(
-        "OIDC login complete",
+        "SSO login complete",
+        provider=provider_id,
         username=user.get("username", ""),
         uuid=user.get("uuid", ""),
     )
@@ -153,24 +200,27 @@ async def oidc_callback(
     kwargs = _session_cookie_kwargs()
     response.set_cookie(s.auth_cookie_name, access, **kwargs)
     response.set_cookie(s.auth_refresh_cookie_name, refresh, **kwargs)
-    response.delete_cookie(
-        s.oidc_tx_cookie_name, domain=cookie_domain(), path="/"
-    )
+    response.delete_cookie(s.oidc_tx_cookie_name, domain=cookie_domain(), path="/")
     return response
 
 
-@oidc_router.get("/oidc/logout")
-async def oidc_logout(request: Request):
-    """Single-hop RP-initiated logout: revoke our refresh, clear our cookies,
-    then hand off to the IdP's end_session endpoint.
-
-    Without the IdP hop the user's still-live IdP session would silently
-    re-authenticate them on the very next request.
-    """
+async def _logout(family: str, provider_id: str, request: Request):
+    """Revoke our refresh token, clear our cookies, then (oidc) hand off to
+    the IdP's end_session endpoint — without that hop the user's still-live
+    IdP session would silently re-authenticate them on the next request."""
     s = get_settings()
+    try:
+        p = _resolve(provider_id, family)
+    except UnknownProvider:
+        return _unknown_provider(provider_id, family)
+
     revoke_refresh_token(request.cookies.get(s.auth_refresh_cookie_name, ""))
 
-    target = await end_session_url() or s.oidc_post_logout_redirect or "/"
+    target = "/"
+    if p.type == "oidc":
+        target = await end_session_url(p) or p.post_logout_redirect or "/"
+    else:
+        target = p.post_logout_redirect or "/"
     response = RedirectResponse(target, status_code=302)
     for name in (s.auth_cookie_name, s.auth_refresh_cookie_name):
         response.set_cookie(
@@ -184,5 +234,59 @@ async def oidc_logout(request: Request):
             domain=cookie_domain(),
             path="/",
         )
-    logger.info("OIDC logout -> IdP end_session")
+    logger.info("SSO logout", provider=provider_id, target=target)
     return response
+
+
+# --- routes: /oidc/{provider}/* -----------------------------------------------
+
+
+@oidc_router.get("/oidc/{provider_id}/login")
+async def oidc_login(provider_id: str, request: Request, next: Optional[str] = None):
+    return await _login("oidc", provider_id, next)
+
+
+@oidc_router.get("/oidc/{provider_id}/callback")
+async def oidc_callback(
+    provider_id: str,
+    request: Request,
+    code: Optional[str] = None,
+    state: Optional[str] = None,
+    error: Optional[str] = None,
+    error_description: Optional[str] = None,
+):
+    return await _callback(
+        "oidc", provider_id, request, code, state, error, error_description
+    )
+
+
+@oidc_router.get("/oidc/{provider_id}/logout")
+async def oidc_logout(provider_id: str, request: Request):
+    return await _logout("oidc", provider_id, request)
+
+
+# --- routes: /oauth/{provider}/* (providers with type "oauth2") ---------------
+
+
+@oidc_router.get("/oauth/{provider_id}/login")
+async def oauth_login(provider_id: str, request: Request, next: Optional[str] = None):
+    return await _login("oauth", provider_id, next)
+
+
+@oidc_router.get("/oauth/{provider_id}/callback")
+async def oauth_callback(
+    provider_id: str,
+    request: Request,
+    code: Optional[str] = None,
+    state: Optional[str] = None,
+    error: Optional[str] = None,
+    error_description: Optional[str] = None,
+):
+    return await _callback(
+        "oauth", provider_id, request, code, state, error, error_description
+    )
+
+
+@oidc_router.get("/oauth/{provider_id}/logout")
+async def oauth_logout(provider_id: str, request: Request):
+    return await _logout("oauth", provider_id, request)

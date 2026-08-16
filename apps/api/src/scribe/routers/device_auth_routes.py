@@ -18,9 +18,6 @@ DEVICE_CODE_TTL_SECONDS. Tokens are returned in the body only — no cookies —
 after which the desktop uses the existing Bearer + /connect-auth/v1/refresh
 path (CookieAuthMiddleware already accepts Bearer tokens).
 
-Only meaningful under AUTH_MODE=jwt. In dev mode every endpoint answers
-``unsupported_auth_mode`` — the desktop treats that as "use the manual
-token screen instead".
 """
 
 from __future__ import annotations
@@ -84,23 +81,9 @@ def _normalize_user_code(raw: str) -> str:
     return f"{cleaned[:4]}-{cleaned[4:]}"
 
 
-def _jwt_mode_or_error():
-    s = get_settings()
-    if s.auth_mode != "jwt":
-        return ResponseFormatter.error(
-            code="unsupported_auth_mode",
-            message="Device sign-in requires AUTH_MODE=jwt on this deployment",
-            status_code=400,
-        )
-    return None
-
-
 @device_auth_router.post("/code")
 def create_device_code():
     """Start a device sign-in. Unauthenticated — the desktop calls this first."""
-    err = _jwt_mode_or_error()
-    if err:
-        return err
     s = get_settings()
     table = get_table("device_auth")
     now = int(time.time())
@@ -158,9 +141,6 @@ def create_device_code():
 def approve_device_code(body: ApproveRequest, request: Request):
     """Approve/deny a pending code. Cookie-authenticated (NOT middleware-exempt):
     the identity comes from the verified session, never from the request body."""
-    err = _jwt_mode_or_error()
-    if err:
-        return err
 
     # CookieAuthMiddleware verified the session and injected the claims.
     try:
@@ -207,9 +187,6 @@ def approve_device_code(body: ApproveRequest, request: Request):
 @device_auth_router.post("/token")
 def poll_device_token(body: TokenRequest):
     """Poll for tokens. Unauthenticated — the device_code IS the credential."""
-    err = _jwt_mode_or_error()
-    if err:
-        return err
     s = get_settings()
     table = get_table("device_auth")
     now = int(time.time())
