@@ -1,5 +1,4 @@
 import base64
-import functools
 import os
 from datetime import datetime
 from typing import Awaitable, Callable, Optional, Union
@@ -53,7 +52,6 @@ _template_service: TemplateService = TemplateService()
 _template_result_repo: TemplateResultORM = TemplateResultORM()
 _context_service: ContextResolutionService = ContextResolutionService()
 
-@functools.lru_cache(maxsize=1)
 def _require_identity(request: Request) -> tuple[str, str]:
     from scribe.core.http.request_handler import RequestHandler
     try:

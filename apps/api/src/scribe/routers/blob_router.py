@@ -195,6 +195,26 @@ async def post_blob(bucket: str, request: Request):
         for k, v in form.items()
         if k.startswith("x-amz-meta-")
     }
-    get_blob_store().put(bucket, key, body, content_type=content_type, metadata=metadata)
+    try:
+        get_blob_store().put(
+            bucket, key, body, content_type=content_type, metadata=metadata
+        )
+    except Exception as e:  # noqa: BLE001 — the object store rejected the write
+        # Without this the caller just gets a bare 500 and the reason is buried
+        # in a stack trace. Name the bucket/key/error so the log line IS the
+        # diagnosis (missing bucket, bad creds, unreachable endpoint, TLS).
+        logger.error(
+            "blob write FAILED — object store rejected the upload",
+            bucket=bucket,
+            key=key,
+            size_bytes=len(body),
+            error=f"{type(e).__name__}: {e}",
+            severity="critical",
+        )
+        raise HTTPException(
+            status_code=502,
+            detail=f"storage write failed ({type(e).__name__}) — see api logs",
+        )
+
     _dispatch_chunk_stt(bucket, key, str(prefix), metadata)
     return Response(status_code=204)
