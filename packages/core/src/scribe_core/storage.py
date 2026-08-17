@@ -180,12 +180,22 @@ class LocalFSBlobStore(BlobStore):
 # --- API-hosted blob URLs (shared by LocalFS and S3-via-API) -------------------
 
 
-def _api_get_url(self_url: str, bucket: str, key: str, expires_in: int = 3600) -> str:
-    """Download URL served by the API's blob router (HMAC-token guarded)."""
+def _api_blob_url(
+    self_url: str, method: str, bucket: str, key: str, expires_in: int = 3600
+) -> str:
+    """URL served by the API's blob router (HMAC-token guarded).
+
+    method must match the route the browser will call — the token is signed
+    over it, so a GET token will not open a PUT.
+    """
     expires_at = int(time.time()) + expires_in
-    token = make_blob_token("GET", bucket, key, expires_at)
+    token = make_blob_token(method, bucket, key, expires_at)
     q = f"expires={expires_at}&token={token}"
     return f"{self_url.rstrip('/')}/voice/v1/blob/{bucket}/{quote(key)}?{q}"
+
+
+def _api_get_url(self_url: str, bucket: str, key: str, expires_in: int = 3600) -> str:
+    return _api_blob_url(self_url, "GET", bucket, key, expires_in)
 
 
 def _api_presigned_post(
@@ -271,6 +281,10 @@ class S3BlobStore(BlobStore):
             return None
 
     def presigned_put_url(self, bucket, key, expires_in=3600, content_type="text/plain"):
+        # BLOB_VIA_API must hold for writes too — a direct-to-bucket PUT is a
+        # cross-origin request from the browser and needs a bucket CORS policy.
+        if self.via_api:
+            return _api_blob_url(self.self_url, "PUT", bucket, key, expires_in)
         try:
             return self.client.generate_presigned_url(
                 "put_object",

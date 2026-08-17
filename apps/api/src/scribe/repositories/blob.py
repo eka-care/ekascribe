@@ -198,6 +198,11 @@ class S3StorageClient:
             "S3_VADED_BUCKET_NAME", "voice-records"
         )
         self._client = s3_client or _default_boto3_client()
+        # Browser-facing URLs go through the shared BlobStore so BLOB_VIA_API
+        # is honoured in ONE place. Presigning here with our own client would
+        # hand the browser a direct bucket URL and reintroduce the CORS
+        # requirement the setting exists to avoid.
+        self._store = get_blob_store()
 
     def generate_presigned_get_url(
         self, key: str, expires_in: int = 3600
@@ -205,11 +210,7 @@ class S3StorageClient:
         if not key:
             return None
         try:
-            return self._client.generate_presigned_url(
-                "get_object",
-                Params={"Bucket": self.bucket_name, "Key": key},
-                ExpiresIn=expires_in,
-            )
+            return self._store.presigned_get_url(self.bucket_name, key, expires_in)
         except Exception as e:
             logger.error(
                 "S3StorageClient: failed to generate presigned GET url",
@@ -228,14 +229,8 @@ class S3StorageClient:
         if not key:
             return None
         try:
-            return self._client.generate_presigned_url(
-                "put_object",
-                Params={
-                    "Bucket": self.bucket_name,
-                    "Key": key,
-                    "ContentType": content_type,
-                },
-                ExpiresIn=expires_in,
+            return self._store.presigned_put_url(
+                self.bucket_name, key, expires_in, content_type
             )
         except Exception as e:
             logger.error(
