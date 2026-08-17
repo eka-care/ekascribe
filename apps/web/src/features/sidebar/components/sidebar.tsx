@@ -266,7 +266,7 @@ const CustomSidebar = () => {
       <SidebarHeader>
         {isCollapsed ? (
           <div className="flex flex-col items-center gap-1">
-            <img src="/assets/logo-mark.png" alt="vaarta" className="w-8 h-8" />
+            <img src="/assets/vaarta-icon.svg" alt="vaarta" className="w-8 h-8" />
             <button
               className="cursor-pointer hidden md:flex p-1 rounded hover:bg-accent transition-colors"
               onClick={() => {
