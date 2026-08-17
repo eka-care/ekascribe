@@ -32,6 +32,9 @@ export default function ActivatePage() {
   const [typedCode, setTypedCode] = useState('');
   const [username, setUsername] = useState('');
   const [error, setError] = useState('');
+  // Server-validated return-to-app target from the approve response (never
+  // taken from this page's URL — see device_auth_routes redirect allowlist).
+  const [redirectUri, setRedirectUri] = useState('');
 
   useEffect(() => {
     // Prefill from ?user_code= — still shown in an editable input so the
@@ -76,6 +79,13 @@ export default function ActivatePage() {
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok && data?.status === 'success') {
+        if (action === 'approve' && typeof data?.redirect_uri === 'string' && data.redirect_uri) {
+          setRedirectUri(data.redirect_uri);
+          // brief pause so the success state is visible before leaving
+          setTimeout(() => {
+            window.location.href = data.redirect_uri;
+          }, 800);
+        }
         setPhase(action === 'approve' ? 'approved' : 'denied');
         return;
       }
@@ -152,10 +162,20 @@ export default function ActivatePage() {
         {phase === 'approved' && (
           <div className="flex flex-col items-center gap-2 text-center">
             <p className="text-lg font-medium">You're all set</p>
-            <p className="text-sm text-muted-foreground">
-              Return to the desktop app — it will finish signing in on its own. You can
-              close this tab.
-            </p>
+            {redirectUri ? (
+              <p className="text-sm text-muted-foreground">
+                Returning you to the desktop app…{' '}
+                <a href={redirectUri} className="font-medium text-primary hover:underline">
+                  Open it now
+                </a>{' '}
+                if nothing happens.
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Return to the desktop app — it will finish signing in on its own. You can
+                close this tab.
+              </p>
+            )}
           </div>
         )}
 
