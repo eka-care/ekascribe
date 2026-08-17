@@ -24,7 +24,7 @@ data:
   WEB_DIST_DIR: "/app/web-static"
 
   # --- Pluggable backends -------------------------------------------------
-  STORAGE_BACKEND: "local"
+  STORAGE_BACKEND: "s3"
   DB_BACKEND: "postgres"
   QUEUE_BACKEND: "postgres"
   STATE_BACKEND: "postgres"
@@ -45,13 +45,25 @@ data:
   BACKGROUND_JOB_CONCURRENCY: "4"
 
   # --- Storage ------------------------------------------------------------
-  # STORAGE_BACKEND=local: recordings live on the api pod's PVC
-  # (07-api-storage-pvc.yaml) — NOT scratch space. Survives restarts.
+  # STORAGE_BACKEND=s3: objects live in the TCL on-prem S3-compatible store.
+  # STORAGE_ROOT is only used by the local backend; kept for easy rollback.
   STORAGE_ROOT: "/data/storage"
-  S3_BUCKET: "voice-records"
+  # Tata Communications IP Storage endpoint (S3-compatible). Access key /
+  # secret for it go in 02-secret.yaml as AWS_ACCESS_KEY_ID /
+  # AWS_SECRET_ACCESS_KEY (boto3 default credential chain).
+  S3_ENDPOINT_URL: "https://cdacchndstvals3arc.ipstorage.tatacommunications.com"
+  # BLOB_VIA_API=true: browser upload/download URLs point at the API, which
+  # proxies to the bucket — no bucket CORS policy or presigned-URL reach
+  # from the browser needed (storage.py S3BlobStore).
+  BLOB_VIA_API: "true"
+  S3_BUCKET: "cdacchndstvals3arc-b1"
   # Read directly via os.getenv() by voice2rx (scribe_agent_runs.py,
   # conversion_pipeline.py) -- setting S3_BUCKET alone is not enough.
-  S3_VADED_BUCKET_NAME: "voice-records"
+  S3_VADED_BUCKET_NAME: "cdacchndstvals3arc-b1"
+  # Same bucket as vaded: the two flows write under different key prefixes,
+  # so they don't collide. Split into a second bucket only if retention/
+  # lifecycle rules must differ.
+  S3_NON_VADED_BUCKET_NAME: "cdacchndstvals3arc-b1"
   AWS_REGION: "ap-south-1"
 
   # --- optional (defaults shown) ---
