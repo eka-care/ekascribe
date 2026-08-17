@@ -7,9 +7,6 @@ import {
   LayoutGrid,
   ChevronRight,
   ChevronLeft,
-  Check,
-  ChevronDown,
-  Cpu,
   NotepadText,
   Plus,
   Sparkles,
@@ -17,8 +14,6 @@ import {
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@ui/src';
-import useVoice2RxStore from '@/store/store';
-import type { TPreferenceItem } from '@/constants/types';
 import { useCopyFromSession } from '../../hooks/document/use-copy-from-session';
 import { useSavedNotes } from '../../hooks/document/use-saved-notes';
 
@@ -37,10 +32,6 @@ interface AddOrConvertPopoverProps {
 }
 
 type Submenu = 'stream' | 'savedNotes' | null;
-
-// Stable identity for the empty case — a fresh [] out of a zustand selector
-// changes the snapshot on every render (React's getSnapshot-cache warning).
-const NO_MODELS: TPreferenceItem[] = [];
 
 const MOBILE_BREAKPOINT = 640;
 
@@ -87,7 +78,6 @@ export function AddOrConvertPopover({
   const { notes: savedNotes } = useSavedNotes();
 
   const [activeSubmenu, setActiveSubmenu] = useState<Submenu>(null);
-  const [modelMenuOpen, setModelMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const subPanelRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
@@ -123,7 +113,6 @@ export function AddOrConvertPopover({
   const openSavedNotes = useCallback(() => setActiveSubmenu('savedNotes'), []);
   const goBack = useCallback(() => {
     setActiveSubmenu(null);
-    setModelMenuOpen(false);
   }, []);
 
   const handlePickSavedNote = useCallback(
@@ -178,71 +167,6 @@ export function AddOrConvertPopover({
     );
   };
 
-  // --- structuring model picker -------------------------------------------
-  // In-panel dropdown (not a portal) so opening it can't drag the pointer
-  // outside the popover and collapse the submenu.
-  const supportedModels = useVoice2RxStore(
-    (state) => state.appConfig.supported_models ?? NO_MODELS
-  );
-  const structuringModel = useVoice2RxStore((state) => state.structuringModel);
-  const setStructuringModel = useVoice2RxStore((state) => state.setStructuringModel);
-
-  const selectedModel =
-    supportedModels.find((m) => m.id === structuringModel) ?? supportedModels[0];
-
-  const renderModelPicker = () => {
-    // Nothing to choose from -> the backend falls back to its env default.
-    if (supportedModels.length === 0) return null;
-
-    return (
-      <div className="relative px-3 pt-1 pb-2">
-        <span className="text-xs font-medium text-[#767676]">Model</span>
-        <button
-          type="button"
-          onMouseDown={(e) => {
-            e.preventDefault();
-            setModelMenuOpen((open) => !open);
-          }}
-          className="mt-1 flex w-full items-center gap-2 rounded-md border border-[#D1D1D1] px-2 py-1.5 text-left transition-colors hover:bg-[#F5F5F5] cursor-pointer"
-        >
-          <Cpu className="h-4 w-4 shrink-0 text-[#767676]" />
-          <span className="flex-1 truncate text-sm text-[#191919]">
-            {selectedModel?.name ?? 'Default'}
-          </span>
-          <ChevronDown
-            className={`h-4 w-4 shrink-0 text-[#9CA3AF] transition-transform ${
-              modelMenuOpen ? 'rotate-180' : ''
-            }`}
-          />
-        </button>
-
-        {modelMenuOpen && (
-          <div className="absolute left-3 right-3 z-50 mt-1 flex max-h-48 flex-col overflow-y-auto rounded-md border border-[#D1D1D1] bg-white shadow-md">
-            {supportedModels.map((model) => (
-              <button
-                key={model.id}
-                type="button"
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  setStructuringModel(model.id);
-                  setModelMenuOpen(false);
-                }}
-                className="flex items-center gap-2 px-2 py-1.5 text-left transition-colors hover:bg-[#F5F5F5] cursor-pointer"
-              >
-                <Check
-                  className={`h-4 w-4 shrink-0 text-primary ${
-                    model.id === selectedModel?.id ? 'opacity-100' : 'opacity-0'
-                  }`}
-                />
-                <span className="truncate text-sm text-[#191919]">{model.name}</span>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  };
-
   const renderTemplateList = () => (
     <div className="flex flex-col overflow-y-auto max-h-60 pb-3">
       {templates.map((template) => (
@@ -288,7 +212,6 @@ export function AddOrConvertPopover({
           <span className="text-sm font-semibold text-[#191919]">Convert to another template</span>
         </button>
         <div className="h-px bg-[#E5E7EB]" />
-        {renderModelPicker()}
         {renderTemplateList()}
         {renderCreateCustomButton()}
       </div>
@@ -402,8 +325,7 @@ export function AddOrConvertPopover({
                 <div className="p-3 pb-1">
                   <span className="text-sm font-semibold text-[#191919]">Stream with AI</span>
                 </div>
-                {renderModelPicker()}
-                {renderTemplateList()}
+                        {renderTemplateList()}
                 {renderCreateCustomButton()}
               </div>
             )}

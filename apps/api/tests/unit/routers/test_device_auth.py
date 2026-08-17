@@ -14,6 +14,7 @@ import pytest
 from scribe.routers import device_auth_routes as dar
 from scribe.routers.device_auth_routes import (
     ApproveRequest,
+    CodeRequest,
     TokenRequest,
     approve_device_code,
     create_device_code,
@@ -245,3 +246,79 @@ class TestMiddlewareExemptions:
         assert not any(
             "/connect-auth/v1/device/approve".startswith(p) for p in exempt
         ), "approve must require the session cookie"
+
+
+class TestRedirectUri:
+    """Optional return-to-app redirect: allowlisted at /code, stored on the
+    row, returned only after an authenticated approve, never carries secrets."""
+
+    def _start(self, uri):
+        return create_device_code(CodeRequest(redirect_uri=uri))
+
+    def test_custom_scheme_accepted_and_returned_on_approve(self, db):
+        start = body_of(self._start("vaarta://signed-in"))
+        uc = start["user_code"]
+        # redirect_uri is NOT echoed at /code time (nothing to leak, but the
+        # activation URL must never carry it either way)
+        assert "redirect_uri" not in start
+
+        ok = body_of(approve_device_code(ApproveRequest(user_code=uc), request_as("doc1")))
+        assert ok["result"] == "approved"
+        assert ok["redirect_uri"] == "vaarta://signed-in"
+
+    def test_loopback_http_accepted(self, db):
+        start = body_of(self._start("http://127.0.0.1:53123/done?x=1"))
+        ok = body_of(
+            approve_device_code(
+                ApproveRequest(user_code=start["user_code"]), request_as("doc1")
+            )
+        )
+        assert ok["redirect_uri"] == "http://127.0.0.1:53123/done?x=1"
+
+    @pytest.mark.parametrize(
+        "bad",
+        [
+            "https://evil.example/phish",       # web target: phishing continuation
+            "http://evil.example/",             # http but not loopback
+            "javascript:alert(1)",              # script scheme
+            "vaarta://ok\nSet-Cookie: x=1",     # control chars / header injection
+            "ftp://127.0.0.1/",                 # unlisted scheme
+            "http://127.0.0.1.evil.example/",   # loopback-lookalike host
+        ],
+    )
+    def test_disallowed_uris_rejected(self, db, bad):
+        resp = self._start(bad)
+        assert resp.status_code == 400
+        assert b"invalid_redirect_uri" in resp.body
+
+    def test_no_redirect_is_fine_and_absent_from_approve(self, db):
+        start = body_of(create_device_code())
+        ok = body_of(
+            approve_device_code(
+                ApproveRequest(user_code=start["user_code"]), request_as("doc1")
+            )
+        )
+        assert ok["result"] == "approved"
+        assert "redirect_uri" not in ok
+
+    def test_deny_never_returns_redirect(self, db):
+        start = body_of(self._start("vaarta://signed-in"))
+        resp = body_of(
+            approve_device_code(
+                ApproveRequest(user_code=start["user_code"], action="deny"),
+                request_as("doc1"),
+            )
+        )
+        assert resp["result"] == "denied"
+        assert "redirect_uri" not in resp
+
+    def test_tokens_still_only_via_poll(self, db):
+        """The redirect adds no second token channel: the poll response is
+        unchanged and the redirect string contains no code or token."""
+        start = body_of(self._start("vaarta://signed-in"))
+        dc, uc = start["device_code"], start["user_code"]
+        ok = body_of(approve_device_code(ApproveRequest(user_code=uc), request_as("doc1")))
+        assert dc not in ok["redirect_uri"]
+        age_poll(db, dc)
+        tokens = body_of(poll_device_token(TokenRequest(device_code=dc)))
+        assert tokens["status"] == "success" and tokens["access_token"]

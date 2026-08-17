@@ -192,7 +192,7 @@ export async function* streamAgUiRun({
 
   const params = new URLSearchParams();
   if (documentId) params.set('document_id', documentId);
-  if (model) params.set('model', model);
+  if (model) params.set('template_model', model);
   const query = params.toString();
   if (query) url += `?${query}`;
 

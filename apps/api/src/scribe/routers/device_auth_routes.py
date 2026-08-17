@@ -18,15 +18,26 @@ DEVICE_CODE_TTL_SECONDS. Tokens are returned in the body only — no cookies —
 after which the desktop uses the existing Bearer + /connect-auth/v1/refresh
 path (CookieAuthMiddleware already accepts Bearer tokens).
 
+Optional return-to-app redirect: /code may carry a redirect_uri so the
+activation page can bounce the browser back to the desktop app after the
+user clicks Approve. It is allowlisted (app custom scheme or http loopback
+only — never https), stored server-side against the device_code row (so it
+cannot be swapped mid-flight), and returned to the activation page only
+after an authenticated Approve. It carries NO code or token — tokens still
+travel exclusively over the /token polling channel — so a leaked or
+intercepted redirect authorizes nothing.
+
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
+import os
 import secrets
 import time
 from typing import Literal, Optional
+from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
@@ -53,6 +64,51 @@ POLL_INTERVAL_SECONDS = 5      # advertised + enforced minimum poll spacing
 # No O/0, I/1/L, or vowels (avoids accidental words); 28^8 ≈ 3.8e11 codes.
 USER_CODE_ALPHABET = "BCDFGHJKMNPQRSTVWXZ23456789"
 USER_CODE_LENGTH = 8
+
+MAX_REDIRECT_URI_LENGTH = 2048
+# http is allowed on loopback ONLY (RFC 8252 native-app style); https is
+# deliberately rejected — a web redirect target enables phishing continuation
+# after a victim approves an attacker-initiated code.
+_LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
+
+
+def _allowed_redirect_schemes() -> tuple:
+    """Custom URI scheme(s) registered by the desktop app."""
+    raw = os.getenv("DEVICE_REDIRECT_SCHEMES", "vaarta")
+    return tuple(sch.strip().lower() for sch in raw.split(",") if sch.strip())
+
+
+def _validate_redirect_uri(raw: Optional[str]) -> Optional[str]:
+    """Return the URI if it is allowlisted, else None.
+
+    Allowed: the app's custom scheme(s) (vaarta://…) or http on loopback
+    (http://127.0.0.1:<port>/…). Everything else — https, other schemes,
+    javascript:, control characters — is rejected. The redirect never carries
+    secrets, so this gate only has to prevent open-redirect/phishing use.
+    """
+    if not raw:
+        return None
+    uri = raw.strip()
+    if not uri or len(uri) > MAX_REDIRECT_URI_LENGTH:
+        return None
+    if any(ord(c) < 0x21 for c in uri):  # control chars and embedded spaces
+        return None
+    try:
+        parts = urlsplit(uri)
+        host = (parts.hostname or "").lower()
+    except ValueError:
+        return None
+    scheme = (parts.scheme or "").lower()
+    if scheme in _allowed_redirect_schemes():
+        return uri
+    if scheme == "http" and host in _LOOPBACK_HOSTS:
+        return uri
+    return None
+
+
+class CodeRequest(BaseModel):
+    # Optional return-to-app target, validated against the allowlist above.
+    redirect_uri: Optional[str] = None
 
 
 class ApproveRequest(BaseModel):
@@ -82,11 +138,23 @@ def _normalize_user_code(raw: str) -> str:
 
 
 @device_auth_router.post("/code")
-def create_device_code():
+def create_device_code(body: Optional[CodeRequest] = None):
     """Start a device sign-in. Unauthenticated — the desktop calls this first."""
     s = get_settings()
     table = get_table("device_auth")
     now = int(time.time())
+
+    redirect_uri = ""
+    if body is not None and body.redirect_uri:
+        validated = _validate_redirect_uri(body.redirect_uri)
+        if validated is None:
+            return ResponseFormatter.error(
+                code="invalid_redirect_uri",
+                message="redirect_uri must use the app scheme or http on "
+                "loopback (127.0.0.1/localhost)",
+                status_code=400,
+            )
+        redirect_uri = validated
 
     device_code = secrets.token_urlsafe(48)
     row = {
@@ -96,6 +164,9 @@ def create_device_code():
         "expires_at": now + DEVICE_CODE_TTL_SECONDS,
         "last_polled_at": 0,
         "created_at": now,
+        # stored server-side, bound to this row — the approve page receives it
+        # from the API after an authenticated approve, never from the URL
+        "redirect_uri": redirect_uri,
     }
     # user_code collisions are unlikely (28^8) but retry a few times anyway;
     # only codes still inside their TTL can collide meaningfully.
@@ -181,7 +252,12 @@ def approve_device_code(body: ApproveRequest, request: Request):
         {"status": new_status, "username": username if body.action == "approve" else ""},
     )
     logger.info("device sign-in %s" % new_status, user_code=user_code, username=username)
-    return ResponseFormatter.json_response({"status": "success", "result": new_status}, 200)
+    # On approve, hand the (server-validated, server-stored) return-to-app URI
+    # to the activation page. Carries no secrets — purely navigational.
+    payload = {"status": "success", "result": new_status}
+    if new_status == "approved" and row.get("redirect_uri"):
+        payload["redirect_uri"] = row["redirect_uri"]
+    return ResponseFormatter.json_response(payload, 200)
 
 
 @device_auth_router.post("/token")
