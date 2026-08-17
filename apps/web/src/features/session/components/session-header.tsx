@@ -27,6 +27,7 @@ import DownloadAudioButton from '@/features/session/components/recording/downloa
 import { useSessionLifecycle } from '../hooks/use-session-lifecycle';
 import { useSessionView } from '../hooks/use-session-view';
 import SessionTitleField from './session-title-field';
+import ModelSelector from './model-selector';
 import { toast } from 'sonner';
 import ConfirmationDialog from '@/shared-components/dialog/confirmation-dialog';
 
@@ -134,12 +135,15 @@ const SessionHeader = ({
     <div className="grid grid-cols-[auto_1fr] sm:grid-cols-[1fr_auto] items-start gap-2 w-full p-4">
       {/* 1. Session title — full width on mobile, col 1 on desktop */}
       <div className="col-span-2 sm:col-span-1 w-full sm:w-auto min-w-0 flex items-center gap-2">
-        <div className="flex-1 min-w-0">
+        {/* sm:flex-none (not flex-1) so the model selector sits right beside
+            the title box instead of being pushed to the far edge */}
+        <div className="flex-1 sm:flex-none min-w-0">
           <SessionTitleField
             sessionId={sessionId}
             disabled={phase === SESSION_PHASE.PROCESSING || !!isLimitExceeded}
           />
         </div>
+        <ModelSelector />
         {isOutput && (
           <div className="sm:hidden shrink-0">
             <DownloadAudioButton sessionID={sessionId} />

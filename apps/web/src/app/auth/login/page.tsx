@@ -138,7 +138,7 @@ export default function LoginPage() {
       <div className="w-full max-w-sm rounded-xl border border-muted-foreground bg-card p-8 shadow-md">
         <div className="mb-6 flex flex-col items-center gap-2 text-center">
           <VaartaLogoLottie />
-          <p className="text-sm text-muted-foreground">
+          <p className="mt-4 text-2xl text-black">
             {!passwordAllowed
               ? 'Sign in to continue'
               : mode === 'login'
@@ -146,6 +146,47 @@ export default function LoginPage() {
                 : 'Create your account'}
           </p>
         </div>
+
+        {/* SSO first: Parichay (or any configured provider) is the primary
+            path; username/password is the secondary fallback below. */}
+        {ssoProviders.length > 0 && (
+          <>
+            <div className="flex flex-col gap-2">
+              {ssoProviders.map((p) => (
+                <div key={p.id} className="flex items-center gap-3">
+                  {/parichay/i.test(p.display_name) && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src="/assets/parichay-logo.png"
+                      alt="Parichay"
+                      className="h-7 w-auto shrink-0"
+                    />
+                  )}
+                  <Button
+                    type="button"
+                    className="flex-1"
+                    onClick={() => {
+                      // full navigation (not fetch): the IdP round-trip is a
+                      // top-level redirect and must set cookies on the way back
+                      window.location.href = p.login_url;
+                    }}
+                  >
+                    Login with {p.display_name}
+                  </Button>
+                </div>
+              ))}
+            </div>
+            {passwordAllowed && (
+              <div className="my-5 flex items-center gap-3">
+                <span className="h-px flex-1 bg-border" />
+                <span className="text-xs uppercase tracking-wide text-muted-foreground">
+                  or
+                </span>
+                <span className="h-px flex-1 bg-border" />
+              </div>
+            )}
+          </>
+        )}
 
         {passwordAllowed && (
           <form onSubmit={submit} className="flex flex-col gap-3">
@@ -193,43 +234,13 @@ export default function LoginPage() {
 
           <Button
             type="submit"
+            variant="outline"
             disabled={submitting || !username || !password}
             className="mt-1 w-full"
           >
             {submitting ? 'Please wait…' : mode === 'login' ? 'Sign in' : 'Create account'}
           </Button>
           </form>
-        )}
-
-        {ssoProviders.length > 0 && (
-          <>
-            {passwordAllowed && (
-              <div className="my-5 flex items-center gap-3">
-                <span className="h-px flex-1 bg-border" />
-                <span className="text-xs uppercase tracking-wide text-muted-foreground">
-                  or
-                </span>
-                <span className="h-px flex-1 bg-border" />
-              </div>
-            )}
-            <div className="flex flex-col gap-2">
-              {ssoProviders.map((p) => (
-                <Button
-                  key={p.id}
-                  type="button"
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => {
-                    // full navigation (not fetch): the IdP round-trip is a
-                    // top-level redirect and must set cookies on the way back
-                    window.location.href = p.login_url;
-                  }}
-                >
-                  Login with {p.display_name}
-                </Button>
-              ))}
-            </div>
-          </>
         )}
 
         <p className="mt-5 text-center text-sm text-muted-foreground">

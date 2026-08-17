@@ -371,10 +371,12 @@ async def start_run(
     template_id: str,
     request: Request,
     document_id: Optional[str] = None,
+    template_model: Optional[str] = None,
+    # legacy param name; template_model wins when both are sent
     model: Optional[str] = None,
 ):
     b_id, jwt_uuid = _require_identity(request)
-    model_override = _resolve_model_override(model)
+    model_override = _resolve_model_override(template_model or model)
 
     try:
         body = await request.json()
@@ -459,10 +461,14 @@ async def start_run(
 
 @scribe_agent_router.post("/runs/{template_id}/resume")
 async def resume_run(
-    template_id: str, request: Request, model: Optional[str] = None
+    template_id: str,
+    request: Request,
+    template_model: Optional[str] = None,
+    # legacy param name; template_model wins when both are sent
+    model: Optional[str] = None,
 ):
     b_id, jwt_uuid = _require_identity(request)
-    model_override = _resolve_model_override(model)
+    model_override = _resolve_model_override(template_model or model)
 
     try:
         body = await request.json()
