@@ -1,19 +1,28 @@
+"""Markdown structuring runs (post-AG-UI).
+
+POST /voice/v1/scribe/agent/runs/{template_id}?session_id=…&template_model=…
+
+Streams the note as plain SSE JSON frames:
+
+    data: {"type":"start","run_id":…,"document_id":…}
+    data: {"type":"delta","text":…}          (repeated)
+    data: {"type":"done","markdown":…,"document_id":…}
+    data: {"type":"error","message":…}
+
+Replay: a document that already has content streams start+done immediately
+(no LLM). Legacy documents persisted as AG-UI typed sections are converted
+to markdown deterministically on the way out (and written back), so old
+sessions keep opening. There is no /resume — a dropped stream is retried by
+re-POSTing with the same document_id; a finished document replays.
+"""
+
 import base64
+import json
 import os
+import uuid as uuid_mod
 from datetime import datetime
 from typing import Awaitable, Callable, Optional, Union
-import uuid
 
-from ag_ui.core import (
-    EventType,
-    RunAgentInput,
-    RunErrorEvent,
-    RunFinishedEvent,
-    RunStartedEvent,
-    StateSnapshotEvent,
-)
-from ag_ui.encoder import EventEncoder
-from echo.ag_ui import AgUiResumeInput
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
@@ -27,9 +36,9 @@ from scribe.services.context import ContextResolutionService
 from scribe.services import document_tiptap_service
 from scribe.services.document_service import DocumentService
 from scribe.repositories.blob import blob_repo
-from scribe.structuring.resume_store import paused_run_store
+from scribe.structuring.markdown_notes import sections_to_markdown, sse_frame
 from scribe.structuring.run_service import (
-    AgUiRunService,
+    MarkdownRunService,
     ResolvedRunInputs,
 )
 from scribe.services.template_service import TemplateService
@@ -40,9 +49,7 @@ logger = get_logger(__name__)
 
 scribe_agent_router = APIRouter()
 
-_run_service: AgUiRunService = AgUiRunService(
-    paused_run_store=paused_run_store
-)
+_run_service: MarkdownRunService = MarkdownRunService()
 
 _DEFAULT_S3_BUCKET: str = os.getenv("S3_VADED_BUCKET_NAME", "voice-records")
 
@@ -51,6 +58,9 @@ _transaction_repo: TransactionORM = TransactionORM()
 _template_service: TemplateService = TemplateService()
 _template_result_repo: TemplateResultORM = TemplateResultORM()
 _context_service: ContextResolutionService = ContextResolutionService()
+
+_SSE_HEADERS = {"X-Accel-Buffering": "no", "Cache-Control": "no-cache"}
+
 
 def _require_identity(request: Request) -> tuple[str, str]:
     from scribe.core.http.request_handler import RequestHandler
@@ -118,12 +128,12 @@ def _maybe_b64_decode(content: Union[str, bytes]) -> str:
 def _ensure_run_document(
     session_id: str,
     template_id: str,
-    document_name:str,
+    document_name: str,
     jwt_uuid: str,
     b_id: str,
     s3_url: str,
 ) -> str:
-    document_id = str(uuid.uuid4())
+    document_id = str(uuid_mod.uuid4())
     file_key = _document_service.write_document_content(
         s3_url=s3_url,
         document_id=document_id,
@@ -189,10 +199,6 @@ async def run_input_resolver(
             detail=f"transcript document {transcript_doc_id} not found",
         )
 
-    # Ownership: jwt uuid + b_id must match the transcript document's
-    # owner. This replaces the source-doc ownership check from the
-    # previous resolver.
-
     _validate_transcript_ownership(transcript_doc, jwt_uuid, b_id, session_id)
     transcript_path = transcript_doc.get("document_path")
     if not transcript_path:
@@ -255,7 +261,7 @@ async def run_input_resolver(
             final_prompt += "\n\n" + "\n".join(section_descriptions)
 
     if document_id:
-        # in case of lost connect client can fire this API with docment id.
+        # in case of lost connect client can fire this API with document id.
         run_document_id = document_id
         _document_service.update_document_status(
             document_id=document_id,
@@ -295,74 +301,101 @@ def set_run_input_resolver(resolver: RunInputResolver) -> None:
     _run_input_resolver = resolver
 
 
-def set_run_service(svc: AgUiRunService) -> None:
+def set_run_service(svc: MarkdownRunService) -> None:
     """Override the singleton run service (for tests)."""
     global _run_service
     _run_service = svc
 
 
-def _replay_response(
-    run_input: RunAgentInput, saved_state: dict, encoder: EventEncoder
-) -> StreamingResponse:
+def _document_markdown(document: dict) -> Optional[str]:
+    """Best available markdown for an existing document, converting legacy
+    AG-UI typed sections deterministically when that's all we have."""
+    document_id = document.get("document_id", "")
+
+    # 1. blob content written by the markdown path (or manual edits)
+    path = document.get("document_path")
+    if path:
+        try:
+            raw = blob_repo.download_file(
+                bucket_name=_DEFAULT_S3_BUCKET,
+                file_key=path,
+                local_filename="note.txt",
+                session_id=document.get("session_id", ""),
+            )
+            content = _maybe_b64_decode(raw) if raw is not None else ""
+            if content.strip():
+                return content
+        except Exception as e:  # noqa: BLE001
+            logger.warning(
+                "could not read document blob", document_id=document_id, error=str(e)
+            )
+
+    # 2. legacy AG-UI state → markdown (pure conversion, persisted for next time)
+    record = document_tiptap_service.get_document_record(document_id)
+    agui_state = (record or {}).get("agui_state") or {}
+    sections = agui_state.get("sections") or []
+    if sections:
+        # Deterministic + cheap, so we convert on every open rather than
+        # persisting here (persisting needs the txn's s3_url; the next
+        # save/regenerate writes the markdown through the normal path).
+        markdown = sections_to_markdown(sections)
+        logger.info(
+            "legacy AG-UI note converted to markdown",
+            document_id=document_id,
+            sections=len(sections),
+        )
+        return markdown
+    return None
+
+
+def _replay_response(run_id: str, document_id: str, markdown: str) -> StreamingResponse:
     async def event_gen():
-        yield encoder.encode(
-            RunStartedEvent(
-                type=EventType.RUN_STARTED,
-                thread_id=run_input.thread_id,
-                run_id=run_input.run_id,
-            )
-        )
-        yield encoder.encode(
-            StateSnapshotEvent(
-                type=EventType.STATE_SNAPSHOT,
-                snapshot=saved_state,
-            )
-        )
-        yield encoder.encode(
-            RunFinishedEvent(
-                type=EventType.RUN_FINISHED,
-                thread_id=run_input.thread_id,
-                run_id=run_input.run_id,
-            )
+        yield sse_frame({"type": "start", "run_id": run_id, "document_id": document_id})
+        yield sse_frame(
+            {"type": "done", "markdown": markdown, "document_id": document_id, "replay": True}
         )
 
     return StreamingResponse(
-        event_gen(),
-        media_type=encoder.get_content_type(),
-        headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
+        event_gen(), media_type="text/event-stream", headers=_SSE_HEADERS
     )
 
 
-def build_run_stream_response(
-    run_input: RunAgentInput,
-    inputs: ResolvedRunInputs,
-    encoder: EventEncoder,
-) -> StreamingResponse:
+def build_run_stream_response(run_id: str, inputs: ResolvedRunInputs) -> StreamingResponse:
     async def event_gen():
         try:
-            async for ev in _run_service.stream(run_input, inputs):
-                yield encoder.encode(ev)
+            async for frame in _run_service.stream(run_id, inputs):
+                yield sse_frame(frame)
         except Exception as e:
             logger.exception(
-                "agent stream raised mid-run",
+                "note stream raised mid-run",
                 template_id=inputs.template_id,
-                session_id=run_input.thread_id,
-                run_id=run_input.run_id,
+                session_id=inputs.txn_id,
+                run_id=run_id,
                 error=str(e),
                 severity="critical",
             )
-
-            err = RunErrorEvent(
-                type=EventType.RUN_ERROR,
-                message=MODEL_ERROR_MESSAGE,
-                code="endpoint_exception",
-            )
-            yield encoder.encode(err)
+            yield sse_frame({"type": "error", "message": MODEL_ERROR_MESSAGE})
 
     return StreamingResponse(
-        event_gen(),
-        media_type=encoder.get_content_type(),
-        headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
+        event_gen(), media_type="text/event-stream", headers=_SSE_HEADERS
+    )
+
+
+async def _session_id_from(request: Request, session_id: Optional[str]) -> str:
+    """session_id from the query param, or from a (legacy) JSON body's
+    session_id/thread_id — old clients sent AG-UI RunAgentInput bodies."""
+    if session_id:
+        return session_id
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001
+        body = {}
+    if isinstance(body, dict):
+        found = body.get("session_id") or body.get("thread_id") or body.get("threadId")
+        if found:
+            return str(found)
+    raise HTTPException(
+        status_code=400, detail="session_id is required (query param or body)"
     )
 
 
@@ -370,6 +403,7 @@ def build_run_stream_response(
 async def start_run(
     template_id: str,
     request: Request,
+    session_id: Optional[str] = None,
     document_id: Optional[str] = None,
     template_model: Optional[str] = None,
     # legacy param name; template_model wins when both are sent
@@ -377,22 +411,8 @@ async def start_run(
 ):
     b_id, jwt_uuid = _require_identity(request)
     model_override = _resolve_model_override(template_model or model)
-
-    try:
-        body = await request.json()
-        run_input = RunAgentInput.model_validate(body)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"invalid RunAgentInput body: {e}")
-
-    session_id = run_input.thread_id
-    if not session_id:
-        raise HTTPException(
-            status_code=400,
-            detail="RunAgentInput.thread_id is required (used as session_id).",
-        )
-
-    accept = request.headers.get("accept", "text/event-stream")
-    encoder = EventEncoder(accept=accept)
+    session_id = await _session_id_from(request, session_id)
+    run_id = str(uuid_mod.uuid4())
 
     if document_id:
         document = _document_service.get_document(document_id)
@@ -414,22 +434,21 @@ async def start_run(
                     "fetch the tiptap document instead of streaming"
                 ),
             )
-        
-        saved_state = record.get("agui_state") if record else None
-        if saved_state:
+
+        existing = _document_markdown(document)
+        if existing:
             logger.info(
-                "replaying persisted agui_state",
+                "replaying persisted note",
                 template_id=template_id,
                 session_id=session_id,
                 document_id=document_id,
-                run_id=run_input.run_id,
+                run_id=run_id,
             )
-            return _replay_response(run_input, saved_state, encoder)
-        # No saved state — fall through: re-run the LLM on this document.
+            return _replay_response(run_id, document_id, existing)
+        # nothing persisted — fall through: re-run the LLM on this document.
 
-    inputs: Optional[ResolvedRunInputs]
     try:
-        if document_id: 
+        if document_id:
             inputs = await _run_input_resolver(
                 template_id, session_id, b_id, jwt_uuid, document_id
             )
@@ -457,78 +476,4 @@ async def start_run(
             model=model_override,
         )
 
-    return build_run_stream_response(run_input, inputs, encoder)
-
-@scribe_agent_router.post("/runs/{template_id}/resume")
-async def resume_run(
-    template_id: str,
-    request: Request,
-    template_model: Optional[str] = None,
-    # legacy param name; template_model wins when both are sent
-    model: Optional[str] = None,
-):
-    b_id, jwt_uuid = _require_identity(request)
-    model_override = _resolve_model_override(template_model or model)
-
-    try:
-        body = await request.json()
-        resume_input = AgUiResumeInput.model_validate(body)
-    except Exception as e:
-        raise HTTPException(
-            status_code=400, detail=f"invalid AgUiResumeInput body: {e}"
-        )
-
-    session_id = resume_input.thread_id
-    if not session_id:
-        raise HTTPException(
-            status_code=400,
-            detail="AgUiResumeInput.thread_id is required (used as session_id).",
-        )
-
-    try:
-        inputs = await _run_input_resolver(template_id, session_id, b_id, jwt_uuid)
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.exception(
-            "resume run-input resolution failed",
-            template_id=template_id,
-            session_id=session_id,
-            severity="critical",
-        )
-        raise HTTPException(
-            status_code=500, detail=f"failed to resolve run inputs: {e}"
-        )
-
-    if model_override:
-        inputs.llm_config = _llm_config_for_model(model_override)
-
-    accept = request.headers.get("accept", "text/event-stream")
-    encoder = EventEncoder(accept=accept)
-
-    async def event_gen():
-        try:
-            async for ev in _run_service.resume_stream(resume_input, inputs):
-                yield encoder.encode(ev)
-        except Exception as e:
-            logger.exception(
-                "resume stream raised mid-run",
-                template_id=template_id,
-                session_id=session_id,
-                run_id=resume_input.run_id,
-                tool_call_id=resume_input.tool_call_id,
-                severity="critical",
-            )
-        
-            err = RunErrorEvent(
-                type=EventType.RUN_ERROR,
-                message=MODEL_ERROR_MESSAGE,
-                code="endpoint_exception",
-            )
-            yield encoder.encode(err)
-
-    return StreamingResponse(
-        event_gen(),
-        media_type=encoder.get_content_type(),
-        headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
-    )
+    return build_run_stream_response(run_id, inputs)

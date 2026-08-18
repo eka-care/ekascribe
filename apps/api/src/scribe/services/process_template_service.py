@@ -2,8 +2,6 @@ import uuid
 from enum import Enum
 from typing import Optional
 
-from ag_ui.core import RunAgentInput
-from ag_ui.encoder import EventEncoder
 from fastapi import BackgroundTasks, HTTPException, Request
 
 from scribe.core.custom_logger import get_logger
@@ -17,7 +15,6 @@ from scribe.core.exceptions import (
     ResourceNotFoundException,
 )
 from scribe.schemas import ProcessTemplateResponse
-from scribe.services import document_tiptap_service
 from scribe.services.document_service import DocumentService
 from scribe.services.transaction_service import TransactionService
 
@@ -27,52 +24,14 @@ transaction_service = TransactionService()
 document_service = DocumentService()
 
 class ProcessProtocol(str, Enum):
-    AG_UI = "ag-ui"
+    STREAM = "stream"
+    AG_UI = "ag-ui"  # legacy alias — same markdown streaming handler
 
 
 # x-format values are validated but unused for now;
 # they will drive the output representation (and available tools) in the future.
 SUPPORTED_FORMATS = {"html", "markdown", "json"}
-async def _build_run_agent_input(
-    request: Request, session_id: str, b_id: str
-) -> RunAgentInput:
-    try:
-        body = await request.json()
-    except Exception:
-        body = None
-    if body is None:
-        body = {}
-    if not isinstance(body, dict):
-        raise BadRequestException(
-            "RunAgentInput body must be a JSON object",
-            txn_id=session_id,
-            b_id=b_id,
-        )
-
-    body.pop("threadId", None)
-    body["thread_id"] = session_id
-    body["run_id"] = body.pop("runId", None) or body.get("run_id") or str(uuid.uuid4())
-    for snake, camel, default in (
-        ("state", "state", {}),
-        ("messages", "messages", []),
-        ("tools", "tools", []),
-        ("context", "context", []),
-        ("forwarded_props", "forwardedProps", {}),
-    ):
-        if snake not in body and camel not in body:
-            body[snake] = default
-
-    try:
-        return RunAgentInput.model_validate(body)
-    except Exception as e:
-        raise BadRequestException(
-            f"invalid RunAgentInput body: {e}",
-            txn_id=session_id,
-            b_id=b_id,
-        )
-
-
-async def _handle_agui_process(
+async def _handle_stream_process(
     request: Request,
     background_tasks: BackgroundTasks,
     session_id: str,
@@ -81,32 +40,33 @@ async def _handle_agui_process(
     b_id: str,
     transaction_data: dict,
 ):
-    run_input = await _build_run_agent_input(request, session_id, b_id)
-    encoder = EventEncoder(
-        accept=request.headers.get("accept", "text/event-stream")
-    )
+    """Markdown streaming (post-AG-UI): replay a persisted note if the
+    document already has content, else run the LLM and stream deltas."""
+    run_id = str(uuid.uuid4())
+
     if document_id:
-        record = document_tiptap_service.get_document_record(document_id)
-        saved_state = record.get("agui_state") if record else None
-        if saved_state:
+        document = document_service.get_document(document_id)
+        existing = agent_runs._document_markdown(document) if document else None
+        if existing:
             logger.info(
-                "replaying persisted agui_state",
+                "replaying persisted note",
                 session_id=session_id,
                 template_id=template_id,
                 document_id=document_id,
-                run_id=run_input.run_id,
+                run_id=run_id,
             )
-            return agent_runs._replay_response(run_input, saved_state, encoder)
+            return agent_runs._replay_response(run_id, document_id, existing)
 
     # module-attribute access so set_run_input_resolver overrides apply
     inputs = await agent_runs._run_input_resolver(
         template_id, session_id, b_id, "", document_id
     )
-    return agent_runs.build_run_stream_response(run_input, inputs, encoder)
+    return agent_runs.build_run_stream_response(run_id, inputs)
 
 
 PROTOCOL_HANDLERS = {
-    ProcessProtocol.AG_UI: _handle_agui_process,
+    ProcessProtocol.STREAM: _handle_stream_process,
+    ProcessProtocol.AG_UI: _handle_stream_process,  # legacy alias
 }
 
 
@@ -122,7 +82,7 @@ async def process_session_template(
         headers = RequestHandler.extract_headers(request, session_id)
         b_id = headers.get("token_data", {}).get("b-id", "")
 
-        raw_protocol = (request.headers.get("x-protocol") or ProcessProtocol.AG_UI.value).lower()
+        raw_protocol = (request.headers.get("x-protocol") or ProcessProtocol.STREAM.value).lower()
         try:
             protocol = ProcessProtocol(raw_protocol)
         except ValueError:

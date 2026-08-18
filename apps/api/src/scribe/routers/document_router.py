@@ -243,6 +243,17 @@ async def get_document(document_id: str, request: Request):
         response_data["ag_ui_data"] = tiptap_record.get("agui_state")
         response_data["markdown_data"] = presigned_url if tip_tap_data is not None else None
 
+        # Legacy bridge: a pre-markdown note persisted as AG-UI typed sections
+        # is converted deterministically so old sessions keep opening. New
+        # notes are plain markdown in the blob (fetch via presigned_url).
+        agui_state = tiptap_record.get("agui_state") or {}
+        if not tip_tap_data and agui_state.get("sections"):
+            from scribe.structuring.markdown_notes import sections_to_markdown
+
+            response_data["markdown"] = sections_to_markdown(
+                agui_state.get("sections") or []
+            )
+
         titap_json=request.query_params.get("tiptap_json", "")
         if _tiptap_enabled(titap_json) and tip_tap_data:
             response_data["tiptap_json"] = tiptap_record["tiptap_json"]

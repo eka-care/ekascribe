@@ -10,7 +10,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { Loader2, MessageSquare, RefreshCw, TriangleAlert } from 'lucide-react';
+import { RefreshCw, TriangleAlert } from 'lucide-react';
 import type { JSONContent } from '@tiptap/core';
 import { Button } from '@ui/src';
 
@@ -18,11 +18,12 @@ import useVoice2RxStore from '@/store/store';
 import { DelayedSessionBodySkeleton } from '@/app/new-session/loading';
 import ErrorComponent from '../output/error-component';
 import { TEMPLATE_WARNINGS_MSG } from '@/constants/enums';
-import { useStreamEditor } from '../../ag-ui/hooks/use-stream-editor';
+import { useNoteRun, setStreamMarkdownCache, type NotePhase } from '../../note-stream/use-note-run';
+import { useDocumentSaver } from '../../hooks/document/use-document-saver';
 import { useDocumentEditor } from '../../hooks/document/use-document-editor';
 import { useEditorFocus } from '../../hooks/document/use-editor-focus';
 import { buildScribeEditorExtensions } from '../../ag-ui/editor/editor-extensions';
-import type { StreamMessage, StreamPhase } from '../../ag-ui/types';
+import type { TiptapEditorHandle } from '../editor/tiptap-wysiwyg-editor';
 
 const WysiwygEditor = dynamic(() => import('../editor/tiptap-wysiwyg-editor'), {
   ssr: false,
@@ -47,7 +48,7 @@ type StreamingProps = CommonProps & {
   templateId: string;
   streamKey: string;
   documentName?: string;
-  onFinished?: (result: { success: boolean; json?: import('@tiptap/core').JSONContent }) => void;
+  onFinished?: (result: { success: boolean }) => void;
   onDocumentId?: (documentId: string) => void;
   documentId?: string;
 };
@@ -79,95 +80,140 @@ const StreamingDocument = forwardRef<SessionDocumentHandle, StreamingProps>(
     { sessionId, templateId, streamKey, documentName, onFinished, onDocumentId, documentId },
     ref
   ) {
-    const {
-      state,
-      messages,
-      toolCalls,
-      phase,
-      error,
-      editorRef,
-      initialJSON,
-      handleChange,
-      handleBlur,
-      saveDocument,
-      getMarkdown,
-    } = useStreamEditor({ sessionId, templateId, streamKey, onFinished, onDocumentId, documentId });
+    const { markdown, documentId: docId, phase, error } = useNoteRun({
+      sessionId,
+      templateId,
+      streamKey,
+      documentId,
+    });
 
+    const editorRef = useRef<TiptapEditorHandle>(null);
+    const latestMdRef = useRef<string>('');
+    const mdRef = useRef(markdown);
+    mdRef.current = markdown;
+    const phaseRef = useRef<NotePhase>(phase);
+    phaseRef.current = phase;
+
+    const saver = useDocumentSaver({ sessionId, documentId: docId || '', streamKey });
     const { editorWrapperRef, handleFocusChange } = useEditorFocus(editorRef);
+
+    const getMarkdown = useCallback(
+      () => editorRef.current?.getInstance()?.getMarkdown() ?? latestMdRef.current ?? mdRef.current,
+      []
+    );
+
+    const saveDocument = useCallback(async () => {
+      const inst = editorRef.current?.getInstance();
+      const md = inst?.getMarkdown() ?? latestMdRef.current;
+      if (!md) return;
+      latestMdRef.current = md;
+      setStreamMarkdownCache(streamKey, md);
+      await saver.save({ json: inst?.getJSON(), markdown: md });
+    }, [streamKey, saver]);
+
+    // ── parent notifications ────────────────────────────────────────────
+    const onFinishedRef = useRef(onFinished);
+    onFinishedRef.current = onFinished;
+    const onDocumentIdRef = useRef(onDocumentId);
+    onDocumentIdRef.current = onDocumentId;
+    const notifiedRef = useRef(false);
+
+    useEffect(() => {
+      if (docId) onDocumentIdRef.current?.(docId);
+    }, [docId]);
+
+    // The backend persists the finished note itself, so no auto-save here —
+    // the FE saves only when the user edits (blur → typing → save).
+    useEffect(() => {
+      if (notifiedRef.current) return;
+      if (phase === 'finished') {
+        notifiedRef.current = true;
+        latestMdRef.current = mdRef.current;
+        setStreamMarkdownCache(streamKey, mdRef.current);
+        onFinishedRef.current?.({ success: true });
+      } else if (phase === 'error') {
+        notifiedRef.current = true;
+        onFinishedRef.current?.({ success: false });
+      }
+    }, [phase, streamKey]);
+
+    // ── editor callbacks (post-finish editing) ─────────────────────────
+    const handleChange = useCallback(() => {
+      const md = editorRef.current?.getInstance()?.getMarkdown();
+      if (md !== undefined && md !== null) latestMdRef.current = md;
+      useVoice2RxStore.getState().setDocSaveStatus(sessionId, streamKey, 'typing');
+    }, [sessionId, streamKey]);
+
+    const handleBlur = useCallback(async () => {
+      if (phaseRef.current !== 'finished') return;
+      const status =
+        useVoice2RxStore.getState().sessionV2ContentById[sessionId]?.ui?.save_status_by_doc?.[
+          streamKey
+        ];
+      if (status !== 'typing') return;
+      await saveDocument();
+    }, [sessionId, streamKey, saveDocument]);
 
     useImperativeHandle(
       ref,
       () => ({
-        getDocumentId: () => state.document_id,
+        getDocumentId: () => docId,
         getMarkdown,
         save: saveDocument,
       }),
-      [state, saveDocument, getMarkdown]
+      [docId, saveDocument, getMarkdown]
     );
 
     const favouriteNote = useMemo(
       () =>
-        state.document_id
-          ? { documentId: state.document_id, documentName: documentName || 'Note', save: saveDocument }
+        docId
+          ? { documentId: docId, documentName: documentName || 'Note', save: saveDocument }
           : undefined,
-      [state.document_id, documentName, saveDocument]
+      [docId, documentName, saveDocument]
     );
 
-    const hasSections = state.sections.length > 0;
-    const hasStreamContent = hasSections || messages.length > 0 || toolCalls.length > 0;
     const isStreaming = phase === 'streaming' || phase === 'connecting';
-    // Only show the "Note is generating" placeholder while a run is genuinely in
-    // flight. An empty doc that's idle/finished shows nothing instead of looking
-    // like it's still generating.
-    const isLoading = !hasStreamContent && isStreaming;
+    const isLoading = !markdown && isStreaming;
 
-    // Auto-scroll during streaming
+    // Auto-scroll while the note writes itself
     const bottomRef = useRef<HTMLDivElement>(null);
     useEffect(() => {
       if (isStreaming) {
         bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
       }
-    }, [state.sections.length, messages.length, toolCalls.length, isStreaming]);
+    }, [markdown.length, isStreaming]);
 
     return (
       <div className="flex-1 min-h-0 h-full flex flex-col">
         <div className="flex-1 min-h-0 overflow-y-auto">
           <div className="flex flex-col px-4 pt-4 pb-4 gap-3">
-            {!isLoading && (
-              <StreamStatusBanner
-                phase={phase}
-                error={error}
-                pendingToolCallId={state.pending_tool_call_id ?? null}
-              />
-            )}
+            {phase === 'error' && <StreamStatusBanner error={error} />}
 
             {isLoading && <BlankState documentName={documentName} />}
 
-            {messages.length > 0 && <AgentMessages messages={messages} />}
-
-            <div
-              ref={editorWrapperRef}
-              className={`${isStreaming ? '[&_.scribe-editor]:min-h-0' : ''}`}
-            >
-              <WysiwygEditor
-                ref={editorRef}
-                initialJSON={initialJSON}
-                customExtensions={buildScribeEditorExtensions()}
-                editable={phase === 'finished'}
-                showToolbar={phase === 'finished'}
-                favouriteNote={favouriteNote}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                onFocusChange={handleFocusChange}
-                placeholder=""
-              />
-            </div>
+            {/* Live view: the raw markdown streams in as it is written. */}
+            {isStreaming && markdown && (
+              <div className="whitespace-pre-wrap break-words text-sm leading-6 text-[#191919]">
+                {markdown}
+              </div>
+            )}
 
             {isStreaming && !isLoading && <StreamingIndicator />}
 
-            {state.omitted_sections.length > 0 && phase === 'finished' && (
-              <div className="text-xs text-[#9CA3AF] italic mt-2">
-                Skipped (no transcript signal): {state.omitted_sections.join(', ')}
+            {/* Finished: mount the editor on the final markdown. */}
+            {phase === 'finished' && (
+              <div ref={editorWrapperRef}>
+                <WysiwygEditor
+                  ref={editorRef}
+                  initialValue={markdown}
+                  editable={true}
+                  showToolbar={true}
+                  favouriteNote={favouriteNote}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  onFocusChange={handleFocusChange}
+                  placeholder=""
+                />
               </div>
             )}
 
@@ -199,7 +245,6 @@ const DocumentView = forwardRef<SessionDocumentHandle, DocumentProps>(function D
   const {
     doc,
     loaderState,
-    setDocumentContent,
     editorRef,
     initialJSON,
     initialValue,
@@ -289,11 +334,13 @@ const DocumentView = forwardRef<SessionDocumentHandle, DocumentProps>(function D
         streamKey={streamKeyRef.current}
         documentName={doc.document_name}
         documentId={doc.document_id}
-        onFinished={({ success, json }) => {
-          setRegenerating(false);
+        onFinished={({ success }) => {
           if (success) {
+            // Stay mounted: the streaming component is now the editor and the
+            // backend has persisted the note; a later tab-switch reloads it.
             useVoice2RxStore.getState().setSessionV2Document(sessionId, documentId, { status: 'success' });
-            if (json) setDocumentContent(json);
+          } else {
+            setRegenerating(false);
           }
         }}
       />
@@ -408,11 +455,13 @@ const DocumentView = forwardRef<SessionDocumentHandle, DocumentProps>(function D
         streamKey={autoStreamKeyRef.current}
         documentName={doc.document_name}
         documentId={doc.document_id}
-        onFinished={({ success, json }) => {
-          autoStreamAttempted.add(documentId);
+        onFinished={({ success }) => {
           if (success) {
+            // Stay mounted as the editor; autoStreamNeeded keeps this branch
+            // rendered. Only a failure is marked attempted (prevents a loop).
             useVoice2RxStore.getState().setSessionV2Document(sessionId, documentId, { status: 'success' });
-            if (json) setDocumentContent(json);
+          } else {
+            autoStreamAttempted.add(documentId);
           }
         }}
       />
@@ -511,54 +560,17 @@ function StreamingIndicator() {
   );
 }
 
-function StreamStatusBanner({
-  phase,
-  error,
-  pendingToolCallId,
-}: {
-  phase: StreamPhase;
-  error: string | null;
-  pendingToolCallId: string | null;
-}) {
-  if (phase === 'error') {
-    const raw = error || '';
-    let message = raw || 'Streaming failed.';
-    if (/transcript document .* not ready|missing document_path/.test(raw)) {
-      message = 'No transcript available in this session.';
-    } else if (/already has edited content/.test(raw)) {
-      message = 'This note already has saved content. Reload the page to view it.';
-    }
-    return (
-      <div className="rounded-md border border-[#FECACA] bg-[#FEF2F2] text-[#991B1B] px-3 py-2 text-sm">
-        {message}
-      </div>
-    );
+function StreamStatusBanner({ error }: { error: string | null }) {
+  const raw = error || '';
+  let message = raw || 'Streaming failed.';
+  if (/transcript document .* not ready|missing document_path/.test(raw)) {
+    message = 'No transcript available in this session.';
+  } else if (/already has edited content/.test(raw)) {
+    message = 'This note already has saved content. Reload the page to view it.';
   }
-  if (pendingToolCallId) {
-    return (
-      <div className="rounded-md border border-[#FCD34D] bg-[#FEF3C7] text-[#92400E] px-3 py-2 text-xs">
-        Awaiting user input for tool call <code className="font-mono">{pendingToolCallId}</code>
-      </div>
-    );
-  }
-  return null;
-}
-
-function AgentMessages({ messages }: { messages: StreamMessage[] }) {
   return (
-    <div className="flex flex-col gap-2">
-      {messages.map((m) => (
-        <div key={m.id} className="border border-[#E5E7EB] rounded-lg bg-[#F9FAFB] p-3">
-          <div className="flex items-center gap-2 mb-1 text-[11px] uppercase tracking-wide text-[#6B7280]">
-            <MessageSquare className="w-3 h-3" />
-            <span>{m.role}</span>
-            {!m.done && <Loader2 className="w-3 h-3 animate-spin text-[#215FFF]" />}
-          </div>
-          <div className="text-sm text-[#191919] whitespace-pre-wrap break-words">
-            {m.content || (!m.done ? '…' : '')}
-          </div>
-        </div>
-      ))}
+    <div className="rounded-md border border-[#FECACA] bg-[#FEF2F2] text-[#991B1B] px-3 py-2 text-sm">
+      {message}
     </div>
   );
 }

@@ -6,11 +6,11 @@ import useVoice2RxStore from '@/store/store';
 import { SESSION_PHASE } from '@/constants/enums';
 import { addNote, deleteNote, renameDocument } from '../services/document-service';
 import { resolveOutputTemplates } from '../utils/resolve-output-templates';
-import { clearStreamCache } from '@/features/session/ag-ui/hooks/use-agent-run';
 import {
+  clearStreamCache,
   clearStreamMarkdownCache,
   getStreamMarkdownCache,
-} from '@/features/session/ag-ui/hooks/use-stream-editor';
+} from '@/features/session/note-stream/use-note-run';
 import type { NormalizedDocument } from '../types';
 
 const EMPTY_DOCUMENTS: never[] = [];
