@@ -122,7 +122,9 @@ const SessionBody = ({ sessionId, onAddTranscript, isLimitExceeded }: SessionBod
           ];
         if (status === 'typing') documentRef.current?.save();
       } else if (isContextTab) {
-        void contextRef.current?.save();
+        // await: leaving the context tab and immediately converting used to
+        // race the PUT that persists the context document.
+        await contextRef.current?.save();
       }
       setActiveTab(tabId);
 
@@ -141,6 +143,26 @@ const SessionBody = ({ sessionId, onAddTranscript, isLimitExceeded }: SessionBod
       setActiveTab,
       ensureContextDocument,
     ]
+  );
+
+  // A template run re-reads the context document from the server. Anything
+  // still sitting in the editor (or only in the local store) has to be
+  // flushed first -- otherwise the backend reads the empty object written
+  // when the context document was created and structures with no context at
+  // all. streamAgUiRun is synchronous and switches tabs immediately, so the
+  // save has to be awaited here, before it is called.
+  const handleStreamTemplate = useCallback(
+    async (template: { id: string; name: string }, close: () => void) => {
+      close();
+      try {
+        await contextRef.current?.save();
+      } catch {
+        // A failed context save must not block the run; the backend logs a
+        // warning naming the document when the content is missing.
+      }
+      streamAgUiRun(template, () => {});
+    },
+    [streamAgUiRun]
   );
 
   // Copies active document markdown to clipboard
@@ -171,7 +193,13 @@ const SessionBody = ({ sessionId, onAddTranscript, isLimitExceeded }: SessionBod
           : undefined
       }
       templates={userSelectedTemplatesList}
-      onStreamTemplate={canConvert ? (template) => streamAgUiRun(template, close) : undefined}
+      onStreamTemplate={
+        canConvert
+          ? (template) => {
+              void handleStreamTemplate(template, close);
+            }
+          : undefined
+      }
       showConvertOption={canConvert}
       showGenerateTranscriptOption={showGenerateTranscript}
     />
