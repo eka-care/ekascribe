@@ -29,15 +29,6 @@ data:
   QUEUE_BACKEND: "postgres"
   STATE_BACKEND: "postgres"
 
-  # --- Pipeline execution -------------------------------------------------
-  # inprocess = the STT/stitch/structure/finalize pipeline runs as background
-  # jobs inside the API process; there is no worker Deployment.
-  #
-  # This is why the api Deployment is 1 replica with UVICORN_WORKERS=1:
-  # background/runner.py keeps jobs in the scheduling process only, so a job
-  # must stay visible to the process that scheduled it. Jobs are also
-  # non-durable -- a pod restart drops anything in flight.
-  # Switching to EXECUTION_MODE=worker means adding a worker Deployment.
   EXECUTION_MODE: "inprocess"
   # Chunk coordination lives in Postgres (audio_chunks claims), so 2 uvicorn
   # workers are safe — matches the compose prod deployment.
@@ -47,7 +38,7 @@ data:
   # --- Storage ------------------------------------------------------------
   # STORAGE_BACKEND=s3: objects live in the TCL on-prem S3-compatible store.
   # STORAGE_ROOT is only used by the local backend; kept for easy rollback.
-  STORAGE_ROOT: "/data/storage"
+  # STORAGE_ROOT: "/data/storage"
   # Tata Communications IP Storage endpoint (S3-compatible). Access key /
   # secret for it go in 02-secret.yaml as AWS_ACCESS_KEY_ID /
   # AWS_SECRET_ACCESS_KEY (boto3 default credential chain).
@@ -74,8 +65,8 @@ data:
   AUTH_REFRESH_COOKIE_NAME: "scribe_refresh"
 
   # --- Auth -----------------------------------------------------------------
-  WORKSPACE_ID: "onprem-workspace"   # all users share this workspace (data partition)
-  AUTH_ISSUER: "scribe.local"
+  WORKSPACE_ID: "bharatai-workspace"   # all users share this workspace (data partition)
+  AUTH_ISSUER: "vaarta.bharatai"
   # OIDC_ISSUER / OIDC_AUTHORIZE_URL / OIDC_TOKEN_URL also fall back to
   # SELF_URL (discovery.py).
 
