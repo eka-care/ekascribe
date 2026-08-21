@@ -52,8 +52,9 @@ const ModelSelector = () => {
 
   // The qwen entry is the backend's default structuring model — it alone
   // carries the "(default)" tag, wherever it sits in the configured list.
+  // Match on the id: display names are now generic labels ("Model 1").
   const defaultModel =
-    supportedModels.find((m) => /qwen/i.test(m.name ?? m.id)) ?? supportedModels[0];
+    supportedModels.find((m) => /qwen/i.test(m.id)) ?? supportedModels[0];
   const selectedModel =
     supportedModels.find((m) => m.id === structuringModel) ?? defaultModel;
 

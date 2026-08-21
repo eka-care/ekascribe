@@ -37,12 +37,25 @@ non_vaded_bucket = os.getenv("S3_NON_VADED_BUCKET_NAME", "voice-records-batch")
 header_footer_bucket = os.getenv("S3_HEADER_FOOTER_BUCKET_NAME", "")
 header_footer_cdn_base = os.getenv("S3_HEADER_FOOTER_CDN_BASE_URL", "")
 
+# FE-facing display names for structuring models. Ids (and the `?model=` param
+# the FE sends back) are unchanged — this only relabels the picker. Models not
+# listed here fall back to showing their raw id.
+_MODEL_DISPLAY_NAMES = {
+    "qwen3-27b": "Model 1",
+    "gemma-31b": "Model 2",
+}
+
+# Models hidden from the FE picker even when present in STRUCTURING_MODELS.
+_HIDDEN_MODEL_PREFIXES = ("sov",)
+
+
 def _supported_models() -> list[dict]:
     """Structuring models the UI may offer, from STRUCTURING_MODELS."""
     from scribe_core.settings import get_settings
     s = get_settings()
     ids = [m.strip() for m in (s.structuring_models or "").split(",") if m.strip()]
-    return [{"id": m, "name": m} for m in ids]
+    ids = [m for m in ids if not m.lower().startswith(_HIDDEN_MODEL_PREFIXES)]
+    return [{"id": m, "name": _MODEL_DISPLAY_NAMES.get(m, m)} for m in ids]
 
 
 def _default_structuring_model() -> str:
